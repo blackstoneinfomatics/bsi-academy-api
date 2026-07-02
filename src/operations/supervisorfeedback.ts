@@ -40,7 +40,12 @@ export const createSupervisorFeedback = async (
     const feedbackRecord = await newFeedback.save();
     const totalCount = await feedback.countDocuments();
 
-    return { totalCount, feedback: feedbackRecord };
+    const feedbackResult = feedbackRecord.toObject ? feedbackRecord.toObject() : feedbackRecord;
+    if (Array.isArray((feedbackResult as any).classDay)) {
+      (feedbackResult as any).classDay = (feedbackResult as any).classDay.join(", ");
+    }
+
+    return { totalCount, feedback: feedbackResult as ISupervisorFeedbackCreate };
   } catch (error) {
     console.error("Error creating feedback:", error);
     return { error };
@@ -94,7 +99,16 @@ export const getAllSupervisorRecords = async (
       // ✅ Log success
       AppLogger.info(commonMessages.GET_ALL_LIST_SUCCESS, { totalCount });
   
-      return { totalCount, applicants };
+      // Ensure returned applicants conform to IFeedbackCreate by normalizing classDay to a string
+      const mappedApplicants: IFeedbackCreate[] = applicants.map((a: any) => {
+        const obj = typeof a.toObject === "function" ? a.toObject() : a;
+        return {
+          ...obj,
+          classDay: Array.isArray(obj.classDay) ? obj.classDay.join(", ") : obj.classDay,
+        } as IFeedbackCreate;
+      });
+
+      return { totalCount, applicants: mappedApplicants };
     } catch (error) {
       console.error("Error fetching supervisor records:", error);
       throw new Error("Failed to fetch records");

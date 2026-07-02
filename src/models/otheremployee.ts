@@ -5,6 +5,7 @@ import { commonMessages } from "../config/messages";
 
 const otherEmployeeSchema = new Schema<IOtherEmployee>(
     {
+    tenantId: { type: String, required: true },
     firstName:
     {
      type: String,
@@ -211,6 +212,7 @@ const otherEmployeeSchema = new Schema<IOtherEmployee>(
 
     );
     export const zodOtherEmployeeSchema = z.object({
+        tenantId: z.string(),
         firstName: z.string().min(3),
         lastName: z.string().min(1),
         email: z.string().email(),

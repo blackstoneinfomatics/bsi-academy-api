@@ -5,6 +5,7 @@ import { teacherStatus, commonMessages } from "../config/messages";
 
 const TeacherMeetingSchema = new Schema<TeacherMeeting>(
   {
+    tenantId: { type: String, required: true },
     meetingId: { type: String, required: true },
     meetingName: { type: String, required: true },
     teacher: {
@@ -56,6 +57,7 @@ const TeacherMeetingSchema = new Schema<TeacherMeeting>(
 
 
 export const zodTeacherMeetingSchema = z.object({
+  tenantId: z.string(),
   meetingId: z.string().optional(),
   meetingName: z.string(),
   teacher: z.object({

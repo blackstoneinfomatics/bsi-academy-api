@@ -25,6 +25,7 @@ const assignmentTypeSchema = new Schema(
 
 const assignmentSchema = new Schema<IAssignment>(
   {
+    tenantId: { type: String, required: true },
     studentId: { type: String, required: true },
     studentName: { type: String, required: true },
     sessionClassType: { type: String, required: false },
@@ -74,6 +75,7 @@ const assignmentSchema = new Schema<IAssignment>(
 );
 
 export const assignmentValidationSchema = z.object({
+  tenantId: z.string(),
   studentId: z.string(),
   studentName: z.string(),
   sessionClassType: z.string().optional(),

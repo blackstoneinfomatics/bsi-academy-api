@@ -8,7 +8,7 @@ import { appStatus, attendeeStatus, commonMessages } from "../config/messages";
 
 const classScheduleSchema = new Schema<IClassSchedule>(
   {
-
+    tenantId: { type: String, required: true },
     classId: {
       type: String,
       required: false,
@@ -236,6 +236,7 @@ const classScheduleSchema = new Schema<IClassSchedule>(
 
 
 export const zodClassScheduleSchema = z.object({
+  tenantId: z.string(),
   student: z.object({
     id: z.string(),
     studentId: z.string(),

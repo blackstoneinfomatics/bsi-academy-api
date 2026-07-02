@@ -5,6 +5,7 @@ import { appStatus, commonMessages, leave, leaveStatus } from "../config/message
 
 const leaverequestSchema = new Schema<ILeaveRequest>(
   {
+    tenantId: { type: String, required: true },
     name: {  type: String, required: false },
     employeeId: {  type: String, required: true },
     role: {  type: String, required: true },
@@ -34,6 +35,7 @@ const leaverequestSchema = new Schema<ILeaveRequest>(
 );
 
 export const zodleaverequestSchema = z.object({
+  tenantId: z.string(),
   name: z.string().optional(),
   employeeId: z.string(),
   role: z.string(),

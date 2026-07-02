@@ -8,6 +8,7 @@ import { z } from "zod";
 
 const packageSchema = new Schema<IPackage>(
   {
+    tenantId: { type: String, required: true },
     packageName: {
       type: String,
       required: true,
@@ -52,6 +53,7 @@ const packageSchema = new Schema<IPackage>(
 
 // Zod Schema
 export const zodPackageSchema = z.object({
+  tenantId: z.string(),
   packageName: z.string(),
   costPerHour: z.string(),
   categories: z.record(z.string(), z.array(z.string())), // { [category: string]: string[] }

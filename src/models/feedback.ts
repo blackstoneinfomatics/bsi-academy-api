@@ -1,9 +1,10 @@
 import mongoose, { Schema } from "mongoose";
-import { IFeedbackCreate } from "../../types/models.types";
+import { IFeedback, IFeedbackCreate } from "../../types/models.types";
 import { z } from "zod";
 
-const FeedbackSchema = new Schema<IFeedbackCreate>(
+const FeedbackSchema = new Schema<IFeedback>(
   {
+    tenantId: { type: String, required: true },
     student: {
       studentId: { type: String, required: false },
       studentFirstName: { type: String, required: false },
@@ -69,6 +70,7 @@ const FeedbackSchema = new Schema<IFeedbackCreate>(
 
 
 export const zodFeedbackSchema = z.object({
+  tenantId: z.string(),
   student: z.object({
     studentId: z.string(),
     studentFirstName: z.string(),
@@ -141,5 +143,5 @@ export const zodFeedbackSchema = z.object({
 });
 
 
-export default mongoose.model<IFeedbackCreate>("Feedback", FeedbackSchema);
+export default mongoose.model<IFeedback>("Feedback", FeedbackSchema);
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const roleAccess = new Schema<IAccessModel>(
   {
+    tenantId: { type: String, required: true },
     employeeId: { type: String, required: false },
     employeeName: { type: String, required: false },
     contact: { type: String, required: false },
@@ -234,6 +235,7 @@ const roleAccess = new Schema<IAccessModel>(
 );
 
 export const zodroleAccessSchema = z.object({
+  tenantId: z.string(),
   employeeId: z.string().optional(),
   employeeName: z.string().optional(),
   contact: z.string().optional(),

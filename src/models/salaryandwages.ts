@@ -4,6 +4,7 @@ import { appStatus, commonMessages } from "../config/messages";
 import { ISalarywages } from "../../types/models.types";
 const salarywagesSchema = new Schema<ISalarywages>(
   {
+    tenantId: { type: String, required: true },
     employeeId: { type: String, required: true },
     employeeName: { type: String, required: true },
     employeeMail: { type: String, required: true },
@@ -42,6 +43,7 @@ const salarywagesSchema = new Schema<ISalarywages>(
 
 // Zod Validation Schema
 export const zodsalarywagesSchemaSchema = z.object({
+  tenantId: z.string(),
   employeeId: z.string(),
   employeeName: z.string(),
   employeeMail: z.string(),

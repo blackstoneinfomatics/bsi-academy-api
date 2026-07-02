@@ -7,6 +7,7 @@ import { required } from "joi";
 // Mongoose Schema
 const studentInvoiceSchema = new Schema<IStudentInvoice>(
   {
+    tenantId: { type: String, required: true },
     student: {
       studentId: {
         type: String,
@@ -128,6 +129,7 @@ const studentInvoiceSchema = new Schema<IStudentInvoice>(
 
 // Zod Validation Schema
 export const zodAlStudentInvoiceSchema = z.object({
+  tenantId: z.string(),
   student: z.object({
     studentId: z.string(),
     studentName: z.string(),

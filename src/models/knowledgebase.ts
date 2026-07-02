@@ -7,6 +7,7 @@ import { addKnowledgeBaseMessages, uploadedFormat } from "../config/messages";
 
 const knowledgeBaseSchema = new Schema<IKnowledgeBase>(
     {
+      tenantId: { type: String, required: true },
       courseName:{
         type: String,
         required: true,
@@ -56,6 +57,7 @@ const knowledgeBaseSchema = new Schema<IKnowledgeBase>(
  
 
   export const zodknowledgeBaseValidationSchema = z.object({
+    tenantId: z.string(),
     courseName: z.string(), 
     subjectTitle: z.string(),
     uploadedFormat: z.enum([uploadedFormat.PDF, uploadedFormat.VIDEO,]),

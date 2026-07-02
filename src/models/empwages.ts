@@ -6,6 +6,7 @@ import { IEmpwages } from "../../types/models.types";
 
 const empWagesSchema = new Schema<IEmpwages>(
   {
+tenantId: { type: String, required: true },
 employeeId:{
     type: String,
     required: true,
@@ -67,6 +68,7 @@ required: false,
 }
 );
 export const zodEmpWagesSchema = z.object({
+    tenantId : z.string(),
     employeeId : z.string().min(3),
     employeeName : z.string().min(1),
     classType:z.object({

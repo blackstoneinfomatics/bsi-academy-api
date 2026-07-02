@@ -5,6 +5,7 @@ import { z } from "zod";
 import { appStatus } from "../config/messages";
 
 const courseSchema = new Schema<ICourse>({
+    tenantId: { type: String, required: true },
     course: {
       courseId: { type: String, required: false },
       courseTitle: { type: String, required: true },
@@ -32,6 +33,7 @@ const courseSchema = new Schema<ICourse>({
 
 
   export const zodCourseSchema = z.object({
+    tenantId: z.string(),
     course: z.object({
       courseId: z.string().optional(),
       courseTitle: z.string(),

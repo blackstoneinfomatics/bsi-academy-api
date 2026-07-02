@@ -3,6 +3,7 @@ import { LogDocument } from "../../types/models.types";
 
 const logSchema = new Schema<LogDocument>(
 {
+  tenantId: { type: String, required: true },
   userId: { type: String, required: true ,default: 'anonymous' },
   logType: { type: String, enum: ['SUCCESS' , 'REDIRECT' ,  'ERROR' , 'INFO'], required: true },
   action: { type: String , required : false}, 

@@ -1,9 +1,10 @@
 import mongoose, { Schema } from "mongoose";
-import { IMessageCreate } from "../../types/models.types";
+import { IMessage, IMessageCreate } from "../../types/models.types";
 import { z } from "zod";
 
-const messageSchema = new Schema<IMessageCreate>(
+const messageSchema = new Schema<IMessage>(
   {
+    tenantId: { type: String, required: true },
     roomId: {  
       type: String,
       required: true,
@@ -71,6 +72,7 @@ const messageSchema = new Schema<IMessageCreate>(
 
 export const zodMessageSchema = z.object({
   // Teacher info
+  tenantId: z.string(),
   roomId: z.string().optional(), 
   teacher: z.object({
     teacherId: z.string(),
@@ -137,4 +139,4 @@ export const zodMessageSchema = z.object({
   updatedDate: z.date().optional(),
 });
 
-export default mongoose.model<IMessageCreate>("Message", messageSchema);
+export default mongoose.model<IMessage>("Message", messageSchema);

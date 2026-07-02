@@ -9,7 +9,7 @@ export const config: Config = {
     host: "0.0.0.0",
   },
   mongo: {
-    url:  "mongodb://alfurqan:Blackstone%232024@194.164.149.74:27017" // First let's test without authentication
+    url: "mongodb://alfurqan:Blackstone%232024@194.164.149.74:27017" // First let's test without authentication
   },
   // mongo: {
   //   url: "mongodb://alfurqan:Blackstone%232024@88.222.215.48:27017" // Changed to use IPv4
@@ -18,14 +18,13 @@ export const config: Config = {
   //   dsn: process.env.SENTRY_DSN ?? "",
   //   env: process.env.SENTRY_ENVIRONMENT!,
   // },
-
-    // Swagger options
- swaggerOptions: {
+  // Swagger options
+  swaggerOptions: {
     info: {
       title: 'My API Documentation',
       version: '1.0.0',
     },
-    grouping: 'tags',   // optional: group routes by tags
+    grouping: 'tags', // optional: group routes by tags
     jsonPath: '/swagger.json',
     documentationPath: '/docs',
   },
@@ -37,7 +36,7 @@ export const config: Config = {
     expiresIn: '24h',
     algorithm: 'HS256',
   },
- 
+
 
   emailConfig: {
     sendinbule: process.env.EMAIL_SENDER_URL!,
@@ -48,20 +47,24 @@ export const config: Config = {
   },
 
 
-  microsoftTeamsConfig:{
-    microsoft_team_calender_event_url :process.env.MICROSOFT_TEAM_CALENDAR_EVENT_URL!,
-    microsoft_team_access_token_url :process.env.MICROSOFT_TEAM_ACCESS_TOKEN_URL!,
-    microsoft_team_cancel_url:process.env.MICROSOFT_TEAM_CANCEL_EVENT_URL!,
-    microsoft_team_calender_update_event_url:process.env.MICROSOFT_TEAM_CALENDER_UPDATE_EVENT_URL!
+  microsoftTeamsConfig: {
+    microsoft_team_calender_event_url: process.env.MICROSOFT_TEAM_CALENDAR_EVENT_URL!,
+    microsoft_team_access_token_url: process.env.MICROSOFT_TEAM_ACCESS_TOKEN_URL!,
+    microsoft_team_cancel_url: process.env.MICROSOFT_TEAM_CANCEL_EVENT_URL!,
+    microsoft_team_calender_update_event_url: process.env.MICROSOFT_TEAM_CALENDER_UPDATE_EVENT_URL!
   },
 
-  zoomConfig:{
-    zoom_client_id:process.env.ZOOM_CLIENT_ID!,
-    zoom_client_secret:process.env.ZOOM_CLIENT_SECRET!,
-    zoom_account_id:process.env.ZOOM_ACCOUNT_ID!  
+  zoomConfig: {
+    zoom_client_id: process.env.ZOOM_CLIENT_ID!,
+    zoom_client_secret: process.env.ZOOM_CLIENT_SECRET!,
+    zoom_account_id: process.env.ZOOM_ACCOUNT_ID!
   },
   stripeKey: {
-    stripesecretkey:process.env.STRIPE_SECRET_KEY!
+    stripesecretkey: process.env.STRIPE_SECRET_KEY!
+  },
+  atsConfig: {
+    zoho_job_url_import: "",
+    zoho_job_access_token_import: ""
   }
 };
 

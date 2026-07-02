@@ -3,6 +3,7 @@ import { TeacherAvaliableSlots } from "../../types/models.types";
 
 const teacherAvaliableSlotsSchema = new Schema<TeacherAvaliableSlots>(
   {
+    tenantId: { type: String, required: true },
     date: { type: String, required: true },
     teacherId: { type: String, required: true },
     name:{type :String ,required:true},

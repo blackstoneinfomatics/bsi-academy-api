@@ -5,7 +5,7 @@ import { notificationStatus } from "../config/messages";
 
 const realtimeSchema = new Schema<RealTimeMessage>(
   {
-  
+    tenantId: { type: String, required: true },
     messages: {
       type: String,
       required: true,
@@ -58,6 +58,7 @@ const realtimeSchema = new Schema<RealTimeMessage>(
 );
 
 export const zodrealtimemessageSchema = z.object({
+  tenantId: z.string(),
   messages: z.string(),
 
   senderId: z.string(),

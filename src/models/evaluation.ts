@@ -12,6 +12,7 @@ const TimeSlotSchema = new Schema(
 );
 
 const evaluationSchema = new Schema<IEvaluation>({
+tenantId: { type: String, required: true },
 trialId : {
       type: String,
     required: false,
@@ -352,6 +353,7 @@ const ZodTimeSlotSchema = z.object({
 const WeeklySlotMapSchema = z.record(z.string(), z.array(ZodTimeSlotSchema));
 
 export const zodEvaluationSchema = z.object({
+    tenantId: z.string(),
     academicCoachId: z.string(),
     student: z.object({
         studentRegisterId: z.string().optional(),

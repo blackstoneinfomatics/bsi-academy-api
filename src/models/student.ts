@@ -8,6 +8,10 @@ import { appStatus,appRegexPatterns, commonMessages, evaluationStatus, learningI
 
 const studentSchema = new Schema<IStudents>(
   {
+    tenantId: {
+      type: String,
+      required: true,
+    },
     studentId: {
       type: String,
       required: true,
@@ -148,6 +152,7 @@ const studentSchema = new Schema<IStudents>(
 );
 
 export const zodStudentSchema = z.object({
+  tenantId: z.string(),
   firstName: z.string().min(3),
   lastName: z.string().min(1),
   academicCoach: z.object({

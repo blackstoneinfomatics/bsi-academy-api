@@ -3,6 +3,7 @@ import { IUsershiftschedule } from "../../types/models.types";
 import { z } from "zod";
 
 const usershiftscheduleSchema = new Schema<IUsershiftschedule>({
+        tenantId: { type: String, required: true },
         academicCoachId: {
             type: String,
             required: false,

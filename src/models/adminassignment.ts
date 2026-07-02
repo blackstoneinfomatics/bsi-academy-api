@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const adminAssignmentSchema = new Schema<IAdminAssignment>(
   {
+    tenantId: { type: String, required: true },
     levelId: { type: String, required: true },
     levelName: { type: String, required: true },
     courseId: { type: String, required: true },
@@ -31,6 +32,7 @@ const adminAssignmentSchema = new Schema<IAdminAssignment>(
 );
 
 export const zodAdminAssignmentSchema = z.object({
+  tenantId: z.string(),
   levelId: z.string(),
   levelName: z.string(),
   courseId: z.string(),

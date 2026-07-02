@@ -13,9 +13,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createTenant,
         description: tenantsMessages.CREATE,
         tags: ['api', 'tenants'],
-        // auth: {
-        //   strategies: ['jwt']
-        // },
+        auth: {
+          strategies: ['jwt']
+        },
       },
     },
 

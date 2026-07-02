@@ -7,6 +7,7 @@ import { string } from "joi";
 
 const alStudentSchema = new Schema<IAlStudents>(
     {
+tenantId: { type: String, required: true },
 student: {
     studentId: {
        type: String,
@@ -119,6 +120,7 @@ const fileObjectSchema = z.object({
     _data: z.any().optional(),
   });
 export const zodAlStudentSchema = z.object({
+    tenantId: z.string(),
     student: z.object({
       studentId: z.string().optional(),
       studentEmail: z.string(),

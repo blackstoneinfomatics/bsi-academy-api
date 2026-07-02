@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const expenseSchema = new Schema<IExpense>(
   {
+tenantId: { type: String, required: true },
 paymentDate:{
     type: String,
     required: true,
@@ -63,6 +64,7 @@ required: false,
 }
 );
 export const zodExpenseSchema = z.object({
+    tenantId: z.string(),
     paymentDate:z.string(),
     expenseType:z.string(),
     amount:z.string(),

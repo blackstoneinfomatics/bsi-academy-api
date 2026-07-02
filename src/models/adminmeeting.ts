@@ -5,6 +5,7 @@ import { appStatus, commonMessages } from "../config/messages";
 
 const addadminMeetingSchema = new Schema<IAdminMeeting>(
   {
+    tenantId: { type: String, required: true },
     meetingName: {
       type: String,
       required: true,
@@ -79,6 +80,7 @@ const addadminMeetingSchema = new Schema<IAdminMeeting>(
 
 // **Updated Zod Schema**
 export const zodAdminAddMeetingSchema = z.object({
+  tenantId: z.string(),
   meetingName: z.string(),
   meetingId: z.string().optional(),
 

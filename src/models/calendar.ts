@@ -7,6 +7,7 @@ import { appStatus } from "../config/messages";
 
 const meetingScheduleSchema = new Schema<IMeetingSchedule>(
   {
+    tenantId: { type: String, required: true },
     academicCoach: {
     academicCoachId: {
         type: String,
@@ -171,6 +172,7 @@ const meetingScheduleSchema = new Schema<IMeetingSchedule>(
 
 
 export const scheduleSchema = z.object({
+  tenantId: z.string(),
   academicCoach: z.object({
     academicCoachId: z.string().optional(),
     name: z.string().optional(),

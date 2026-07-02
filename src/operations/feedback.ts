@@ -40,7 +40,20 @@ export const createFeedback = async (
     const feedbackRecord = await newFeedback.save();
     const totalCount = await feedback.countDocuments();
 
-    return { totalCount, feedback: feedbackRecord };
+    const feedbackResponse: IFeedbackCreate = {
+      ...(feedbackRecord.toObject() as any),
+      classDay: Array.isArray(feedbackRecord.classDay)
+        ? feedbackRecord.classDay.join(", ")
+        : feedbackRecord.classDay,
+      startTime: Array.isArray(feedbackRecord.startTime)
+        ? feedbackRecord.startTime.join(", ")
+        : feedbackRecord.startTime,
+      endTime: Array.isArray(feedbackRecord.endTime)
+        ? feedbackRecord.endTime.join(", ")
+        : feedbackRecord.endTime,
+    };
+
+    return { totalCount, feedback: feedbackResponse };
   } catch (error) {
     console.error("Error creating feedback:", error);
     return { error };
@@ -122,7 +135,20 @@ export const createTeacherFeedback = async (
     //   );
     // }
 
-    return { totalCount, feedback: feedbackRecord };
+    const feedbackResponse: IFeedbackCreate = {
+      ...(feedbackRecord.toObject() as any),
+      classDay: Array.isArray(feedbackRecord.classDay)
+        ? feedbackRecord.classDay.join(", ")
+        : feedbackRecord.classDay,
+      startTime: Array.isArray(feedbackRecord.startTime)
+        ? feedbackRecord.startTime.join(", ")
+        : feedbackRecord.startTime,
+      endTime: Array.isArray(feedbackRecord.endTime)
+        ? feedbackRecord.endTime.join(", ")
+        : feedbackRecord.endTime,
+    };
+
+    return { totalCount, feedback: feedbackResponse };
   } catch (error) {
     console.error("Error creating feedback:", error);
     return { error };
@@ -131,7 +157,7 @@ export const createTeacherFeedback = async (
 
 export const getcreateAllTeacherFeedback = async (
   params: GetAllRecordsParams
-): Promise<{ totalCount: number; students: IFeedbackCreate[] }> => {
+): Promise<{ totalCount: number; students: any[] }> => {
   const { searchText, sortBy, sortOrder, offset, limit } = params;
 
   // Construct query object based on filters
@@ -237,7 +263,20 @@ export const createSupervisorFeedback = async (
     const feedbackRecord = await newFeedback.save();
     const totalCount = await feedback.countDocuments();
 
-    return { totalCount, feedback: feedbackRecord };
+    const feedbackResponse: IFeedbackCreate = {
+      ...(feedbackRecord.toObject() as any),
+      classDay: Array.isArray(feedbackRecord.classDay)
+        ? feedbackRecord.classDay.join(", ")
+        : feedbackRecord.classDay,
+      startTime: Array.isArray(feedbackRecord.startTime)
+        ? feedbackRecord.startTime.join(", ")
+        : feedbackRecord.startTime,
+      endTime: Array.isArray(feedbackRecord.endTime)
+        ? feedbackRecord.endTime.join(", ")
+        : feedbackRecord.endTime,
+    };
+
+    return { totalCount, feedback: feedbackResponse };
   } catch (error) {
     console.error("Error creating feedback:", error);
     return { error };
@@ -288,10 +327,23 @@ export const getAllSupervisorRecords = async (
   }
 
   // ✅ Execute both query and count concurrently
-  const [applicants, totalCount] = await Promise.all([
+  const [applicantDocs, totalCount] = await Promise.all([
     studentQuery.exec(),
     feedback.countDocuments(query).exec(),
   ]);
+
+  const applicants = applicantDocs.map((record) => ({
+    ...record.toObject(),
+    classDay: Array.isArray(record.classDay)
+      ? record.classDay.join(", ")
+      : record.classDay,
+    startTime: Array.isArray(record.startTime)
+      ? record.startTime.join(", ")
+      : record.startTime,
+    endTime: Array.isArray(record.endTime)
+      ? record.endTime.join(", ")
+      : record.endTime,
+  })) as IFeedbackCreate[];
 
   // ✅ Log success
   AppLogger.info(commonMessages.GET_ALL_LIST_SUCCESS, { totalCount });
@@ -360,5 +412,11 @@ export const getAllFeedbackRecords = async (
 
   AppLogger.info("Feedback list retrieved successfully", { totalCount });
 
-  return { totalCount, feedbackRecords };
+  return { 
+    totalCount, 
+    feedbackRecords: feedbackRecords.map(record => ({
+      ...record.toObject(),
+      classDay: Array.isArray(record.classDay) ? record.classDay.join(", ") : (record.classDay ?? "")
+    })) as IFeedbackCreate[]
+  };
 };

@@ -7,7 +7,7 @@ import { applicationStatus, appStatus, commonMessages } from "../config/messages
 
 const recruitmentSchema = new Schema<IRecruitment>(
 {
-
+tenantId: { type: String, required: true },
 candidateId: {
     type: String,
     required: true,
@@ -183,6 +183,7 @@ updatedBy:{
 }
 );
 export const zodRecruitmentSchema = z.object({
+    tenantId: z.string(),
     candidateFirstName : z.string().min(3),
     candidateLastName : z.string().min(1),
     supervisor:z.object({

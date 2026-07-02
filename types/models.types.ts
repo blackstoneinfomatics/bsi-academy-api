@@ -80,6 +80,7 @@ export interface IUserCreate {
 
 
 export interface IStudents extends Document {
+  tenantId: string;
   studentId: string;
   firstName: string;
   lastName: string;
@@ -147,6 +148,7 @@ export interface IStudentCreate {
 }
 
 export interface IUsershiftschedule extends Document{
+  tenantId: string;
   academicCoachId: string;
   teacherId: string;
   supervisorId: string;
@@ -188,6 +190,7 @@ export interface IUsershiftscheduleCreate{
 }
 
 export interface IMeetingSchedule extends Document {
+  tenantId: string;
   academicCoach: {
     academicCoachId: string;
     name: string;
@@ -283,6 +286,7 @@ export interface IMeetingScheduleCreate {
 }
 
 export interface ICourse extends Document {
+  tenantId: string;
   course: {
     courseId?: string;
     courseTitle: string;
@@ -300,6 +304,7 @@ export interface ICourse extends Document {
 }
 
 export interface ILevel extends Document{
+  tenantId: string;
   courseId: string;
   level:string;
   duration:string;
@@ -336,7 +341,8 @@ export interface ICourseCreate {
 
 
 export interface IEvaluation extends Document {
-trialId?: string;
+  tenantId: string;
+  trialId?: string;
 academicCoachId: string;
 student: {
   studentId: string;
@@ -523,6 +529,7 @@ updatedBy?: string;
 
 
 export interface ISubscritions extends Document{
+  tenantId: string;
   subscriptionName: string,
   subscriptionPricePerHr: number,
   subscriptionDays: number,
@@ -536,6 +543,7 @@ export interface ISubscritions extends Document{
 }
 
 export interface IClassSchedule extends Document{
+  tenantId: string;
   classId?: string;
   student: {
     id: string;
@@ -618,6 +626,7 @@ export interface IAdminAssignmentCreate {
   }[];
 }
 export interface IAdminAssignment extends Document{
+  tenantId: string;
   levelId: string;
   levelName: string;
   courseId: string;
@@ -761,6 +770,7 @@ export interface MeetingSchedulePayload {
 
 
 export interface IAlStudents extends Document{
+  tenantId: string;
   student:{
     studentId: string;
     studentEmail: string;
@@ -803,6 +813,7 @@ export interface IAlStudentCreate{
 }
 
 export interface IPaymentDetails extends Document{
+  tenantId: string;
   userId: string;
   userName: string;
   paymentStatus: string;
@@ -832,6 +843,7 @@ export interface CreatePaymentDetails{
 }
 
 export interface IAssignment extends Document {
+  tenantId: string;
   assignmentId: string;
   studentId: string;
   studentName: string;
@@ -963,6 +975,7 @@ export interface IAssignmentCreate {
   rating: string;
 }
 export interface IStudentInvoice extends Document {
+  tenantId: string;
   student: {
     studentId: string;
     studentName: string;
@@ -1039,6 +1052,7 @@ export interface IMessageCreate {
 }
 
 export interface IMessage extends Document {
+  tenantId: string;
   roomId: string; // Identifier for the chat room
   student: {
     studentId: string; // Unique identifier for the student
@@ -1058,12 +1072,13 @@ export interface IMessage extends Document {
     teacherEmail: string; // Teacher's email address
   };
   message: string; // The content of the message
-  attachments: {
+  attachmentsType: {
     fileName: string;
     fileType: string;
     fileUrl: string;
-  };
+  }[]; 
   sender:string;
+   status: string;
   timeZone: string;
   receiver:string;
   createdDate: Date; // Timestamp when the message was created
@@ -1144,12 +1159,19 @@ export interface IFeedbackCreate {
 
 
 export interface IFeedback  extends Document{
+  tenantId: string;
   sessionId?:string;
   student?: {
     studentId?: string;
     studentFirstName?: string;
     studentLastName?: string;
     studentEmail?: string;
+  };
+   supervisor?: {
+    supervisorId?: string;
+    supervisorFirstName?: string;
+    supervisorLastName?: string;
+    supervisorEmail?: string;
   };
   supervisorRating?: {
     knowledgeofstudentsandcontent?:number;
@@ -1268,6 +1290,7 @@ export interface ISupervisorFeedbackCreate {
 
 
 export interface ISuperviosrFeedback  extends Document{
+  tenantId: string;
   sessionId?:string;
   student?: {
     studentId?: string;
@@ -1325,6 +1348,7 @@ export interface ISuperviosrFeedback  extends Document{
 }
 
 export interface IRecruitment extends Document{
+  tenantId: string;
   candidateId: string;
   candidateFirstName: string;
   candidateLastName : string;
@@ -1470,6 +1494,7 @@ export interface IMeetingCreate {
 }
 
 export interface IMeeting extends Document {
+  tenantId: string;
   meetingName: string;
   meetingId: string;
   teacher: ITeacher[];
@@ -1508,6 +1533,7 @@ export interface INotification{
 }
 
 export interface INotification extends Document{
+  tenantId: string;
   messages ?: string;
   isRead ?: boolean;
   senderId : string;
@@ -1526,6 +1552,7 @@ export interface INotification extends Document{
 }
 
 export interface IOtherEmployee extends Document{
+  tenantId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -1639,7 +1666,7 @@ export interface IAdminMeetingCreate {
 
 
 export interface IAdminMeeting extends Document{
-  
+  tenantId: string;
   meetingName: string;
   meetingId: string;
    admin:{
@@ -1678,7 +1705,8 @@ export interface RealTimeMessageCreate{
 }
 
 export interface RealTimeMessage extends Document{
-messages : string;
+  tenantId: string;
+  messages : string;
 isRead : boolean;
 senderId : string;
 senderName : string;
@@ -1695,6 +1723,7 @@ updatedBy?: string;
 }
 
 export interface IEmpwages extends Document{
+  tenantId: string;
   employeeId: string,
   employeeName: string,
   classType:{
@@ -1728,6 +1757,7 @@ export interface IEmpwagesCreate{
 
 
 export interface IExpense extends Document{
+  tenantId: string;
   paymentDate: string,
   expenseType: string,
   amount:string,
@@ -1757,6 +1787,7 @@ export interface IExpenseCreate{
 }
 
 export interface IKnowledgeBase extends Document{
+  tenantId: string;
   courseName: string,
   subjectTitle: string;
   uploadedFormat: string,
@@ -1849,6 +1880,7 @@ export interface IAccessModel {
 
 
 export interface IAccessModel extends Document{
+  tenantId: string;
   employeeId: string;
   employeeName: string;
   contact: string;
@@ -1922,6 +1954,7 @@ export interface IAccessModel extends Document{
 
 
 export interface ISalarywages extends Document {
+  tenantId: string;
   employeeId: string;
   employeeName: string;
   employeeMail: string;
@@ -1967,6 +2000,7 @@ export interface ISalarywagesCreate {
 
 
 export interface IPackage extends Document {
+  tenantId: string;
   packageName: string;
   costPerHour: string;
   categories: {
@@ -2019,6 +2053,7 @@ export interface ILeaveRequestCreate {
 
 
 export interface ILeaveRequest extends Document {
+  tenantId: string;
   employeeId: string;
   name: string,
   role:string,
@@ -2067,6 +2102,7 @@ export interface IleaveSummary {
 
 
 export interface IleaveSummary  extends Document {
+  tenantId: string;
   employeeId: any;
   name: string,
   role:string,
@@ -2097,6 +2133,7 @@ export interface TeacherTimeSlots {
 }
 
 export interface TeacherAvaliableSlots extends Document {
+   tenantId: string,
    date: string,
    teacherId : string,
    position : string,
@@ -2139,6 +2176,7 @@ export interface TeacherMeetingCreate {
 
 
 export interface TeacherMeeting extends Document {
+  tenantId: string;
   meetingId: string;
   meetingName: string;
   participants: IParticipants[]; // ✅ Changed from string[] to object[]
@@ -2160,6 +2198,7 @@ export interface TeacherMeeting extends Document {
 }
 
 export interface LogDocument extends Document {
+  tenantId: string;
   userId: string;
   logType: 'SUCCESS' | 'REDIRECT' | 'ERROR' | 'INFO';
   action?: string;       
@@ -2173,12 +2212,14 @@ export interface LogDocument extends Document {
 }
 
 export interface IRollCounter extends Document {
+   tenantId: string,
    prefix: String;
     sequence: String;
 }
 
 // Define the ITenant interface
 export interface ITenant extends Document {
+  tenantId?: string;
   tenantCode: string;
   tenantName: string;
   tenantLogo: string;

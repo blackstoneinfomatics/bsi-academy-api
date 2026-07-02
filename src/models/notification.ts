@@ -5,7 +5,7 @@ import { notificationStatus } from "../config/messages";
 
 const notificationSchema = new Schema<INotification>(
   {
-  
+    tenantId: { type: String, required: true },
     messages: {
       type: String,
       required: false,
@@ -61,6 +61,7 @@ const notificationSchema = new Schema<INotification>(
 );
 
 export const zodnotificationSchema = z.object({
+  tenantId: z.string(),
   messages: z.string().optional(),
 
   senderId: z.string(),

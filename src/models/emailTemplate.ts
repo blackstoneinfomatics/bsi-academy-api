@@ -4,6 +4,7 @@ import CustomEnumerator from "../shared/enum";
 
 const emailTemplateSchema = new Schema<IEmailTemplate>(
   {
+    tenantId: { type: String, required: true },
     templateKey: {
       type: String,
       required: true,

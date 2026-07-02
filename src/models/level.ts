@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const levelSchema = new Schema<ILevel>(
   {
+    tenantId: { type: String, required: true },
     courseId: { type: String, required: true },
     level: { type: String, required: true },
     duration: { type: String, required: true },
@@ -17,6 +18,7 @@ const levelSchema = new Schema<ILevel>(
   }
 );
 export const zodLevelSchema = z.object({
+  tenantId: z.string(),
   courseId: z.string(),
   level: z.string(),
   duration: z.string(),

@@ -17,6 +17,7 @@ const participantSchema = new Schema(
 // ✅ Main meeting schema
 const addMeetingSchema = new Schema<IMeeting>(
   {
+    tenantId: { type: String, required: true },
     meetingName: { type: String, required: true },
     meetingId: { type: String, required: false },
 
@@ -72,6 +73,7 @@ const addMeetingSchema = new Schema<IMeeting>(
 
 // ✅ Zod schema for creating a meeting
 export const zodAddMeetingSchema = z.object({
+  tenantId: z.string(),
   meetingName: z.string(),
   meetingId: z.string().optional(),
   teacher: z.array(z.object({

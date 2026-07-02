@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const FeedbackSchema = new Schema<ISupervisorFeedbackCreate>(
   {
+    tenantId: { type: String, required: true },
     student: {
       studentId: { type: String, required: false },
       studentFirstName: { type: String, required: false },
@@ -68,6 +69,7 @@ const FeedbackSchema = new Schema<ISupervisorFeedbackCreate>(
 
 
 export const zodSupervisorFeedbackSchema = z.object({
+  tenantId: z.string(),
   student: z.object({
     studentId: z.string(),
     studentFirstName: z.string(),

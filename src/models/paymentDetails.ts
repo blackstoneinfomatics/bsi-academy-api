@@ -3,6 +3,7 @@ import { IPaymentDetails } from "../../types/models.types";
 
 const paymentDetailsSchema = new Schema<IPaymentDetails>(
     {
+      tenantId: { type: String, required: true },
       userId: {
         type: String,
         required: true,
