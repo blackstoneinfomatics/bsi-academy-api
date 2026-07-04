@@ -1,0 +1,9 @@
+{
+  "assessment": 60,
+  "applicationReceived": 80,
+  "screening": 80,
+  "interview": 50,
+  "finalInterview": 40,
+  "offer": 60,
+  "hired": 45
+}
