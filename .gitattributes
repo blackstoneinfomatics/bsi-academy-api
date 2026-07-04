@@ -1,3 +1,0 @@
-# Force line endings to LF on this repo
-text eol=lf
-core.autocrlf=false
