@@ -469,7 +469,7 @@ export const updateClassAttendanceById = async (
       },
     },
     { new: true }
-  ).lean();
+  ).lean() as unknown as IClassSchedule | null;
 };
 
 export const getAllClassSheduleById = async (
@@ -477,7 +477,7 @@ export const getAllClassSheduleById = async (
 ): Promise<IClassSchedule | null> => {
   return ClassScheduleModel.findOne({
     _id: new Types.ObjectId(_id),
-  }).lean();
+  }).lean() as Promise<IClassSchedule | null>;
 };
 
 const {
@@ -588,7 +588,7 @@ export const updateClassscheduleById = async (
       },
     },
     { new: true }
-  ).lean();
+  ).lean() as unknown as IClassSchedule | null;
 };
 
 // Helper function to convert "HH:MM AM/PM" to minutes

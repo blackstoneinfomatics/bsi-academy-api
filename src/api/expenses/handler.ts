@@ -54,7 +54,7 @@ export default {
      const { query } = getExpenseInputValidation.parse({
        query: {
          ...req.query,
-         filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+         filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
        },
      });
      return getExpenses(query);
@@ -64,7 +64,7 @@ export default {
     const { query } = getExpenseInputValidation.parse({
       query: {
         ...req.query,
-        filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+        filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
       },
     });
     return getAllExpensesCardCounts();

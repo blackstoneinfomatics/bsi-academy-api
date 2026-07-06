@@ -47,7 +47,7 @@ export const getSubscriptionRecordById =
 
     return SubscriptionModel.findOne({
       _id: new Types.ObjectId(id),
-    }).lean();
+    }).lean() as unknown as Subscription | null;
   };
 
 
@@ -111,7 +111,7 @@ export const cancelSubscription =
       {
         new: true,
       }
-    ).lean();
+    ).lean() as unknown as Subscription | null;
   };
 
 

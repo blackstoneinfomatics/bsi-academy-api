@@ -300,7 +300,7 @@ export const getStudentRecordById = async (
 ): Promise<IStudents | null> => {
   return StudentModel.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IStudents | null;
 };
 
 export const getStudentRecordByData = async (
@@ -324,7 +324,7 @@ if (!isNil(filters.country)) {
 if (!isNil(filters.id)) {
   query._id = new Types.ObjectId(String(filters.id));
 }
-  return StudentModel.findOne(query).lean();
+  return StudentModel.findOne(query).lean() as unknown as IStudents | null;
 };
 
 

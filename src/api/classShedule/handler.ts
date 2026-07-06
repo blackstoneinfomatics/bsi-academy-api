@@ -532,7 +532,8 @@ async updateteacherreschedule(req: Request, h: ResponseToolkit){
 },
 
 async getStudentClassesCount (req: Request, h: ResponseToolkit){
-  return await getStudentClassCount(req.query.studentId);
+  const studentId = Array.isArray(req.query.studentId) ? req.query.studentId[0] : req.query.studentId;
+  return await getStudentClassCount(studentId ?? "");
 },
 
 async getTotalClassess(req: Request, h: ResponseToolkit){
@@ -553,7 +554,8 @@ async getTotalClassess(req: Request, h: ResponseToolkit){
         // Parse and validate the query object
       
         // ✅ Correctly call the database function (not the handler itself)
-        return await getStudentList(req.query.teacherId); // Call the actual function fetching data
+        const teacherId = Array.isArray(req.query.teacherId) ? req.query.teacherId[0] : req.query.teacherId;
+        return await getStudentList(teacherId ?? ""); // Call the actual function fetching data
       } catch (error) {
         console.error("Error in getClassesForTeacher handler:", error);
         throw error; // Handle the error appropriately
@@ -820,11 +822,14 @@ if (!classSchedule) {
 },
 
 async getTeacherEarnings(req : Request , h :ResponseToolkit){
-   return await getTeacherTotalEarnings( req.query.teacherId, req.query.dateRange );
+   const teacherId = Array.isArray(req.query.teacherId) ? req.query.teacherId[0] : req.query.teacherId;
+   const dateRange = Array.isArray(req.query.dateRange) ? req.query.dateRange[0] : req.query.dateRange;
+   return await getTeacherTotalEarnings( teacherId ?? "", (dateRange ?? "weekly") as "monthly" | "weekly" );
 },
 
 async getClassesCountForTeacher(req : Request , h :ResponseToolkit){
-return await classesCountForTeacher( req.query.teacherId );
+const teacherId = Array.isArray(req.query.teacherId) ? req.query.teacherId[0] : req.query.teacherId;
+return await classesCountForTeacher( teacherId ?? "" );
 },
 
 async bulkUpdateandSchedule(req: Request, h: ResponseToolkit) {

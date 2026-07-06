@@ -18,7 +18,7 @@ export interface ActiveSessionRecord {
  * @returns {Promise<IActiveSession | null>} - Returns a promise that resolves to the matched session record or null if no match is found.
  */
 export const getActiveSessionRecord = async (query: ActiveSessionRecord): Promise<IActiveSession | null> => {
-  return ActiveSessionModel.findOne(query).lean();
+  return ActiveSessionModel.findOne(query).lean() as unknown as IActiveSession | null;
 };
 
 /**

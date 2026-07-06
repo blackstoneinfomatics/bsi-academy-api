@@ -30,8 +30,8 @@ export const getAllTeachers = async (
 
   // Ensure the result matches the expected type
   const usersFormatted: IUsershiftschedule[] = users.map((user) => ({
-    ...(user.toObject() as IUsershiftschedule),
-  }));
+    ...user.toObject(),
+  })) as unknown as IUsershiftschedule[];
 
   // Get the total count of users matching the query
   const totalCount = await usershiftschedule.countDocuments(query);

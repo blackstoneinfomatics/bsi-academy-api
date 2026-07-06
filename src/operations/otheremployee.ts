@@ -197,5 +197,5 @@ export const getOhterEmployeeById = async (
 ): Promise<IOtherEmployee | null> => {
   return IOtherEmployeeModel.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IOtherEmployee | null;
 };

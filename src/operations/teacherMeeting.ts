@@ -189,7 +189,7 @@ export const getTeachermeetingById = async (
 ): Promise<TeacherMeeting | null> => {
   return teacherMeeting.findOne({
     _id: id,
-  }).lean();
+  }).lean() as unknown as TeacherMeeting | null;
   };
 
 
@@ -204,7 +204,7 @@ export const updateAllTeacherMeeting = async (
     { _id: new Types.ObjectId(id) },
     { $set: payload },
     { new: true }
-  ).lean();
+  ).lean() as unknown as TeacherMeeting | null;
 }
 
 //updatemeetingAttendee

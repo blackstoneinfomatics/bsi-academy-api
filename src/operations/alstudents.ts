@@ -161,7 +161,7 @@ export const getalstudentsById = async (studentId: string): Promise<IAlStudents 
     const student = await AlStudentsModel.findOne({
       _id: studentId,
     }).lean();
-const studentDetails = student as IAlStudents;
+const studentDetails = student as unknown as IAlStudents;
     console.log("Fetched student details:", student);
     return studentDetails;
   } catch (error) {
@@ -196,7 +196,7 @@ const studentDetails = student as IAlStudents;
    const result = await AlStudentsModel.findOne(dbQuery).lean();
    console.log("result>>",result);
 
-   return AlStudentsModel.findOne(dbQuery).lean();
+   return AlStudentsModel.findOne(dbQuery).lean() as unknown as IAlStudents | null;
  };
 
   /**

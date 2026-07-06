@@ -93,7 +93,7 @@ export const updateNotification = async (
     { _id: new Types.ObjectId(id) },
     { $set: payload },
     { new: true }
-  ).lean();
+  ).lean() as unknown as INotification | null;
 };
 
 

@@ -23,7 +23,7 @@ export const updateUserPassword = async (id: string, newPassword: string): Promi
     },
     { $set: { password: newPassword } },
     { new: true, projection: { password: 0 } }
-  ).lean();
+  ).lean() as unknown as Omit<IUser, 'password'> | null;
 };
 
 export const getAcademicAvaialableTimeList = async (

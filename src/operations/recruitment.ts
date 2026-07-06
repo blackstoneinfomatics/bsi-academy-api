@@ -146,7 +146,7 @@ const totalCount = applicants.length;
 
   return {
     totalCount,
-    applicants: applicants as IRecruitment[]
+    applicants: applicants as unknown as IRecruitment[]
   };
 };
 
@@ -156,7 +156,7 @@ export const getApplicantRecordById = async (
 ): Promise<IRecruitment | null> => {
   return RecruitModel.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IRecruitment | null;
 };
 
 /**
@@ -175,7 +175,7 @@ export const updateApplicantById = async (
     { _id: new Types.ObjectId(id) },
     { $set: payload },
     { new: true }
-  ).lean();
+  ).lean() as unknown as IRecruitment | null;
 };
 
 
@@ -240,7 +240,7 @@ export const updateApplicantByAdminId = async (
       return null;
     }
 
-    const updateData = approvedData as IRecruitment;
+    const updateData = approvedData as unknown as IRecruitment;
 
     if (updateData.applicationStatus === "APPROVED") {
       await createTeacherPortalPortal(updateData);

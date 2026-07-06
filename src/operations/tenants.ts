@@ -61,7 +61,7 @@ export const getActiveTenantRecordByCode = async (
   return TenantModel.findOne({
     tenantCode,
     status: appStatus.ACTIVE,
-  }).lean();
+  }).lean() as unknown as ITenant | null;
 };
 
 /**
@@ -111,7 +111,7 @@ export const updateTenantDetailsByTenantId = async (
     { _id: new Types.ObjectId(tenantId) },
     { $set: payload },
     { new: true } // Return the updated document
-  ).lean();
+  ).lean() as unknown as ITenant | null;
 };
 
 
@@ -142,7 +142,7 @@ export const getActiveTenantRecordByJobCode = async (
   return TenantModel.findOne({
     tenantJobCode: tenantCode,
     status: appStatus.ACTIVE,
-  }).lean();
+  }).lean() as unknown as ITenant | null;
 };
 
 
@@ -296,7 +296,7 @@ export const updateTenantSettings = async (
     return notFound(tenantsMessages.UPDATE_FAILED);
   }
 
-  return result as ITenantSettings;
+  return result as unknown as ITenantSettings;
 };
 
 

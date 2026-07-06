@@ -104,7 +104,7 @@ async getAllStudents(req: Request, h: ResponseToolkit) {
   const { query } = getStudentsListInputValidation.parse({
     query: {
       ...req.query,
-      filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+      filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
     },
   });
   return getAllStudentsRecords(query);

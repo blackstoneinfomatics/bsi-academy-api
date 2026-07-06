@@ -26,7 +26,7 @@ export const loggerPlugin: Plugin<{}> = {
   const remoteIp = request.info.remoteAddress;
 
   const clientIp = forwardedIp
-    ? forwardedIp.split(',')[0].trim()
+    ? (Array.isArray(forwardedIp) ? forwardedIp[0] : forwardedIp).split(',')[0].trim()
     : remoteIp;
 
   const truncate = (input: any, max = 1000) => {

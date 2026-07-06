@@ -3,7 +3,6 @@ node_modules
 /dist
 yarn.lock
 
-package.json
 
 /tests/e2e/reports/
 selenium-debug.log
@@ -30,3 +29,5 @@ package-lock.json
 
 # Sonar Scanner
 .scannerwork
+
+.env

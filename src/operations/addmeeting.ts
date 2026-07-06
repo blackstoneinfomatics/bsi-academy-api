@@ -123,7 +123,7 @@ console.log("✅ Processing meeting for grouping:", groupedMap);
 
     return {
       totalCount: combinedMeetings.length,
-      meetings: paginated as IMeeting[],
+      meetings: paginated as unknown as IMeeting[],
       groupedAutoMeetings,
     };
   } catch (error) {
@@ -410,7 +410,7 @@ export const meetingByIdRecord = async (
     .findOne({
       _id: new Types.ObjectId(_id),
     })
-    .lean();
+    .lean() as unknown as IMeeting | null;
 };
 
 function generateAFTCode(preName: string) {

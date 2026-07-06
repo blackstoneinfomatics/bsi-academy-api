@@ -253,14 +253,14 @@ const addmeeting = adminmeeting;
 export const getAdminMeetingById = async (  id: string): Promise<IAdminMeeting | null> => {
   return addmeeting.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IAdminMeeting | null;
 };
 
 
 export const getMeetingsByMeetingId = async (
   meetingId: string
 ): Promise<IAdminMeeting[]> => {
-  return addmeeting.find({ meetingId }).lean();
+  return addmeeting.find({ meetingId }).lean() as unknown as IAdminMeeting[];
 };
 
 
@@ -281,7 +281,7 @@ export const updateAdminMeetingById = async (
   }
 
   // Return updated documents
-  return await addmeeting.find({ meetingId }).lean();
+  return await addmeeting.find({ meetingId }).lean() as unknown as IAdminMeeting[];
 };
 
 

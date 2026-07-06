@@ -6,7 +6,11 @@ import { authUserData } from "../shared/common";
 const register = (server: Server) => {
   server.events.on("response", (request: Request) => {
     const { response, headers, method, payload, query, info, url } = request;
-    const requestUserDetails = authUserData(headers.authorization ?? '');
+    console.log("Response Type>>>>>", typeof response);
+    const authorizationHeader = Array.isArray(headers.authorization)
+      ? headers.authorization[0]
+      : headers.authorization;
+    const requestUserDetails = authUserData(authorizationHeader ?? '');
     if ("statusCode" in response) {
       if (response.statusCode !== appStatusCodes[0]) {
         const responseTimeMs: string = (

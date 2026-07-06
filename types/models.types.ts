@@ -1,3 +1,4 @@
+import { Document } from "mongoose";
 import CustomEnumerator, { AssignmentStatus } from "../src/shared/enum";
 
 enum Status {
@@ -1226,6 +1227,7 @@ export interface IFeedback  extends Document{
 
 
 export interface ISupervisorFeedbackCreate {
+  tenantId?: string;
   sessionId?:string;
   student?: {
     studentId?: string;

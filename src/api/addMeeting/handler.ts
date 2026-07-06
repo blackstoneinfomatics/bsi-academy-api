@@ -138,10 +138,10 @@ async getAllMeetings(req: Request, h: ResponseToolkit) {
   // }
 
   const queryForService = {
-    supervisorId,
+    supervisorId: Array.isArray(supervisorId) ? supervisorId[0] : supervisorId,
     offset: offset ? String(offset) : null,
     limit: limit ? String(limit) : null,
-    sortBy: sortBy ?? "createdDate",
+    sortBy: (Array.isArray(sortBy) ? sortBy[0] : sortBy) ?? "createdDate",
   };
 
   return getAllMeetingRecords(queryForService);

@@ -79,7 +79,7 @@ export const getActiveUserRecord = async (
   if (!isNil(tenantId)) dbQuery.tenantId = tenantId;
   if (!isNil(role)) dbQuery.role = role;
 
-  return UserModel.findOne(dbQuery).lean();
+  return UserModel.findOne(dbQuery).lean() as unknown as IUser | null;
 };
 
 /**
@@ -128,7 +128,7 @@ export const updateUser = async (
     { new: true }
   )
     .select("-password")
-    .lean();
+    .lean() as unknown as Omit<IUser, "password"> | null;
 };
 
 /**
@@ -176,7 +176,7 @@ export const bulkDeleteUsers = async (
     .lean()
     .exec();
 
-  return updatedUsers as (Omit<IUser, "password"> | null)[];
+  return updatedUsers as unknown as (Omit<IUser, "password"> | null)[];
 };
 
 export const getTeacherCardCount = async () => {

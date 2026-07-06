@@ -127,8 +127,14 @@ export default{
    async getsettinglist(req: Request, h: ResponseToolkit) {
     try {
       const { employeeName, designation, fromDate, toDate } = req.query;
-  
-      const result = await getallsettinglist({ employeeName, designation, fromDate, toDate });
+      const normalize = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v;
+
+      const result = await getallsettinglist({
+        employeeName: normalize(employeeName),
+        designation: normalize(designation),
+        fromDate: normalize(fromDate),
+        toDate: normalize(toDate),
+      });
   
       return h.response({
         status: 'success',

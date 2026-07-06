@@ -110,8 +110,8 @@ async getleaveSummaryList(req: Request, h: ResponseToolkit) {
 
 //LeaveRequestByID
 async getLeaveRecordById(req: Request, h: ResponseToolkit) {
-  const employeeId = req.query.employeeId;
-  const result = await getLeaveRequestRecordByEmployeeId(employeeId);
+  const employeeId = Array.isArray(req.query.employeeId) ? req.query.employeeId[0] : req.query.employeeId;
+  const result = await getLeaveRequestRecordByEmployeeId(employeeId ?? "");
 
   if (!result || result.length === 0) {
     return h.response({ message: "No leave records found" }).code(404);

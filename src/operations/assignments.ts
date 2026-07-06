@@ -529,7 +529,7 @@ export const getAssignmentByObjectId = async (
     .findOne({
       _id: new Types.ObjectId(id),
     })
-    .lean();
+    .lean() as unknown as IAssignment | null;
 };
 
 // Update Assignments

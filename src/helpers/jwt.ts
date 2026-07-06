@@ -7,7 +7,8 @@ import { getActiveSessionRecord } from "../operations/active_session";
 export const validateUserAuth = async (decoded: string, req: Request) => {
 
   const { tenantid, authorization } = req.headers;
-  const token = authorization.replace("Bearer ", "");
+  const authorizationHeader = Array.isArray(authorization) ? authorization[0] : authorization;
+  const token = (authorizationHeader ?? "").replace("Bearer ", "");
 
   if (!isNil(decoded) && !isEmpty(decoded)) {
     const { tenantId, sub }: any = decoded;

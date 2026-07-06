@@ -58,7 +58,7 @@ export const getAcademicCoachId = async (
   console.log(">>>>>", id);
   return MeetingSchedules.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IMeetingSchedule | null;
 };
 
 export const getAllMeetings = async () => {

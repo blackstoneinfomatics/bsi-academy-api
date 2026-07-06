@@ -139,6 +139,12 @@ export const createLeaveRequest = async (
       ...(updatedLeaveRequest?.toObject() ?? {}),
       employeeId: employee._id.toString(),
       totalCounts: counts,
+    } as unknown as ILeaveRequest & {
+      totalCounts: {
+        sickLeave: number;
+        casualLeave: number;
+        paidLeave: number;
+      };
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : error };
@@ -369,7 +375,7 @@ export const getLeaveSummaryRecordById = async (
 ): Promise<IleaveSummary | null> => {
   return LeaveSummaryModel.findOne({
     _id: new Types.ObjectId(id),
-  }).lean();
+  }).lean() as unknown as IleaveSummary | null;
 };
 
 //card counts for leave requests

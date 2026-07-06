@@ -345,11 +345,14 @@ try{
     },
 
    async getApplicationData(req: Request, h: ResponseToolkit){
-     return await getApplicationStatusData(req.query.fromDate, req.query.toDate);
+     const fromDate = Array.isArray(req.query.fromDate) ? req.query.fromDate[0] : req.query.fromDate;
+     const toDate = Array.isArray(req.query.toDate) ? req.query.toDate[0] : req.query.toDate;
+     return await getApplicationStatusData(fromDate ?? "", toDate ?? "");
    },
 
   async getTeacherDetailsOverview(req: Request, h: ResponseToolkit){
-     return await getTeacherDetailsOverviewCount(req.query.teacherId);
+     const teacherId = Array.isArray(req.query.teacherId) ? req.query.teacherId[0] : req.query.teacherId;
+     return await getTeacherDetailsOverviewCount(teacherId ?? "");
    },
 
 };

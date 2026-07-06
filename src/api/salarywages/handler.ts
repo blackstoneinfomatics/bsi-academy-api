@@ -28,7 +28,7 @@ export default {
      const { query } = getSalaryInputValidation.parse({
        query: {
          ...req.query,
-         filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+         filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
        },
      });
      return getAllSalaryList(query);
@@ -38,7 +38,7 @@ export default {
     const { query } = getSalaryInputValidation.parse({
       query: {
         ...req.query,
-        filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+        filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
       },
     });
     return getAllSalaryCardCounts(query);

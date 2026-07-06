@@ -291,7 +291,7 @@ if(result){
     const { query } = getEvaluationListInputValidation.parse({
       query: {
         ...req.query,
-        filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+        filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
       },
     });
     return getAllEvaluationRecords(query);
@@ -351,7 +351,7 @@ if(result){
       const { query } = getEvaluationListInputValidation.parse({
         query: {
           ...req.query,
-          filterValues: req.query?.filterValues ? JSON.parse(req.query.filterValues) : {},
+          filterValues: req.query?.filterValues ? JSON.parse(String(req.query.filterValues)) : {},
         },
       });
       return getTrialClassCount(query);
@@ -360,7 +360,8 @@ if(result){
 
    async getTrialClassByTeacher(req: Request, h: ResponseToolkit){
       console.log("Id>>>>>", req.query.teacherId);
-    const result = await getTrialClassRecordById(req.query.teacherId);
+    const teacherId = Array.isArray(req.query.teacherId) ? req.query.teacherId[0] : req.query.teacherId;
+    const result = await getTrialClassRecordById(teacherId ?? "");
 
     if (isNil(result)) {
       return notFound(evaluationMessages.EVALUATIONS_NOT_FOUND);

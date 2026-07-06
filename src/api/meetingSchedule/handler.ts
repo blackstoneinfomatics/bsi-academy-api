@@ -27,7 +27,7 @@ const handler = {
         query: {
           ...req.query,
           filterValues: req.query?.filterValues
-            ? JSON.parse(req.query.filterValues)
+            ? JSON.parse(String(req.query.filterValues))
             : {},
         },
       });

@@ -199,8 +199,8 @@ export default {
     const { query } = getTenantSettingsListInputValidation.parse({
       query: {
         ...req.query,
-        keyNames: req.query.keyNames ? JSON.parse(req.query.keyNames) : [],
-        modules: req.query.modules ? JSON.parse(req.query.modules) : []
+        keyNames: req.query.keyNames ? JSON.parse(String(req.query.keyNames)) : [],
+        modules: req.query.modules ? JSON.parse(String(req.query.modules)) : []
       },
     });
 

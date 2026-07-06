@@ -18,8 +18,8 @@ export default {
   return h
     .response(file.buffer)
     .header("Content-Type", "application/pdf")
-    .header("Content-Length", file.contentLength || file.buffer.length)
-    .header("Content-Disposition", `inline; filename="preview.${getExt(file.contentType)}"`)
+    .header("Content-Length", String(file.contentLength || file.buffer.length))
+    .header("Content-Disposition", `inline; filename="preview.${getExt(String(file.contentType))}"`)
     .header("Access-Control-Allow-Origin", "*")
     .header("Cross-Origin-Resource-Policy", "cross-origin");
 }

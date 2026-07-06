@@ -73,7 +73,7 @@ export const createStudentMessageList = async (
         .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit))
-        .lean() as Promise<IMessage[]>,
+        .lean() as unknown as Promise<IMessage[]>,
       Message.countDocuments(query)
     ]);
 
@@ -203,7 +203,7 @@ export const createSupervisorMessageList = async (
         .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit))
-        .lean() as Promise<IMessage[]>,
+        .lean() as unknown as Promise<IMessage[]>,
       Message.countDocuments(query)
     ]);
 

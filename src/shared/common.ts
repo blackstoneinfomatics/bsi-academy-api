@@ -70,7 +70,7 @@ export const decryptPassword = (
     return decryptedText;
 };
 // Generate JWT token
-export const generateAuthToken = (data: any): string => jwt.sign(data, config.jwtAuth.secret, { expiresIn: config.jwtAuth.expiresIn, algorithm: 'HS256' });
+export const generateAuthToken = (data: any): string => jwt.sign(data, config.jwtAuth.secret, { expiresIn: config.jwtAuth.expiresIn, algorithm: 'HS256' } as jwt.SignOptions);
 
 export const authUserData = (token: string) => {
   let userInfo = {

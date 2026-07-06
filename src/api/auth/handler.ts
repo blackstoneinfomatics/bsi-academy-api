@@ -164,7 +164,8 @@ export default {
 
   async signOut(req: Request, h: ResponseToolkit) {
 
-    const { authorization, tenantid } = req.headers;
+    const authorization = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
+    const tenantid = Array.isArray(req.headers.tenantid) ? req.headers.tenantid[0] : req.headers.tenantid;
 
     // Check if Authorization header is present and starts with 'Bearer '
     if (!authorization || !authorization.startsWith("Bearer ")) {
@@ -182,7 +183,7 @@ export default {
       accessToken: token,
       isActive: true,
       userId: decodedToken.sub,
-      tenantId: tenantid,
+      tenantId: tenantid ?? "",
     });
 
     // Check the provided token exists in the database
@@ -314,12 +315,15 @@ export default {
 
 
  async getAcademicAvaialableTime(req: Request, h: ResponseToolkit){
-  return getAcademicAvaialableTimeList(req.query.scheduleDate);
+  const scheduleDate = Array.isArray(req.query.scheduleDate) ? req.query.scheduleDate[0] : req.query.scheduleDate;
+  return getAcademicAvaialableTimeList(scheduleDate ?? "");
 
  },
 
    async getTeacherAvaialableTime(req: Request, h: ResponseToolkit){
-  return teacherAvailableTimeList(req.query.scheduleDate, req.query.position);
+  const scheduleDate = Array.isArray(req.query.scheduleDate) ? req.query.scheduleDate[0] : req.query.scheduleDate;
+  const position = Array.isArray(req.query.position) ? req.query.position[0] : req.query.position;
+  return teacherAvailableTimeList(scheduleDate ?? "", position ?? "");
 
  }
 };

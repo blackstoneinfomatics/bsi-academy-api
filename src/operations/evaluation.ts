@@ -115,7 +115,7 @@ export const createEvaluationRecord = async (
       { new: true }
     ).lean();
 
-    (await updateInvoice) as IStudents;
+    (await updateInvoice) as unknown as IStudents;
   }
 
   const subscriptonDetaails = await SubscriptionModel.findOne({
@@ -242,7 +242,7 @@ export const updateStudentEvaluation = async (
     ).lean();
 
     const evaluation = await EvaluationModel.findById(id).exec();
-    const updatedEvaluation = updateEvaluations as IEvaluation;
+    const updatedEvaluation = updateEvaluations as unknown as IEvaluation;
     console.log("updatedEvaluation>>", updatedEvaluation);
 
     const emailTemplate = await EmailTemplate.findOne({
@@ -409,7 +409,7 @@ export const updateStudentEvaluation = async (
     }
 
     const updatedEvaluation = await EvaluationModel.findById(id).lean();
-    return updatedEvaluation as IEvaluation;
+    return updatedEvaluation as unknown as IEvaluation;
   }
 
   console.log("ℹ️ No special email flow triggered");
@@ -709,7 +709,7 @@ export const getEvaluationRecordById = async (
 ): Promise<IEvaluation | null> => {
   return EvaluationModel.findOne({
     trialId: id,
-  }).lean();
+  }).lean() as unknown as IEvaluation | null;
 };
 
 export interface EvaluationUpdate {
@@ -726,7 +726,7 @@ export const updateStudentInvoice = async (
     { $set: payload },
     { new: true }
   ).lean();
-  const updatedEvaluation = (await updateInvoice) as IEvaluation; // Cast to expected type
+  const updatedEvaluation = (await updateInvoice) as unknown as IEvaluation; // Cast to expected type
   return updatedEvaluation;
 };
 

@@ -163,7 +163,7 @@ const handler = {
       return h.response({ error: "Student ID is required" }).code(400);
     }
 
-    return getStudentlevel(studentId);
+    return getStudentlevel(Array.isArray(studentId) ? studentId[0] : studentId);
   },
 
 
