@@ -5,6 +5,7 @@ import { zodTenantSettingsSchema } from "../../models/tenant_setting";
 import {
   createTenant,
   createTenantSettings,
+  getActiveTenantRecord,
   getActiveTenantRecordByCode,
   getAllTenantSettingsRecords,
   updateTenantDetailsByTenantId,
@@ -226,6 +227,9 @@ export default {
     return getActiveTenantRecordByCode(String(req.params.tenantCode));
   },
 
+    async getTenantDetails(req: Request, h: ResponseToolkit) {
+    return getActiveTenantRecord();
+  },
   // async updateTenantDetailsById(req: Request, h: ResponseToolkit) {
   //   const { payload } = updateTenantDetailsInput.parse({
   //     payload: req.payload

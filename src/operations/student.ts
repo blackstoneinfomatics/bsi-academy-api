@@ -4,7 +4,6 @@ import { commonMessages, studentMessages } from "../config/messages";
 import { badRequest } from "@hapi/boom";
 import { isNil } from "lodash";
 import EmailTemplate from "../models/emailTemplate";
-import { sendEmailClient } from "../shared/email";
 import axios from "axios";
 import { config } from "../config/env";
 import MeetingSchedule from "../models/calendar";
@@ -16,6 +15,7 @@ import { sendNotification } from "./notification";
 import UserModel from "../models/users";
 import { generateRollNo } from "./rollcounter";
 import users from "../models/users";
+import { sendEmailClient } from "../shared/email";
 
 
 

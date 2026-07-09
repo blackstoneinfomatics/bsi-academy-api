@@ -13,9 +13,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createTenant,
         description: tenantsMessages.CREATE,
         tags: ['api', 'tenants'],
-        auth: {
-          strategies: ['jwt']
-        },
+        // auth: {
+        //   strategies: ['jwt']
+        // },
       },
     },
 
@@ -26,9 +26,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.getAllTenantsSettings,
         description: tenantsMessages.LIST,
         tags: ['api', 'tenants'],
-        auth: {
-          strategies: ['jwt']
-        },
+        // auth: {
+        //   strategies: ['jwt']
+        // },
       },
     },
     {
@@ -67,6 +67,20 @@ const register = async (server: Server): Promise<void> => {
         },
       },
     },
+
+{
+      method: 'GET',
+      path: '/tenant',
+      options: {
+        handler: handler.getTenantDetails,
+        description: tenantsMessages.BYID,
+        tags: ['api', 'tenants'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+
     // {
     //   method: 'PUT',
     //   path: '/tenant/{tenantId}',

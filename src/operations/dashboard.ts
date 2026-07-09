@@ -4,6 +4,9 @@ import recruitment from "../models/recruitment"
 // import feedback from "../models/feedback"
 import alstudents from "../models/alstudents"
 import tenantUser from "../models/users"
+import TenantModel from "../models/tenants"
+import SubscriptionModel from "../models/subscription-models"
+import PaymentDetailsModel from "../models/paymentDetails"
 import {
   startOfWeek,
   endOfWeek,
@@ -611,5 +614,54 @@ return {
   femaleAttendancePresent: femalePresentCount,
   femaleAttendanceAbsent: femaleAbsentCount,
 };
+
+}
+
+export const getSuperAdminTenantDashboardCards = async (): Promise<{
+ totalTenants: number,
+ totalRevenue: number,
+ Subscription: number,
+ pending: number,
+ subscriptionTypes: {
+   planType: string,
+   count: number,
+   percentage: number,
+ }[],
+}> => {
+  const [totalTenants, pendingTenants, paymentRecords, subscriptionStatusCounts, activeSubscriptionCount] = await Promise.all([
+    TenantModel.countDocuments().exec(),
+    TenantModel.countDocuments({ status: { $in: ["Active", "Inactive"] } }).exec(),
+    PaymentDetailsModel.find({ paymentStatus: { $in: ["Paid", "PAID"] } }).lean().exec(),
+    SubscriptionModel.aggregate([
+      {
+        $group: {
+          _id: "$planName",
+          count: { $sum: 1 },
+        },
+      },
+    ]).exec(),
+    SubscriptionModel.countDocuments({ subscriptionStatus: { $in: ["ACTIVE", "TRIALS"] } }).exec(),
+  ])
+
+  const totalRevenue = paymentRecords.reduce((sum, payment) => {
+    const amount = Number(String(payment.paymentAmount).replace(/[^0-9.-]+/g, "")) || 0
+    return sum + amount
+  }, 0)
+
+  const totalSubscriptions = subscriptionStatusCounts.reduce((sum, item) => sum + item.count, 0)
+
+  const subscriptionTypes = subscriptionStatusCounts.map((item) => ({
+    planType: item._id,
+    count: item.count,
+    percentage: totalSubscriptions > 0 ? Number(((item.count / totalSubscriptions) * 100).toFixed(2)) : 0,
+  }))
+
+  return {
+    totalTenants,
+    totalRevenue,
+    Subscription: activeSubscriptionCount,
+    pending: pendingTenants,
+    subscriptionTypes,
+  };
 
 }

@@ -10,6 +10,7 @@ import { Types } from "mongoose";
 import { config } from "../config/env";
 import axios from 'axios';
 import { generateTenant } from "./rollcounter";
+import { count } from "console";
 
 
 export interface TenantDetails {
@@ -64,6 +65,18 @@ export const getActiveTenantRecordByCode = async (
   }).lean() as unknown as ITenant | null;
 };
 
+
+export const getActiveTenantRecord = async () => {
+  const tenants = await TenantModel.find({
+    status: appStatus.ACTIVE,
+  }).lean();
+
+  return {
+    total: tenants.length,  
+    tenants,
+    
+  };
+};
 /**
  * Updates the tenant details by its ID, ensuring no duplicate organization name or tenant job code exists.
  * 
