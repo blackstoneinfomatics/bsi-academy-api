@@ -1,4 +1,4 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 import CustomEnumerator, { AssignmentStatus } from "../src/shared/enum";
 
 enum Status {
@@ -42,7 +42,7 @@ enum EvaluationStatus{
   COMPLETED='COMPLETED'
 }
 
-export interface IUser extends Document {
+export interface IUser extends Document<Types.ObjectId> {
   tenantId?: string;
   userId?: string;
   userName: string;
@@ -80,7 +80,7 @@ export interface IUserCreate {
 }
 
 
-export interface IStudents extends Document {
+export interface IStudents extends Document<Types.ObjectId> {
   tenantId: string;
   studentId: string;
   firstName: string;
@@ -148,7 +148,7 @@ export interface IStudentCreate {
   lastUpdatedBy: string;
 }
 
-export interface IUsershiftschedule extends Document{
+export interface IUsershiftschedule extends Document<Types.ObjectId>{
   tenantId: string;
   academicCoachId: string;
   teacherId: string;
@@ -190,7 +190,7 @@ export interface IUsershiftscheduleCreate{
   lastUpdatedBy: string
 }
 
-export interface IMeetingSchedule extends Document {
+export interface IMeetingSchedule extends Document<Types.ObjectId> {
   tenantId: string;
   academicCoach: {
     academicCoachId: string;
@@ -286,7 +286,7 @@ export interface IMeetingScheduleCreate {
   lastUpdatedBy: string;
 }
 
-export interface ICourse extends Document {
+export interface ICourse extends Document<Types.ObjectId> {
   tenantId: string;
   course: {
     courseId?: string;
@@ -304,7 +304,7 @@ export interface ICourse extends Document {
   lastUpdatedBy: string;
 }
 
-export interface ILevel extends Document{
+export interface ILevel extends Document<Types.ObjectId>{
   tenantId: string;
   courseId: string;
   level:string;
@@ -341,7 +341,7 @@ export interface ICourseCreate {
 }
 
 
-export interface IEvaluation extends Document {
+export interface IEvaluation extends Document<Types.ObjectId> {
   tenantId: string;
   trialId?: string;
 academicCoachId: string;
@@ -529,7 +529,7 @@ updatedBy?: string;
 }
 
 
-export interface ISubscritions extends Document{
+export interface ISubscritions extends Document<Types.ObjectId>{
   tenantId: string;
   subscriptionName: string,
   subscriptionPricePerHr: number,
@@ -543,7 +543,7 @@ export interface ISubscritions extends Document{
   updatedBy: string
 }
 
-export interface IClassSchedule extends Document{
+export interface IClassSchedule extends Document<Types.ObjectId>{
   tenantId: string;
   classId?: string;
   student: {
@@ -626,7 +626,7 @@ export interface IAdminAssignmentCreate {
   }
   }[];
 }
-export interface IAdminAssignment extends Document{
+export interface IAdminAssignment extends Document<Types.ObjectId>{
   tenantId: string;
   levelId: string;
   levelName: string;
@@ -697,7 +697,7 @@ export interface IClassScheduleCreate{
   studentAttendee: string;
 }
 
-export interface IActiveSession extends Document {
+export interface IActiveSession extends Document<Types.ObjectId> {
   tenantId: string;
   userId: string;
   loginDate: Date;
@@ -770,7 +770,7 @@ export interface MeetingSchedulePayload {
 }
 
 
-export interface IAlStudents extends Document{
+export interface IAlStudents extends Document<Types.ObjectId>{
   tenantId: string;
   student:{
     studentId: string;
@@ -813,7 +813,7 @@ export interface IAlStudentCreate{
   role: string;
 }
 
-export interface IPaymentDetails extends Document{
+export interface IPaymentDetails extends Document<Types.ObjectId>{
   tenantId: string;
   userId: string;
   userName: string;
@@ -843,7 +843,7 @@ export interface CreatePaymentDetails{
   lastUpdatedBy: string
 }
 
-export interface IAssignment extends Document {
+export interface IAssignment extends Document<Types.ObjectId> {
   tenantId: string;
   assignmentId: string;
   studentId: string;
@@ -975,7 +975,7 @@ export interface IAssignmentCreate {
   score: number; 
   rating: string;
 }
-export interface IStudentInvoice extends Document {
+export interface IStudentInvoice extends Document<Types.ObjectId> {
   tenantId: string;
   student: {
     studentId: string;
@@ -1052,7 +1052,7 @@ export interface IMessageCreate {
   }[];
 }
 
-export interface IMessage extends Document {
+export interface IMessage extends Document<Types.ObjectId> {
   tenantId: string;
   roomId: string; // Identifier for the chat room
   student: {
@@ -1159,7 +1159,7 @@ export interface IFeedbackCreate {
 
 
 
-export interface IFeedback  extends Document{
+export interface IFeedback  extends Document<Types.ObjectId>{
   tenantId: string;
   sessionId?:string;
   student?: {
@@ -1291,7 +1291,7 @@ export interface ISupervisorFeedbackCreate {
 
 
 
-export interface ISuperviosrFeedback  extends Document{
+export interface ISuperviosrFeedback  extends Document<Types.ObjectId>{
   tenantId: string;
   sessionId?:string;
   student?: {
@@ -1349,7 +1349,7 @@ export interface ISuperviosrFeedback  extends Document{
   lastUpdatedBy?: string;
 }
 
-export interface IRecruitment extends Document{
+export interface IRecruitment extends Document<Types.ObjectId>{
   tenantId: string;
   candidateId: string;
   candidateFirstName: string;
@@ -1495,7 +1495,7 @@ export interface IMeetingCreate {
   updatedBy?: string;
 }
 
-export interface IMeeting extends Document {
+export interface IMeeting extends Document<Types.ObjectId> {
   tenantId: string;
   meetingName: string;
   meetingId: string;
@@ -1534,7 +1534,7 @@ export interface INotification{
     updatedBy?: string;
 }
 
-export interface INotification extends Document{
+export interface INotification extends Document<Types.ObjectId>{
   tenantId: string;
   messages ?: string;
   isRead ?: boolean;
@@ -1553,7 +1553,7 @@ export interface INotification extends Document{
   updatedBy?: string;
 }
 
-export interface IOtherEmployee extends Document{
+export interface IOtherEmployee extends Document<Types.ObjectId>{
   tenantId: string;
   firstName: string;
   lastName: string;
@@ -1667,7 +1667,7 @@ export interface IAdminMeetingCreate {
 
 
 
-export interface IAdminMeeting extends Document{
+export interface IAdminMeeting extends Document<Types.ObjectId>{
   tenantId: string;
   meetingName: string;
   meetingId: string;
@@ -1706,7 +1706,7 @@ export interface RealTimeMessageCreate{
   updatedBy?: string;
 }
 
-export interface RealTimeMessage extends Document{
+export interface RealTimeMessage extends Document<Types.ObjectId>{
   tenantId: string;
   messages : string;
 isRead : boolean;
@@ -1724,7 +1724,7 @@ updatedDate?: Date;
 updatedBy?: string;
 }
 
-export interface IEmpwages extends Document{
+export interface IEmpwages extends Document<Types.ObjectId>{
   tenantId: string;
   employeeId: string,
   employeeName: string,
@@ -1758,7 +1758,7 @@ export interface IEmpwagesCreate{
 }
 
 
-export interface IExpense extends Document{
+export interface IExpense extends Document<Types.ObjectId>{
   tenantId: string;
   paymentDate: string,
   expenseType: string,
@@ -1788,7 +1788,7 @@ export interface IExpenseCreate{
   updatedBy: string
 }
 
-export interface IKnowledgeBase extends Document{
+export interface IKnowledgeBase extends Document<Types.ObjectId>{
   tenantId: string;
   courseName: string,
   subjectTitle: string;
@@ -1881,7 +1881,7 @@ export interface IAccessModel {
 }
 
 
-export interface IAccessModel extends Document{
+export interface IAccessModel extends Document<Types.ObjectId>{
   tenantId: string;
   employeeId: string;
   employeeName: string;
@@ -1955,7 +1955,7 @@ export interface IAccessModel extends Document{
 
 
 
-export interface ISalarywages extends Document {
+export interface ISalarywages extends Document<Types.ObjectId> {
   tenantId: string;
   employeeId: string;
   employeeName: string;
@@ -2001,7 +2001,7 @@ export interface ISalarywagesCreate {
 
 
 
-export interface IPackage extends Document {
+export interface IPackage extends Document<Types.ObjectId> {
   tenantId: string;
   packageName: string;
   costPerHour: string;
@@ -2054,7 +2054,7 @@ export interface ILeaveRequestCreate {
 }
 
 
-export interface ILeaveRequest extends Document {
+export interface ILeaveRequest extends Document<Types.ObjectId> {
   tenantId: string;
   employeeId: string;
   name: string,
@@ -2103,7 +2103,7 @@ export interface IleaveSummary {
 }
 
 
-export interface IleaveSummary  extends Document {
+export interface IleaveSummary  extends Document<Types.ObjectId> {
   tenantId: string;
   employeeId: any;
   name: string,
@@ -2134,7 +2134,7 @@ export interface TeacherTimeSlots {
   isStatus : boolean,
 }
 
-export interface TeacherAvaliableSlots extends Document {
+export interface TeacherAvaliableSlots extends Document<Types.ObjectId> {
    tenantId: string,
    date: string,
    teacherId : string,
@@ -2177,7 +2177,7 @@ export interface TeacherMeetingCreate {
 
 
 
-export interface TeacherMeeting extends Document {
+export interface TeacherMeeting extends Document<Types.ObjectId> {
   tenantId: string;
   meetingId: string;
   meetingName: string;
@@ -2199,7 +2199,7 @@ export interface TeacherMeeting extends Document {
   updatedBy: string;
 }
 
-export interface LogDocument extends Document {
+export interface LogDocument extends Document<Types.ObjectId> {
   tenantId: string;
   userId: string;
   logType: 'SUCCESS' | 'REDIRECT' | 'ERROR' | 'INFO';
@@ -2213,14 +2213,14 @@ export interface LogDocument extends Document {
   createdDate: Date;
 }
 
-export interface IRollCounter extends Document {
+export interface IRollCounter extends Document<Types.ObjectId> {
    tenantId: string,
    prefix: String;
     sequence: String;
 }
 
 // Define the ITenant interface
-export interface ITenant extends Document {
+export interface ITenant extends Document<Types.ObjectId> {
   tenantId?: string;
   tenantCode: string;
   tenantName: string;
@@ -2288,7 +2288,7 @@ export interface ITenantCreate {
 }
 
 // Define the ITenantSettings interface
-export interface ITenantSettings extends Document {
+export interface ITenantSettings extends Document<Types.ObjectId> {
   tenantId: string;
   keyName: string;
   keyValue: any;
@@ -2314,7 +2314,7 @@ export interface ITenantSettingsPayload {
   lastUpdatedDate?: Date;
   lastUpdatedBy?: string;
 }
-export interface Plans extends Document {
+export interface Plans extends Document<Types.ObjectId> {
   planName: string;
   features: string[];
   price: number;
@@ -2333,7 +2333,7 @@ export interface Plans extends Document {
   updatedBy?: string;
 }
 
-export interface Subscription extends Document {
+export interface Subscription extends Document<Types.ObjectId> {
   tenantId: string;
   planId: string;
   planName: string;
