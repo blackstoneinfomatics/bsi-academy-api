@@ -1,7 +1,6 @@
 node_modules
 .DS_Store
 /dist
-yarn.lock
 
 
 /tests/e2e/reports/
