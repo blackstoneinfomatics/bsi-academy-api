@@ -7,6 +7,7 @@ import {
   dashboardWidgetStudentCounts,
   dashboardWidgetSupervisorCounts,
   dashboardWidgetTeacherCounts,
+  getSuperAdminTenantDashboardCards,
   getTeacherAttendanceGet,
   totalClassCount,
   totalTrialRequestCount,
@@ -96,5 +97,9 @@ export default {
 
   async getTeacherAttendance(req: Request){
  return await getTeacherAttendanceGet()
+  },
+
+    async getSuperAdminTenantDashboard(req: Request){
+ return await getSuperAdminTenantDashboardCards()
   }
 }

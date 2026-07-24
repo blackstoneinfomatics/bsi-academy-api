@@ -67,6 +67,20 @@ const register = async (server: Server): Promise<void> => {
         },
       },
     },
+
+{
+      method: 'GET',
+      path: '/tenant',
+      options: {
+        handler: handler.getTenantDetails,
+        description: tenantsMessages.BYID,
+        tags: ['api', 'tenants'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+
     // {
     //   method: 'PUT',
     //   path: '/tenant/{tenantId}',

@@ -313,3 +313,14 @@ export const getTenantSettingsById = async (
 };
 
 
+export const getActiveTenantRecord = async () => {
+  const tenants = await TenantModel.find({
+    status: appStatus.ACTIVE,
+  }).lean();
+
+  return {
+    total: tenants.length,  
+    tenants,
+    
+  };
+};
