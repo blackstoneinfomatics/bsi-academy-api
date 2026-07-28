@@ -2,12 +2,20 @@
 // plan-service.ts
 // ==============================
 
-import PlanModel from "../models/plan-model";
+import PlanModel, { createPlanValidation } from "../models/plan-model";
+import { z } from "zod";
 
+export type CreatePlanPayload = z.infer<
+  typeof createPlanValidation
+>;
+
+export type UpdatePlanPayload = Partial<
+  z.infer<typeof createPlanValidation>
+>;
 
 // CREATE PLAN
 export const createPlan = async (
-  payload: any
+  payload: CreatePlanPayload
 ) => {
 
   const newPlan =
@@ -40,29 +48,27 @@ export const getPlanById =
 
 
 // UPDATE PLAN
-export const updatePlan =
-  async (
-    id: string,
-    payload: any
-  ) => {
 
-    return await PlanModel.findOneAndUpdate(
-      {
-        planId: id,
+export const updatePlan = async (
+  id: string,
+  payload: UpdatePlanPayload
+) => {
+  return await PlanModel.findOneAndUpdate(
+    {
+      planId: id,
+    },
+    {
+      $set: {
+        ...payload,
+        updatedDate: new Date(),
       },
-
-      {
-        $set: {
-          ...payload,
-          updatedDate: new Date(),
-        },
-      },
-
-      {
-        new: true,
-      }
-    ).lean();
-  };
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).lean();
+};
 
 
 // DELETE PLAN

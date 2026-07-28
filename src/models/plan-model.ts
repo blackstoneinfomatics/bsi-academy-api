@@ -10,17 +10,20 @@ const PlanSchema = new Schema<Plans>(
       type: String,
       required: true,
     },
-    planName: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+
     planId: {
       type: String,
       required: true,
       unique: true,
     },
-    price: {
+
+    planName: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    studentLimit: {
       type: Number,
       required: true,
     },
@@ -28,56 +31,98 @@ const PlanSchema = new Schema<Plans>(
     billingCycle: {
       type: String,
       enum: ["MONTHLY", "YEARLY", "LIFETIME", "QUARTERLY", "HALF_YEARLY"],
+      required: true,
       default: "MONTHLY",
+    },
+
+    monthlyPrice: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    yearlyPrice: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    setupFee: {
+      type: Number,
+      required: true,
+      default: 0,
     },
 
     trialDays: {
       type: Number,
+      required: true,
+      default: 0,
+    },
+
+    gstAndTax: {
+      type: Number,
+      required: true,
       default: 0,
     },
 
     maxUsers: {
       type: Number,
+      required: true,
       default: 5,
+    },
+
+    planDescription: {
+      type: String,
+      required: true,
+    },
+
+    planStatus: {
+      type: String,
+      required: true,
     },
 
     allowedRoles: {
       type: [String],
+      required: true,
       default: [],
     },
 
     features: {
-      type: [String],
-      default: [],
+      type: Schema.Types.Mixed,
+      required: true,
+      default: {},
     },
-    currency: {
-      type: String,
-      default: "USD",
-    },
-    canCreateCustomRoles: {
+
+    canCreateCustomRole: {
       type: Boolean,
+      required: true,
       default: false,
     },
+
     status: {
       type: String,
       enum: Object.values(CustomEnumerator.Status),
       required: true,
     },
+
     createdDate: {
       type: Date,
       required: true,
       default: Date.now,
     },
+
     createdBy: {
       type: String,
       required: true,
     },
+
     updatedDate: {
       type: Date,
       required: true,
       default: Date.now,
     },
-    updatedBy: {
+
+    lastUpdatedBy: {
       type: String,
       required: false,
     },
@@ -90,9 +135,12 @@ const PlanSchema = new Schema<Plans>(
 
 export const createPlanValidation = z.object({
   tenantId: z.string(),
+
   planId: z.string(),
-  maxUsers: z.number(),
-  trialDays: z.number(),
+  planName: z.string().min(1, "Plan name is required"),
+
+  studentLimit: z.number().nonnegative(),
+
   billingCycle: z.enum([
     "MONTHLY",
     "YEARLY",
@@ -100,13 +148,35 @@ export const createPlanValidation = z.object({
     "QUARTERLY",
     "HALF_YEARLY",
   ]),
-  price: z.number(),
+
+  monthlyPrice: z.number().nonnegative(),
+
+  yearlyPrice: z.number().nonnegative(),
+
+  setupFee: z.number().nonnegative(),
+
+  trialDays: z.number().nonnegative(),
+
+  gstAndTax: z.number().nonnegative(),
+
+  maxUsers: z.number().positive(),
+
+  planDescription: z.string().min(1, "Plan description is required"),
+
+  planStatus: z.string().min(1, "Plan status is required"),
+
   allowedRoles: z.array(z.string()),
-  planName: z.string(),
-  features: z.array(z.string()),
+
+  features: z.record(z.string(), z.array(z.string())),
+
   canCreateCustomRole: z.boolean(),
+
   status: z.string(),
+
   createdBy: z.string().optional(),
+
+  lastUpdatedBy: z.string().optional(),
+
   createdDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), {
@@ -114,6 +184,7 @@ export const createPlanValidation = z.object({
     })
     .transform((val) => new Date(val))
     .optional(),
+
   updatedDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), {
@@ -121,8 +192,6 @@ export const createPlanValidation = z.object({
     })
     .transform((val) => new Date(val))
     .optional(),
-
-  updatedBy: z.string().optional(),
 });
 
 export default mongoose.model<Plans>("plan", PlanSchema);

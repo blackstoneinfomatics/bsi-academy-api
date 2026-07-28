@@ -4,6 +4,7 @@ import {
   Request,
   ResponseToolkit,
 } from "@hapi/hapi";
+import { z } from "zod";
 
 import {
   createPlan,
@@ -12,20 +13,48 @@ import {
   updatePlan,
   deletePlan,
 } from "../../operations/plan";
+import { createPlanValidation } from "../../models/plan-model";
 
-interface PlanPayload {
-  planName: string;
-  price: number;
-  billingCycle: string;
-  trialDays: number;
-  maxUsers: number;
-  allowedRoles: string[];
-  features: string[];
-  canCreateCustomRole: boolean;
-  status: string;
-  createdBy: string;
-  lastUpdatedBy: string;
-}
+
+const createInputValidation = z.object({
+  payload: createPlanValidation.pick({
+    planName: true,
+    tenantId: true,
+    planId: true,
+    studentLimit: true,
+    billingCycle: true,
+    planDescription: true,
+    planStatus: true,
+    monthlyPrice: true,
+    yearlyPrice: true,
+    setupFee: true,
+    trialDays: true,
+    gstAndTax: true,
+    maxUsers: true,
+    allowedRoles: true,
+    features: true,
+    canCreateCustomRole: true,
+    status: true,
+    createdBy: true,
+    lastUpdatedBy: true,
+  }),
+});
+
+const updateInputValidation = z.object({
+  params: z.object({
+    planId: z.string(),
+  }),
+  payload: createPlanValidation
+    .omit({
+      tenantId: true,
+      planId: true,
+      createdBy: true,
+      createdDate: true,
+    })
+    .partial(),
+});
+
+
 
 export default {
 
@@ -35,12 +64,12 @@ export default {
     h: ResponseToolkit
   ) {
 
-    const payload =
-      req.payload as PlanPayload;
+ const { payload } = createInputValidation.parse({
+      payload: req.payload,
+    });
 
-    const newPlan = await createPlan(
-      payload
-    );
+  const newPlan = await createPlan(payload);
+
 
     return h.response({
       success: true,
@@ -86,24 +115,31 @@ async updatePlan(
   req: Request,
   h: ResponseToolkit
 ) {
+  const { params, payload } =
+    updateInputValidation.parse({
+      params: req.params,
+      payload: req.payload,
+    });
 
-  const { planId } =
-    req.params;
-console.log("Updating plan with ID:", planId);
-  const payload =
-    req.payload;
-console.log("Update payload:", payload);
-  const updatedPlan =
-    await updatePlan(
-      planId,
-      payload
-    );
-console.log("Updated plan:", updatedPlan);
+  const updatedPlan = await updatePlan(
+    params.planId,
+    payload
+  );
+
+  if (!updatedPlan) {
+    return h.response({
+      success: false,
+      message: "Plan not found",
+    }).code(404);
+  }
+
   return h.response({
     success: true,
     data: updatedPlan,
   }).code(200);
-} ,
+},
+
+
 
   // DELETE PLAN
   async deletePlan(

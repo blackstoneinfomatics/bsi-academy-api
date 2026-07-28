@@ -134,6 +134,7 @@ export const deleteSubscriptionById =
 export const validateFeatureAccess =
   async (
     tenantId: string,
+    role: string,
     feature: string
   ): Promise<boolean> => {
 
@@ -156,7 +157,7 @@ export const validateFeatureAccess =
       return false;
     }
 
-    return plan.features.includes(
+    return !!plan.features[role]?.includes(
       feature
     );
   };

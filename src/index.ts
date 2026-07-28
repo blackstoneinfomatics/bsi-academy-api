@@ -27,7 +27,9 @@ import { sendNotification } from "./operations/notification";
 import { Types } from "mongoose";
 import AlStudenModel from "./models/alstudents";
 import UserModel from "./models/users";
-import SubscriptionModel from "./models/subscription-models";
+import TenantModel from "./models/tenants";
+import { appStatus } from "./config/messages";
+import { TrialExpiredMail } from "./operations/trailExperiedMail";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -255,30 +257,7 @@ cron.schedule("0 0 * * *", async () => {
 });
 
 
-cron.schedule("0 0 * * *", async () => {
-  console.log("⏰ Running subscription update check...");
 
-  const currentDate = new Date()
-  const formattedDate = currentDate.toISOString().split("T")[0]
-
-  const endOfDayIST = `${formattedDate}T23:59:59.999+00:00`
-  const result = await SubscriptionModel.updateMany(
-    {
-      endDate: { $lte: endOfDayIST },
-      subscriptionStatus: "ACTIVE",
-      isTrialUsed: true
-    },
-    {
-      $set: {
-        subscriptionStatus: "EXPIRED",
-        updatedDate: new Date(),
-        isTrialUsed: false
-      }
-    }
-  );
-
-  console.log(`✅ Expired ${result.modifiedCount} subscriptions`);
-});
 
 //adminmeeting
 cron.schedule("*/5 * * * *", async () => {
@@ -952,4 +931,60 @@ async function sendGroupAbsentNotification(type: any, user1: any, user2: any, me
 cron.schedule("0 0 * * 0", async () => {
   console.log("cron runs weekly once for add slots");
   addAditionalSlots();
+});
+
+
+/// tenant trial expiry check cron
+cron.schedule("* * * * *", async () => {
+  console.log("⏰ Running tenant trial expiry check...");
+
+  const currentDate = new Date();
+
+  const TRIAL_PERIOD_DAYS = 14;
+
+  // FIND ACTIVE TENANTS
+  const tenants = await TenantModel.find({
+    status: appStatus.ACTIVE,
+  });
+
+  console.log("result: ", tenants);
+
+  for (const tenant of tenants) {
+
+  const trialEndDate = new Date(tenant.createdDate);
+  trialEndDate.setDate(trialEndDate.getDate() + TRIAL_PERIOD_DAYS);
+
+  if (currentDate < trialEndDate) {
+    continue;
+  }
+
+  console.log(
+    "🔥 Processing:",
+    tenant.tenantCode
+  );
+
+  console.log(
+    "📧 Sending mail to:",
+    tenant.emailId
+  );
+
+  await TrialExpiredMail({
+    ...tenant,
+    tenantName:
+      tenant.organizationName ||
+      tenant.tenantCode,
+    planName:
+      tenant.plan,
+    endDate:
+      trialEndDate,
+    adminEmail:
+      tenant.emailId,
+  });
+
+  console.log(
+    "✅ Mail function completed"
+  );
+}
+
+  console.log("✅ Tenant trial cron completed");
 });

@@ -10,6 +10,7 @@ import { Types } from "mongoose";
 import { config } from "../config/env";
 import axios from 'axios';
 import { generateTenant } from "./rollcounter";
+import { TenantWelcomeMail } from "./trailExperiedMail";
 
 
 export interface TenantDetails {
@@ -46,6 +47,9 @@ export const createTenant = async (
   });
 
   const savedTenant = await newTenant.save();
+
+  await TenantWelcomeMail(savedTenant);
+
   return savedTenant.toObject();
 }
 
