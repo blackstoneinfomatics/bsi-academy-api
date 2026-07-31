@@ -57,6 +57,37 @@ export enum ReferralSource {
   OTHER = "Other"  // Keep as string
 }
 
+export enum SubscriptionInvoiceStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  PARTIALLY_PAID = "PARTIALLY_PAID",
+}
+
+export enum SubscriptionStatus {
+  PENDING = "PENDING",
+  ACTIVE = "ACTIVE",
+  EXPIRED = "EXPIRED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum BillingCycle {
+  MONTHLY = "MONTHLY",
+  QUARTERLY = "QUARTERLY",
+  YEARLY = "YEARLY",
+  LIFETIME = "LIFETIME",
+  HALF_YEARLY = "HALF_YEARLY",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
+  FAILED = "FAILED",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

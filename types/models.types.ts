@@ -1,4 +1,5 @@
-import CustomEnumerator, { AssignmentStatus } from "../src/shared/enum";
+import { Types } from "mongoose";
+import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentStatus, SubscriptionInvoiceStatus, SubscriptionStatus } from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2468,4 +2469,142 @@ export interface ISaasInvoice {
   createdBy: string;
   updatedDate?: Date;
   updatedBy?: string;
+}
+
+export interface ISubscriptionInvoice extends Document {
+  
+  invoiceNumber: string;
+
+  tenantId: Types.ObjectId;
+
+  planId: Types.ObjectId;
+
+  subscriptionId: Types.ObjectId;
+
+  invoiceDate: Date;
+
+  dueDate: Date;
+
+  currency: string;
+
+  paymentTerms: number;
+
+  discountAmount?: number;
+
+  subtotal: number;
+
+  taxAmount: number;
+
+  totalAmount: number;
+
+  status: SubscriptionInvoiceStatus;
+
+  notes?: string;
+
+  attachments?: string[];
+
+  createdBy: string;
+
+  updatedBy?: string;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  deletedAt?: Date | null;
+}
+
+export interface SubscriptionInvoice  {
+  invoiceNumber: string;
+
+  tenantId: Types.ObjectId;
+
+  planId: Types.ObjectId;
+
+  subscriptionId: Types.ObjectId;
+
+  invoiceDate: Date;
+
+  dueDate: Date;
+
+  currency: string;
+
+  paymentTerms: number;
+
+  discountAmount?: number;
+
+  subtotal: number;
+
+  taxAmount: number;
+
+  totalAmount: number;
+
+  status: SubscriptionInvoiceStatus;
+
+  notes?: string;
+
+  attachments?: string[];
+}
+
+export interface ITenantSubscription extends Document {
+  
+  tenantId: Types.ObjectId;
+
+  planId: Types.ObjectId;
+
+  invoiceId: Types.ObjectId;
+
+  subscriptionCode: string;
+
+  billingCycle: BillingCycle;
+
+  status: SubscriptionStatus;
+
+  paymentStatus: PaymentStatus;
+
+  startDate?: Date;
+
+  endDate?: Date;
+
+  nextRenewalDate?: Date;
+
+  autoRenew?: boolean;
+
+  remarks?: string;
+
+  createdBy: string;
+
+  updatedBy?: string;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  deletedAt?: Date | null;
+}
+export interface TenantSubscription  {
+
+  tenantId: Types.ObjectId;
+
+  planId: Types.ObjectId;
+
+  invoiceId: Types.ObjectId;
+
+  subscriptionCode: string;
+
+  billingCycle: BillingCycle;
+
+  status: SubscriptionStatus;
+
+  paymentStatus: PaymentStatus;
+
+  startDate?: Date;
+
+  endDate?: Date;
+
+  nextRenewalDate?: Date;
+
+  autoRenew?: boolean;
+
+  remarks?: string;
 }
