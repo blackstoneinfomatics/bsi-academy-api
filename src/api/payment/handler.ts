@@ -18,8 +18,8 @@ import {
   academicStudentList,
   academicStudentProfile,
 } from "../../kafka/producers/academicProducer";
-import { sendEmailClient } from "../../shared/email";
 import EmailTemplate from "../../models/emailTemplate";
+import { sendEmailClient } from "../../shared/email";
 
 export const createPaymentIntent = async (
   request: Request,

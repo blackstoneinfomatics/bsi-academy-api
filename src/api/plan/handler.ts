@@ -12,6 +12,7 @@ import {
   getPlanById,
   updatePlan,
   deletePlan,
+  getPlanDashboard,
 } from "../../operations/plan";
 import { createPlanValidation } from "../../models/plan-model";
 
@@ -161,4 +162,27 @@ async updatePlan(
       message: result.deletedCount > 0 ? "Plan deleted successfully" : "Plan not found",
     }).code(200);
   },
+
+
+  // GET PLAN DASHBOARD
+  async getPlanDashboard(
+    req: Request,
+    h: ResponseToolkit
+  ) {
+    try {
+      const result = await getPlanDashboard();
+
+      return h.response({
+        success: true,
+        message: "Plan dashboard fetched successfully.",
+        data: result,
+      }).code(200);
+    } catch (error: any) {
+      return h.response({
+        success: false,
+        message: error.message || "Failed to fetch plan dashboard.",
+      }).code(500);
+    }
+  },
+
 };

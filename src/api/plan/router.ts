@@ -104,6 +104,26 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+
+{
+      method: "GET",
+
+      path: "/plans/dashboard",
+
+      options: {
+        handler: handler.getPlanDashboard,
+
+        description: userMessages.DASHBOARD,
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
   ];
 
   server.route(routes);

@@ -2456,20 +2456,6 @@ export interface IReminderHistory {
   createdBy: string;
 }
 
-export interface ISaasInvoice {
-  invoiceId: string;
-  tenantId: string;
-  amount: number;
-  currency: string;
-  dueDate: Date;
-  paymentStatus: "PENDING" | "PAID" | "FAILED";
-  paidDate?: Date;
-  status: string;
-  createdDate: Date;
-  createdBy: string;
-  updatedDate?: Date;
-  updatedBy?: string;
-}
 
 export interface ISubscriptionInvoice extends Document {
   

@@ -140,3 +140,122 @@ export const deletePlan =
       planId: id,
     }).exec();
   };
+
+
+
+
+export const getPlanDashboard = async () => {
+  const [
+    totalPlans,
+    activePlans,
+    inactivePlans,
+    totalTenants,
+    monthlyRevenue,
+    activeSubscriptions,
+    trialSubscriptions,
+    expiredSubscriptions,
+    topPerformingPlan,
+  ] = await Promise.all([
+    PlanModel.countDocuments(),
+
+    PlanModel.countDocuments({
+      status: "Active",
+    }),
+
+    PlanModel.countDocuments({
+      status: "Inactive",
+    }),
+
+    // Future Subscription Model
+    TenantModel.countDocuments(),
+
+    // Future Subscription Model
+    PlanModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amountPaid",
+          },
+        },
+      },
+    ]),
+
+    // Future Subscription Model
+    PlanModel.countDocuments({
+      status: "Active",
+    }),
+
+    // Future Subscription Model
+    PlanModel.countDocuments({
+      subscriptionStatus: "TRIAL",
+    }),
+
+    // Future Subscription Model
+    PlanModel.countDocuments({
+      subscriptionStatus: "EXPIRED",
+    }),
+
+    // Future Subscription Model
+    PlanModel.aggregate([
+      {
+        $group: {
+          _id: "$planId",
+          planName: { $first: "$planName" },
+          subscribedTenants: { $sum: 1 },
+          revenue: { $sum: "$amountPaid" },
+        },
+      },
+      {
+        $sort: {
+          subscribedTenants: -1,
+        },
+      },
+      {
+        $limit: 1,
+      },
+    ]),
+  ]);
+
+  const totalSubscriptions =
+    activeSubscriptions +
+    trialSubscriptions +
+    expiredSubscriptions;
+
+  return {
+    totalPlans,
+    activePlans,
+    inactivePlans,
+
+    totalTenants,
+
+    monthlyRevenue: monthlyRevenue[0]?.total ?? 0,
+
+    planSummary: {
+      active: {
+        count: activeSubscriptions,
+        percentage: totalSubscriptions
+          ? Math.round((activeSubscriptions / totalSubscriptions) * 100)
+          : 0,
+      },
+      trial: {
+        count: trialSubscriptions,
+        percentage: totalSubscriptions
+          ? Math.round((trialSubscriptions / totalSubscriptions) * 100)
+          : 0,
+      },
+      expired: {
+        count: expiredSubscriptions,
+        percentage: totalSubscriptions
+          ? Math.round((expiredSubscriptions / totalSubscriptions) * 100)
+          : 0,
+      },
+    },
+
+    topPerformingPlan: topPerformingPlan[0] ?? {
+      planName: "",
+      subscribedTenants: 0,
+      revenue: 0,
+    },
+  };
+};  
