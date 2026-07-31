@@ -50,6 +50,12 @@ const tenantSchema = new Schema<ITenant>(
       required: true,
       maxlength: 10,
     },
+    domainName: {
+      type: String,
+      maxlength: 10,
+      default: null,
+      required: false,
+    },
     website: {
       type: String,
       default: null,
@@ -151,6 +157,7 @@ export const zodTenantSchema = z.object({
   gstNo: z.string(),
   panNo: z.string(),
   website: z.string(),
+  domainName: z.string().optional(),
   tenantJobCode: z.string(),
   faxNo: z.string(),
   state: z.string(),

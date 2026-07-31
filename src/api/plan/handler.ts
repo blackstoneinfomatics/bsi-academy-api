@@ -34,6 +34,8 @@ const createInputValidation = z.object({
     allowedRoles: true,
     features: true,
     canCreateCustomRole: true,
+    customDomain: true,
+    backup: true,
     status: true,
     createdBy: true,
     lastUpdatedBy: true,

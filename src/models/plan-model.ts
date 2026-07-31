@@ -99,6 +99,24 @@ const PlanSchema = new Schema<Plans>(
       default: false,
     },
 
+    customDomain: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+
+    domain: {
+  type: String,
+  required: false,
+  default: "",
+},  
+
+    backup: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+
     status: {
       type: String,
       enum: Object.values(CustomEnumerator.Status),
@@ -170,6 +188,12 @@ export const createPlanValidation = z.object({
   features: z.record(z.string(), z.array(z.string())),
 
   canCreateCustomRole: z.boolean(),
+
+  customDomain: z.boolean().default(false),
+
+  domain: z.string().optional(),
+
+  backup: z.boolean().default(false),
 
   status: z.string(),
 

@@ -324,7 +324,7 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   TENANT_SETTINGS_ALREADY_EXIST: "Tenant settings is already exists",
   KEY_ALREADY_EXIST: "Key is already exists",
   MODULE_TYPES: ['Integration', 'General', 'Preference'],
-  KEYNAMES: ['ATS_ZOHO_CONFIG', 'CALENDAR_GOOGLE_CONFIG', 'CALENDAR_TEAMS_CONFIG', 'MAIL_GOOGLE_CONFIG', 'MAIL_OUTLOOK_CONFIG', 'DATE_FORMAT', 'TIME_ZONE', 'AI_MODEL'],
+  KEYNAMES: ['ATS_ZOHO_CONFIG', 'CALENDAR_GOOGLE_CONFIG', 'CALENDAR_TEAMS_CONFIG', 'MAIL_GOOGLE_CONFIG', 'MAIL_OUTLOOK_CONFIG', 'DATE_FORMAT', 'TIME_ZONE', 'AI_MODEL', 'CUSTOM_DOMAIN', 'BACKUP'],
   GET_ALL_LIST_START: 'getAllTenantSettingsRecords - Start',
   GET_ALL_LIST_SUCCESS: 'getAllTenantSettingsRecords - Success',
   UPDATE_FAILED: "Failed to update the tenant settings",

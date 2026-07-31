@@ -2238,6 +2238,7 @@ export interface ITenant extends Document {
   postalCode?: string;
   tenantJobCode: string;
   website?: string;
+  domainName?: string;
   status?: string;
   activeLicense?: object;
   plan?: string;
@@ -2273,6 +2274,7 @@ export interface ITenantCreate {
   postalCode?: string;
   tenantJobCode: string;
   website?: string;
+  domainName?: string;
   status?: string;
   settings?: any[];
   createdDate?: Date;
@@ -2325,6 +2327,36 @@ export interface Plans extends Document {
   allowedRoles: string[];
   features: Record<string, string[]>;
   canCreateCustomRole: boolean;
+  customDomain: boolean;
+  domainName: string;
+  backup: boolean;
+  status: string;
+  createdDate: Date;
+  createdBy: string;
+  updatedDate?: Date;
+  lastUpdatedBy?: string;
+}
+
+export interface PlansCreate {
+  tenantId: string;
+  planId: string;
+  planName: string;
+  studentLimit: number;
+  billingCycle: "MONTHLY" | "YEARLY" | "LIFETIME" | "QUARTERLY" | "HALF_YEARLY";
+  monthlyPrice: number;
+  yearlyPrice: number;
+  setupFee: number;
+  trialDays: number;
+  gstAndTax: number;
+  maxUsers: number;
+  planDescription: string;
+  planStatus: string;
+  allowedRoles: string[];
+  features: Record<string, string[]>;
+  canCreateCustomRole: boolean;
+  customDomain: boolean;
+  domainName: string;
+  backup: boolean;
   status: string;
   createdDate: Date;
   createdBy: string;
@@ -2346,6 +2378,91 @@ export interface Subscription extends Document {
   startDate: Date;
   isTrialUsed: boolean;
   endDate: Date;
+  status: string;
+  createdDate: Date;
+  createdBy: string;
+  updatedDate?: Date;
+  updatedBy?: string;
+}
+
+export interface IReminder {
+  reminderId: string;
+  tenantId: string;
+
+  sendReminder: "ALL_OVERDUE_TENANTS" | "SPECIFIC_TENANTS" | "CUSTOM_SELECTION";
+
+  // Required when sendReminder is SPECIFIC_TENANTS or CUSTOM_SELECTION.
+  tenantIds?: string[];
+
+  minimumOverdueDays: number;
+
+  subject: string;
+
+  templateId: string;
+
+  repeatReminder: boolean;
+
+  repeatEveryDays: number;
+
+  stopAfterPayment: boolean;
+
+  channels: {
+    email: boolean;
+    sms: boolean;
+    inApp: boolean;
+    whatsapp: boolean;
+  };
+
+  status: string;
+
+  // Updated by the reminder cron every time a reminder is dispatched.
+  lastReminderSentDate?: Date;
+
+  createdDate: Date;
+  createdBy: string;
+
+  updatedDate: Date;
+  lastUpdatedBy?: string;
+}
+
+export interface IReminderChannelResult {
+  attempted: boolean;
+  success: boolean;
+  error?: string;
+}
+
+export interface IReminderHistory {
+  historyId: string;
+  reminderId: string;
+  tenantId: string;
+  invoiceId: string;
+
+  subject: string;
+  overdueDays: number;
+  amount: number;
+
+  channels: {
+    email: IReminderChannelResult;
+    sms: IReminderChannelResult;
+    whatsapp: IReminderChannelResult;
+    inApp: IReminderChannelResult;
+  };
+
+  // SENT: at least one channel succeeded. FAILED: all attempted channels failed.
+  status: "SENT" | "FAILED";
+
+  sentDate: Date;
+  createdBy: string;
+}
+
+export interface ISaasInvoice {
+  invoiceId: string;
+  tenantId: string;
+  amount: number;
+  currency: string;
+  dueDate: Date;
+  paymentStatus: "PENDING" | "PAID" | "FAILED";
+  paidDate?: Date;
   status: string;
   createdDate: Date;
   createdBy: string;

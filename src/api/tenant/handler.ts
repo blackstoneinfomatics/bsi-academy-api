@@ -97,6 +97,7 @@ const createTenantInputValidation = z.object({
     postalCode: true,
     tenantJobCode: true,
     website: true,
+    domainName: true,
     status: true,
     createdBy: true,
     lastUpdatedBy: true
@@ -122,6 +123,7 @@ export default {
     gstNo,
     panNo,
     website,
+    domainName,
     tenantJobCode,
     faxNo,
     state,
@@ -138,6 +140,8 @@ export default {
     createdBy,
     lastUpdatedBy
     } = payload;
+
+
     return createTenant({
       tenantName,
       tenantLogo,
@@ -160,6 +164,7 @@ export default {
       postalCode,
       tenantJobCode,
       website,
+      domainName,
       status,
       createdBy,
       lastUpdatedBy

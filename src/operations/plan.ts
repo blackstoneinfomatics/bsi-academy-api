@@ -3,6 +3,8 @@
 // ==============================
 
 import PlanModel, { createPlanValidation } from "../models/plan-model";
+import TenantModel from "../models/tenants";
+import Boom from "@hapi/boom";
 import { z } from "zod";
 
 export type CreatePlanPayload = z.infer<
@@ -12,6 +14,48 @@ export type CreatePlanPayload = z.infer<
 export type UpdatePlanPayload = Partial<
   z.infer<typeof createPlanValidation>
 >;
+
+const getPlanForTenant = async (tenantId: string) => {
+  const tenant = await TenantModel.findOne({
+    tenantCode: tenantId,
+  }).lean();
+
+  if (!tenant?.plan) {
+    return null;
+  }
+
+  return PlanModel.findOne({
+    planId: tenant.plan,
+  }).lean();
+};
+
+export const validateCustomDomainFeatureAccess = async (
+  tenantId: string
+): Promise<boolean> => {
+  const plan = await getPlanForTenant(tenantId);
+
+  if (!plan?.customDomain) {
+    throw Boom.forbidden(
+      "Custom Domain feature is not available for your current subscription."
+    );
+  }
+
+  return true;
+};
+
+export const validateBackupFeatureAccess = async (
+  tenantId: string
+): Promise<boolean> => {
+  const plan = await getPlanForTenant(tenantId);
+
+  if (!plan?.backup) {
+    throw Boom.forbidden(
+      "Backup feature is not available for your current subscription."
+    );
+  }
+
+  return true;
+};
 
 // CREATE PLAN
 export const createPlan = async (
@@ -53,6 +97,21 @@ export const updatePlan = async (
   id: string,
   payload: UpdatePlanPayload
 ) => {
+    // Domain validation
+  if (payload.customDomain === true) {
+    // Frontend must send tenant custom domain
+    if (!payload.domain) {
+      throw new Error("Please provide the tenant custom domain.");
+    }
+  }
+
+  if (payload.customDomain === false) {
+    // Frontend must send default running domain
+    if (!payload.domain) {
+      throw new Error("Please provide the default running domain.");
+    }
+  }
+
   return await PlanModel.findOneAndUpdate(
     {
       planId: id,
