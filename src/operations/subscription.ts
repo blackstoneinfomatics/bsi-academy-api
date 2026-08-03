@@ -164,36 +164,31 @@ export const validateFeatureAccess =
 
 
 // VALIDATE USER LIMIT
-export const validateUserLimit =
-  async (
-    tenantId: string,
-    currentUsers: number
-  ): Promise<boolean> => {
+// export const validateUserLimit =
+//   async (
+//     tenantId: string,
+//     currentUsers: number
+//   ): Promise<boolean> => {
 
-    const subscription =
-      await SubscriptionModel.findOne({
-        tenantId,
-        subscriptionStatus:
-          appStatus.ACTIVE,
-      }).lean();
+//     const subscription =
+//       await SubscriptionModel.findOne({
+//         tenantId,
+//         subscriptionStatus:
+//           appStatus.ACTIVE,
+//       }).lean();
 
-    if (!subscription) {
-      return false;
-    }
+//     if (!subscription) {
+//       return false;
+//     }
 
-    const plan = await PlanModel.findOne({
-      planId: subscription.planId,
-    }).lean();
+//     const plan = await PlanModel.findOne({
+//       planId: subscription.planId,
+//     }).lean();
 
-    if (!plan) {
-      return false;
-    }
-
-    return (
-      currentUsers <
-      plan.maxUsers
-    );
-  };
+//     if (!plan) {
+//       return false;
+//     }
+//   };
 
 
 // CHECK TRIAL STATUS

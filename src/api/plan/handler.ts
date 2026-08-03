@@ -14,14 +14,12 @@ import {
   deletePlan,
   getPlanDashboard,
 } from "../../operations/plan";
-import { createPlanValidation } from "../../models/plan-model";
+import planModel, { createPlanValidation } from "../../models/plan-model";
 
 
 const createInputValidation = z.object({
   payload: createPlanValidation.pick({
     planName: true,
-    tenantId: true,
-    planId: true,
     studentLimit: true,
     billingCycle: true,
     planDescription: true,
@@ -31,7 +29,6 @@ const createInputValidation = z.object({
     setupFee: true,
     trialDays: true,
     gstAndTax: true,
-    maxUsers: true,
     allowedRoles: true,
     features: true,
     canCreateCustomRole: true,
@@ -49,7 +46,6 @@ const updateInputValidation = z.object({
   }),
   payload: createPlanValidation
     .omit({
-      tenantId: true,
       planId: true,
       createdBy: true,
       createdDate: true,
@@ -62,22 +58,61 @@ const updateInputValidation = z.object({
 export default {
 
   // CREATE PLAN
-  async createPlan(
-    req: Request,
-    h: ResponseToolkit
-  ) {
+async createPlan(req: Request, h: ResponseToolkit) {
+    try {
+      const { payload } = createInputValidation.parse({
+        payload: req.payload,
+      });
 
- const { payload } = createInputValidation.parse({
-      payload: req.payload,
-    });
+      // Get the latest valid plan ID and generate the next sequential ID
+      const lastPlan = await planModel
+        .findOne(
+          { planId: { $regex: /^PLAN-\d+$/ } },
+          { planId: 1, _id: 0 }
+        )
+        .sort({ planId: -1 });
 
-  const newPlan = await createPlan(payload);
+      let planId = "PLAN-001";
 
+      if (lastPlan?.planId) {
+        const match = lastPlan.planId.match(/^PLAN-(\d+)$/);
+        const lastNumber = match ? parseInt(match[1], 10) : NaN;
 
-    return h.response({
-      success: true,
-      data: newPlan,
-    }).code(201);
+        if (!Number.isNaN(lastNumber)) {
+          planId = `PLAN-${String(lastNumber + 1).padStart(3, "0")}`;
+        }
+      }
+
+      const newPlan = await createPlan({
+        ...payload,
+        planId,
+      });
+
+      console.log("Generated Plan ID:", planId);
+
+      console.log("Payload to save:", {
+  ...payload,
+  planId,
+});
+
+      return h
+        .response({
+          success: true,
+          message: "Plan created successfully",
+          data: newPlan,
+        })
+        .code(201);
+    } catch (error) {
+      console.error(error);
+
+      return h
+        .response({
+          success: false,
+          message: "Failed to create plan",
+          error,
+        })
+        .code(500);
+    }
   },
 
   // GET ALL PLANS

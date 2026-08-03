@@ -6,10 +6,10 @@ import { commonMessages } from "../config/messages";
 
 const PlanSchema = new Schema<Plans>(
   {
-    tenantId: {
-      type: String,
-      required: true,
-    },
+    // tenantId: {
+    //   type: String,
+    //   required: true,
+    // },
 
     planId: {
       type: String,
@@ -65,11 +65,7 @@ const PlanSchema = new Schema<Plans>(
       default: 0,
     },
 
-    maxUsers: {
-      type: Number,
-      required: true,
-      default: 5,
-    },
+
 
     planDescription: {
       type: String,
@@ -78,6 +74,7 @@ const PlanSchema = new Schema<Plans>(
 
     planStatus: {
       type: String,
+      enum: ["Active", "In active", "MOST_POPULAR"],
       required: true,
     },
 
@@ -152,9 +149,9 @@ const PlanSchema = new Schema<Plans>(
 );
 
 export const createPlanValidation = z.object({
-  tenantId: z.string(),
+  // tenantId: z.string(),
 
-  planId: z.string(),
+  planId: z.string().optional(),
   planName: z.string().min(1, "Plan name is required"),
 
   studentLimit: z.number().nonnegative(),
@@ -177,11 +174,14 @@ export const createPlanValidation = z.object({
 
   gstAndTax: z.number().nonnegative(),
 
-  maxUsers: z.number().positive(),
 
   planDescription: z.string().min(1, "Plan description is required"),
 
-  planStatus: z.string().min(1, "Plan status is required"),
+  planStatus: z.enum([
+  "Active",
+  "In active",
+  "MOST_POPULAR",
+]),
 
   allowedRoles: z.array(z.string()),
 

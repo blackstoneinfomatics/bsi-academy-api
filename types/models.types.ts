@@ -2312,7 +2312,7 @@ export interface ITenantSettingsPayload {
   lastUpdatedBy?: string;
 }
 export interface Plans extends Document {
-  tenantId: string;
+  // tenantId: string;
   planId: string;
   planName: string;
   studentLimit: number;
@@ -2322,9 +2322,8 @@ export interface Plans extends Document {
   setupFee: number;
   trialDays: number;
   gstAndTax: number;
-  maxUsers: number;
   planDescription: string;
-  planStatus: string;
+  planStatus: "ACTIVE" | "INACTIVE" | "MOST_POPULAR";
   allowedRoles: string[];
   features: Record<string, string[]>;
   canCreateCustomRole: boolean;
