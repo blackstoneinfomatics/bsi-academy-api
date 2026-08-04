@@ -18,12 +18,6 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
       required: true,
     },
 
-    invoiceId: {
-      type: Schema.Types.ObjectId,
-      ref: "SubscriptionInvoice",
-      required: true,
-    },
-
     subscriptionCode: {
       type: String,
       required: true,
@@ -106,8 +100,6 @@ export const TenantSubscriptionValidation = z.object({
   tenantId: objectId,
 
   planId: objectId,
-
-  invoiceId: objectId,
 
   subscriptionCode: z
     .string()

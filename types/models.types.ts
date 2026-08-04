@@ -2537,8 +2537,6 @@ export interface ITenantSubscription extends Document {
 
   planId: Types.ObjectId;
 
-  invoiceId: Types.ObjectId;
-
   subscriptionCode: string;
 
   billingCycle: BillingCycle;
@@ -2572,8 +2570,6 @@ export interface TenantSubscription  {
   tenantId: Types.ObjectId;
 
   planId: Types.ObjectId;
-
-  invoiceId: Types.ObjectId;
 
   subscriptionCode: string;
 
