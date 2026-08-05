@@ -4,6 +4,7 @@
 
 import PlanModel, { createPlanValidation } from "../models/plan-model";
 import TenantModel from "../models/tenants";
+import TenantSubscriptionModel from "../models/tenantsubscription";
 import Boom from "@hapi/boom";
 import { z } from "zod";
 
@@ -141,9 +142,7 @@ export const deletePlan =
     }).exec();
   };
 
-
-
-
+  
 export const getPlanDashboard = async () => {
   const [
     totalPlans,
@@ -156,20 +155,23 @@ export const getPlanDashboard = async () => {
     expiredSubscriptions,
     topPerformingPlan,
   ] = await Promise.all([
+    // Total Plans
     PlanModel.countDocuments(),
 
+    // Active Plans
     PlanModel.countDocuments({
       status: "Active",
     }),
 
+    // Inactive Plans
     PlanModel.countDocuments({
       status: "Inactive",
     }),
 
-    // Future Subscription Model
+    // Total Tenants
     TenantModel.countDocuments(),
 
-    // Future Subscription Model
+    // Monthly Revenue
     PlanModel.aggregate([
       {
         $group: {
@@ -181,29 +183,34 @@ export const getPlanDashboard = async () => {
       },
     ]),
 
-    // Future Subscription Model
-    PlanModel.countDocuments({
-      status: "Active",
+    // Active Subscriptions
+    TenantSubscriptionModel.countDocuments({
+      status: "ACTIVE",
     }),
 
-    // Future Subscription Model
-    PlanModel.countDocuments({
-      subscriptionStatus: "TRIAL",
+    // Trial Subscriptions
+    TenantSubscriptionModel.countDocuments({
+      status: "TRIAL",
     }),
 
-    // Future Subscription Model
-    PlanModel.countDocuments({
-      subscriptionStatus: "EXPIRED",
+    // Expired Subscriptions
+    TenantSubscriptionModel.countDocuments({
+      status: "EXPIRED",
     }),
 
-    // Future Subscription Model
-    PlanModel.aggregate([
+    // Top Performing Plan
+    TenantSubscriptionModel.aggregate([
+      {
+        $match: {
+          status: "ACTIVE",
+        },
+      },
       {
         $group: {
           _id: "$planId",
-          planName: { $first: "$planName" },
-          subscribedTenants: { $sum: 1 },
-          revenue: { $sum: "$amountPaid" },
+          subscribedTenants: {
+            $sum: 1,
+          },
         },
       },
       {
@@ -213,6 +220,30 @@ export const getPlanDashboard = async () => {
       },
       {
         $limit: 1,
+      },
+      {
+        $lookup: {
+          from: "plans", // Collection name
+          localField: "_id",
+          foreignField: "_id",
+          as: "plan",
+        },
+      },
+      {
+        $unwind: "$plan",
+      },
+      {
+        $project: {
+          _id: "$plan.planId",
+          planName: "$plan.planName",
+          subscribedTenants: 1,
+          revenue: {
+            $multiply: [
+              "$subscribedTenants",
+              "$plan.monthlyPrice",
+            ],
+          },
+        },
       },
     ]),
   ]);
@@ -235,27 +266,34 @@ export const getPlanDashboard = async () => {
       active: {
         count: activeSubscriptions,
         percentage: totalSubscriptions
-          ? Math.round((activeSubscriptions / totalSubscriptions) * 100)
+          ? Math.round(
+              (activeSubscriptions / totalSubscriptions) * 100
+            )
           : 0,
       },
       trial: {
         count: trialSubscriptions,
         percentage: totalSubscriptions
-          ? Math.round((trialSubscriptions / totalSubscriptions) * 100)
+          ? Math.round(
+              (trialSubscriptions / totalSubscriptions) * 100
+            )
           : 0,
       },
       expired: {
         count: expiredSubscriptions,
         percentage: totalSubscriptions
-          ? Math.round((expiredSubscriptions / totalSubscriptions) * 100)
+          ? Math.round(
+              (expiredSubscriptions / totalSubscriptions) * 100
+            )
           : 0,
       },
     },
 
-    topPerformingPlan: topPerformingPlan[0] ?? {
-      planName: "",
-      subscribedTenants: 0,
-      revenue: 0,
-    },
+    topPerformingPlan:
+      topPerformingPlan[0] ?? {
+        planName: "",
+        subscribedTenants: 0,
+        revenue: 0,
+      },
   };
 };  
