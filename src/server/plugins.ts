@@ -39,6 +39,7 @@ import fileUplocadAPI from "../api/fileUpload/router";
 import  teanantAPI  from "../api/tenant/router";
 import subscriptionSAASAPI from "../api/subscription_SAAS/router";
 import plansAPI from "../api/plan/router";
+import reminderAPI from "../api/remainder/router";
 
 
 export const appPlugins = [
@@ -163,5 +164,8 @@ export const appPlugins = [
   },
   {
     plugin:plansAPI,
+  },
+  {
+    plugin:reminderAPI,
   }
 ];

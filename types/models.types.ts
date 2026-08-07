@@ -2435,7 +2435,7 @@ export interface IReminderHistory {
   historyId: string;
   reminderId: string;
   tenantId: string;
-  invoiceId: string;
+  subscriptionId: string;
 
   subject: string;
   overdueDays: number;

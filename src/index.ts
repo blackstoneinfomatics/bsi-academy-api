@@ -30,6 +30,7 @@ import UserModel from "./models/users";
 import TenantModel from "./models/tenants";
 import { appStatus } from "./config/messages";
 import { TrialExpiredMail } from "./operations/trailExperiedMail";
+import { processReminders } from "./operations/remainder";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -935,7 +936,7 @@ cron.schedule("0 0 * * 0", async () => {
 
 
 /// tenant trial expiry check cron
-cron.schedule("* * * * *", async () => {
+cron.schedule("0 0 * * *", async () => {
   console.log("⏰ Running tenant trial expiry check...");
 
   const currentDate = new Date();
@@ -969,7 +970,7 @@ cron.schedule("* * * * *", async () => {
   );
 
   await TrialExpiredMail({
-    ...tenant,
+    ...tenant.toObject(),
     tenantName:
       tenant.organizationName ||
       tenant.tenantCode,
@@ -987,4 +988,19 @@ cron.schedule("* * * * *", async () => {
 }
 
   console.log("✅ Tenant trial cron completed");
+})
+
+
+cron.schedule("* * * * *", async () => {
+  console.log("Cron Started");
+
+  try {
+    console.log("Before processReminders");
+
+    await processReminders();
+
+    console.log("After processReminders");
+  } catch (err) {
+    console.error(err);
+  }
 });
