@@ -2471,7 +2471,7 @@ export interface ISubscriptionInvoice extends Document {
 
   dueDate: Date;
 
-  nextReminderDays?: Date;
+  nextReminderDate?: Date;
 
   currency: string;
 
@@ -2513,7 +2513,7 @@ export interface SubscriptionInvoice  {
 
   dueDate: Date;
 
-  nextReminderDays?: Date;
+  nextReminderDate?: Date;
 
   currency: string;
 

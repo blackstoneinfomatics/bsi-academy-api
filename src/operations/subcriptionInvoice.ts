@@ -5,6 +5,7 @@ import plan from "../models/plan-model";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import TenantSubscription from "../models/tenantsubscription";
 import { SubscriptionInvoiceStatus } from "../shared/enum";
+import { sendEmailClient } from "../shared/email";
 
 export const createSubscriptionInvoice = async (
   payload: SubscriptionInvoice,
@@ -36,15 +37,17 @@ export const createSubscriptionInvoice = async (
       );
     }
 
-    if(payload.paymentTerms < 0) {
-      throw new Error(
-        "Payment Terms should be a non-negative number.",
-      );
+    if (payload.paymentTerms < 0) {
+      throw new Error("Payment Terms should be a non-negative number.");
     }
-    
-    if(payload.nextReminderDays && payload.nextReminderDays < payload.invoiceDate && payload.nextReminderDays < payload.dueDate) {
+
+    if (
+      payload.nextReminderDate &&
+      (payload.nextReminderDate < payload.invoiceDate ||
+        payload.nextReminderDate < payload.dueDate)
+    ) {
       throw new Error(
-        "Next Reminder Days should be greater than or equal to Invoice Date.",
+        "Next Reminder Date should be greater than or equal to Invoice Date and Due Date.",
       );
     }
 
@@ -79,7 +82,9 @@ export const createSubscriptionInvoice = async (
     });
 
     await newInvoice.save();
-    //send email notification to the tenant about the new invoice
+
+    await sendSubscriptionInvoiceEmail(newInvoice._id.toString());
+
     return newInvoice;
   } catch (error: any) {
     throw error;
@@ -418,7 +423,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
   })
     .populate({
       path: "tenantId",
-      select: "tenantCode tenantName email phoneNumber status",
+      select: "tenantCode tenantName emailId phoneNumber status",
     })
     .populate({
       path: "planId",
@@ -434,6 +439,10 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
     throw new Error("Subscription Invoice not found.");
   }
 
+  const tenant = invoice.tenantId as any;
+  const plan = invoice.planId as any;
+  const subscription = invoice.subscriptionId as any;
+
   return {
     invoiceId: invoice._id,
     invoiceNumber: invoice.invoiceNumber,
@@ -448,16 +457,99 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
     status: invoice.status,
     notes: invoice.notes,
     attachments: invoice.attachments,
+    nextReminderDate: invoice.nextReminderDate,
 
-    tenant: invoice.tenantId,
+    tenant: {
+      tenantId: tenant._id,
+      tenantCode: tenant.tenantCode,
+      tenantName: tenant.tenantName,
+      email: tenant.emailId,
+      phoneNumber: tenant.phoneNumber,
+      status: tenant.status,
+    },
 
-    subscriptionPlan: invoice.planId,
+    subscriptionPlan: {
+      planId: plan._id,
+      planCode: plan.planCode,
+      planName: plan.planName,
+      billingCycle: plan.billingCycle,
+      price: plan.price,
+    },
 
-    subscription: invoice.subscriptionId,
+    subscription: {
+      subscriptionId: subscription._id,
+      subscriptionCode: subscription.subscriptionCode,
+      status: subscription.status,
+      paymentStatus: subscription.paymentStatus,
+      billingCycle: subscription.billingCycle,
+      startDate: subscription.startDate,
+      endDate: subscription.endDate,
+      nextRenewalDate: subscription.nextRenewalDate,
+      autoRenew: subscription.autoRenew,
+    },
 
     createdBy: invoice.createdBy,
-
     createdAt: invoice.createdAt,
     updatedAt: invoice.updatedAt,
   };
+};
+
+export const sendSubscriptionInvoiceEmail = async (invoiceId: string) => {
+  try {
+    const invoice = await getSubscriptionInvoiceById(invoiceId);
+    const paymentLink = `https://blackstoneinfomaticstech.com/subscription-invoices/${invoice.invoiceId}/payment`;
+
+    const subject = `Subscription Invoice ${invoice.invoiceNumber}`;
+
+    const html = `
+      <div>
+        <h2>Subscription Invoice</h2>
+         
+        <p>Dear ${invoice.tenant.tenantName},</p>
+        <p>Your subscription invoice has been generated successfully.</p>
+
+        <table>
+          <tr>
+            <td><strong>Invoice Number:</strong></td>
+            <td>${invoice.invoiceNumber}</td>
+          </tr>
+
+          <tr>
+            <td><strong>Invoice Date:</strong></td>
+            <td>${invoice.invoiceDate.toISOString().split("T")[0]}</td>
+          </tr>
+
+          <tr>
+            <td><strong>Due Date:</strong></td>
+            <td>${invoice.dueDate.toISOString().split("T")[0]}</td>
+          </tr>
+
+          <tr>
+            <td><strong>Total Amount:</strong></td>
+            <td>${invoice.currency} ${invoice.totalAmount}</td>
+          </tr>
+        </table>
+
+        <br />
+
+        <a href="${paymentLink}">
+          Pay Invoice
+        </a>
+
+        <p>Thank you.</p>
+      </div>
+    `;
+    
+    const emailTo = [{ email: invoice.tenant.email , name: invoice.tenant.tenantName}];
+    await sendEmailClient(
+      emailTo,
+      subject,
+      html,
+    );
+
+    return true;
+  } catch (error: any) {
+    console.error("Subscription invoice email failed:", error);
+    throw error;
+  }
 };

@@ -22,7 +22,7 @@ export const createSubscriptionInvoiceValidation = z.object({
     subtotal: true,
     taxAmount: true,
     totalAmount: true,
-    nextReminderDays: true,
+    nextReminderDate: true,
     notes: true,
     attachments: true,
     createdBy: true,

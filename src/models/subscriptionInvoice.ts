@@ -43,7 +43,7 @@ export const SubscriptionInvoiceSchema = new Schema<ISubscriptionInvoice>(
       index: true,
     },
 
-    nextReminderDays: {
+    nextReminderDate: {
       type: Date,
       default: null,
     },
@@ -143,7 +143,7 @@ export const SubscriptionInvoiceBaseValidation = z
 
     dueDate: z.coerce.date(),
 
-    nextReminderDays: z.coerce.date().optional(),
+    nextReminderDate: z.coerce.date().optional(),
 
     currency: z.string().trim().length(3).default("INR"),
 
