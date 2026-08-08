@@ -18,9 +18,35 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+{
+  method: "GET",
+
+  path: "/tenant-subscriptions/dashboard",
+
+  options: {
+    handler:
+      handler.getTenantSubscriptionDashboard,
+
+    description:
+      "Get tenant subscription dashboard",
+
+    tags: ["api", "tenant-subscriptions"],
+
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
   ];
   server.route(routes);
-};
+};  
+
+
+
+
+
 export = {
   name: 'api-tenantSubscription',
   register,
