@@ -991,7 +991,7 @@ cron.schedule("0 0 * * *", async () => {
 })
 
 
-cron.schedule("* * * * *", async () => {
+cron.schedule("0 0 * * *", async () => {
   console.log("Cron Started");
 
   try {

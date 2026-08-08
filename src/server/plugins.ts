@@ -29,6 +29,7 @@ import courseAPI from "../api/course/router";
 import employeeWagesAPI from "../api/empwege/router";
 import expenseAPI from "../api/expenses/router";
 import KnowledgeBaseAPI from "../api/knowledgebase/router";
+import tenantSubscriptionAPI from "../api/tenantSubscription/router";
 import salaryandwagesAPI from "../api/salarywages/router";
 import packageAPI from "../api/package/router"
 import leaveRequestAPI from "../api/leaveRequest/router";
@@ -170,5 +171,8 @@ export const appPlugins = [
   },
   {
     plugin:subscriptionInvoiceAPI,
+  },
+  {
+    plugin:tenantSubscriptionAPI,
   }
 ];
