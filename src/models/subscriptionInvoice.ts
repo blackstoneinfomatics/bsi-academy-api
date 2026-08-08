@@ -43,6 +43,11 @@ export const SubscriptionInvoiceSchema = new Schema<ISubscriptionInvoice>(
       index: true,
     },
 
+    nextReminderDays: {
+      type: Date,
+      default: null,
+    },
+
     currency: {
       type: String,
       required: true,
@@ -126,10 +131,8 @@ export const SubscriptionInvoiceSchema = new Schema<ISubscriptionInvoice>(
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
-export const SubscriptionInvoiceValidation = z
+export const SubscriptionInvoiceBaseValidation = z
   .object({
-    tenantId: objectId,
-
     planId: objectId,
 
     subscriptionId: objectId,
@@ -139,6 +142,8 @@ export const SubscriptionInvoiceValidation = z
     invoiceDate: z.coerce.date(),
 
     dueDate: z.coerce.date(),
+
+    nextReminderDays: z.coerce.date().optional(),
 
     currency: z.string().trim().length(3).default("INR"),
 
@@ -167,11 +172,20 @@ export const SubscriptionInvoiceValidation = z
     notes: z.string().trim().max(1000).optional(),
 
     attachments: z.array(z.string()).optional(),
-  })
-  .refine((data) => data.dueDate >= data.invoiceDate, {
-    path: ["dueDate"],
-    message: "Due date must be greater than or equal to invoice date.",
+
+    createdBy: z.string().trim().min(1, "Created by is required"),
+
+    updatedBy: z.string().trim().optional(),
   });
+
+ export const SubscriptionInvoiceValidation =
+  SubscriptionInvoiceBaseValidation.refine(
+    (data) => data.dueDate >= data.invoiceDate,
+    {
+      path: ["dueDate"],
+      message: "Due date must be greater than or equal to invoice date.",
+    }
+  );
 
 export type CreateSubscriptionInvoicePayload = z.infer<
   typeof SubscriptionInvoiceValidation

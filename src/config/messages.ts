@@ -522,3 +522,14 @@ export const syncJob: Record<string, any> = Object.freeze({
   UNEXPECTED_ERROR: 'An unexpected error occurred',
   CONTENT_TYPE: ['Bearer', 'application/json', 'application/x-www-form-urlencoded'],
 });
+
+export const subscriptionInvoiceMessages = {
+  CREATE: "Create Subscription Invoice",
+  GET_ALL: "Get Subscription Invoices",
+  GET_BY_ID: "Get Subscription Invoice By Id",
+  UPDATE: "Update Subscription Invoice",
+  DELETE: "Delete Subscription Invoice",
+  GET_DASHBOARD_COUNT: "Get Subscription Invoice Dashboard Count",
+  INVOICE_NOT_FOUND: "Subscription Invoice not found",
+  INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+};

@@ -96,7 +96,7 @@ const objectId = z
   .string()
   .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
-export const TenantSubscriptionValidation = z.object({
+export const TenantSubscriptionBaseValidation = z.object({
   tenantId: objectId,
 
   planId: objectId,
@@ -136,20 +136,19 @@ export const TenantSubscriptionValidation = z.object({
   createdBy: z.string().trim().min(1, "Created by is required"),
 
   updatedBy: z.string().trim().optional(),
-})
-.refine(
-  (data) =>
-    !data.startDate ||
-    !data.endDate ||
-    data.endDate >= data.startDate,
-  {
-    path: ["endDate"],
-    message: "End date must be greater than or equal to start date.",
-  }
-);
+});
+
+ export const TenantSubscriptionValidation =
+  TenantSubscriptionBaseValidation.refine(
+    (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
+    {
+      path: ["endDate"],
+      message: "End date must be greater than or equal to start date.",
+    }
+  );
 
 export type CreateTenantSubscriptionDto = z.infer<
-  typeof TenantSubscriptionValidation
+  typeof TenantSubscriptionBaseValidation
 >;
 export default mongoose.model<ITenantSubscription>(
   "TenantSubscription",

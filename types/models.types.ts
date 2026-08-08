@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentStatus, SubscriptionInvoiceStatus, SubscriptionStatus } from "../src/shared/enum";
+import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus } from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2456,6 +2456,7 @@ export interface IReminderHistory {
 }
 
 
+
 export interface ISubscriptionInvoice extends Document {
   
   invoiceNumber: string;
@@ -2469,6 +2470,8 @@ export interface ISubscriptionInvoice extends Document {
   invoiceDate: Date;
 
   dueDate: Date;
+
+  nextReminderDays?: Date;
 
   currency: string;
 
@@ -2502,8 +2505,6 @@ export interface ISubscriptionInvoice extends Document {
 export interface SubscriptionInvoice  {
   invoiceNumber: string;
 
-  tenantId: Types.ObjectId;
-
   planId: Types.ObjectId;
 
   subscriptionId: Types.ObjectId;
@@ -2511,6 +2512,8 @@ export interface SubscriptionInvoice  {
   invoiceDate: Date;
 
   dueDate: Date;
+
+  nextReminderDays?: Date;
 
   currency: string;
 
@@ -2529,6 +2532,8 @@ export interface SubscriptionInvoice  {
   notes?: string;
 
   attachments?: string[];
+
+  createdBy: string;
 }
 
 export interface ITenantSubscription extends Document {
@@ -2588,4 +2593,56 @@ export interface TenantSubscription  {
   autoRenew?: boolean;
 
   remarks?: string;
+}
+
+export interface IPaymentTransaction extends Document {
+  paymentNumber: string;
+
+  tenantId: Types.ObjectId;
+
+  invoiceId: Types.ObjectId;
+
+  subscriptionId: Types.ObjectId;
+
+  paymentType: PaymentType;
+
+  gateway: PaymentGateway;
+
+  paymentStatus: PaymentStatus;
+
+  amount: number;
+
+  currency: string;
+
+  stripePaymentIntentId?: string;
+
+  transactionReference?: string;
+
+  paymentMethod?: string;
+
+  paymentResponse?: any;
+
+  failureReason?: string;
+
+  paymentDate?: Date;
+
+  refundId?: string;
+
+  refundAmount?: number;
+
+  refundDate?: Date;
+
+  refundReason?: string;
+
+  remarks?: string;
+
+  createdBy: string;
+
+  updatedBy?: string;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  deletedAt?: Date | null;
 }

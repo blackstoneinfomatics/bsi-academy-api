@@ -82,10 +82,24 @@ export enum BillingCycle {
   HALF_YEARLY = "HALF_YEARLY",
 }
 
+export enum PaymentType {
+  SUBSCRIPTION = "SUBSCRIPTION",
+  RENEWAL = "RENEWAL",
+  REFUND = "REFUND",
+}
+
 export enum PaymentStatus {
   PENDING = "PENDING",
-  PAID = "PAID",
+  PROCESSING = "PROCESSING",
+  SUCCESS = "SUCCESS",
   FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
+  REFUNDED = "REFUNDED",
+  PAID = "PAID",
+}
+
+export enum PaymentGateway {
+  STRIPE = "STRIPE",
 }
 
 export class CustomEnumerator {
