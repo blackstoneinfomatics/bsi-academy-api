@@ -7,6 +7,8 @@ import TenantSubscription from "../models/tenantsubscription";
 import { SubscriptionInvoiceStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 
+type InvoiceEmailType = "CREATED" | "REMINDER";
+
 export const createSubscriptionInvoice = async (
   payload: SubscriptionInvoice,
   tenantId: string,
@@ -83,7 +85,7 @@ export const createSubscriptionInvoice = async (
 
     await newInvoice.save();
 
-    await sendSubscriptionInvoiceEmail(newInvoice._id.toString());
+    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(),"CREATED");
 
     return newInvoice;
   } catch (error: any) {
@@ -494,21 +496,76 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
   };
 };
 
-export const sendSubscriptionInvoiceEmail = async (invoiceId: string) => {
+
+export const processSubscriptionInvoiceReminders = async () => {
+  try{
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const invoices = await SubscriptionInvoiceModel.find({
+      nextReminderDate: {
+        $gte: start,
+        $lte: end,
+      },
+      status: SubscriptionInvoiceStatus.PENDING,
+      deletedAt: null,
+    });
+    
+    for (const invoice of invoices) {
+      try {
+        await sendSubscriptionInvoiceEmail(invoice._id.toString(), "REMINDER");
+        await SubscriptionInvoiceModel.updateOne(
+          { _id: invoice._id },
+          { $inc: { paymentTerms: 1 } },
+        );
+        console.log(`Reminder email sent for invoice: ${invoice.invoiceNumber}`);
+      } catch (error) {
+        console.error(
+          `Failed to send reminder email for invoice: ${invoice.invoiceNumber}`,
+          error,
+        );
+      }
+    }
+
+  }catch(error){
+    console.error("Error processing subscription invoice reminders:", error);
+  }
+}
+
+export const sendSubscriptionInvoiceEmail = async (
+  invoiceId: string,
+  type: InvoiceEmailType = "CREATED"
+) => {
   try {
     const invoice = await getSubscriptionInvoiceById(invoiceId);
+
     const paymentLink = `https://blackstoneinfomaticstech.com/subscription-invoices/${invoice.invoiceId}/payment`;
 
-    const subject = `Subscription Invoice ${invoice.invoiceNumber}`;
+    const isReminder = type === "REMINDER";
+
+    const subject = isReminder
+      ? `Reminder: Invoice ${invoice.invoiceNumber}`
+      : `Subscription Invoice ${invoice.invoiceNumber}`;
+
+    const heading = isReminder
+      ? "Payment Reminder"
+      : "Subscription Invoice";
+
+    const introText = isReminder
+      ? "This is a reminder for your pending invoice."
+      : "Your subscription invoice has been generated successfully.";
 
     const html = `
-      <div>
-        <h2>Subscription Invoice</h2>
-         
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>${heading}</h2>
+        
         <p>Dear ${invoice.tenant.tenantName},</p>
-        <p>Your subscription invoice has been generated successfully.</p>
+        <p>${introText}</p>
 
-        <table>
+        <table cellpadding="6">
           <tr>
             <td><strong>Invoice Number:</strong></td>
             <td>${invoice.invoiceNumber}</td>
@@ -519,10 +576,15 @@ export const sendSubscriptionInvoiceEmail = async (invoiceId: string) => {
             <td>${invoice.invoiceDate.toISOString().split("T")[0]}</td>
           </tr>
 
+          ${
+            invoice.dueDate
+              ? `
           <tr>
             <td><strong>Due Date:</strong></td>
             <td>${invoice.dueDate.toISOString().split("T")[0]}</td>
-          </tr>
+          </tr>`
+              : ""
+          }
 
           <tr>
             <td><strong>Total Amount:</strong></td>
@@ -532,20 +594,29 @@ export const sendSubscriptionInvoiceEmail = async (invoiceId: string) => {
 
         <br />
 
-        <a href="${paymentLink}">
+        <a href="${paymentLink}" 
+           style="display:inline-block;padding:10px 16px;background:#007bff;color:#fff;text-decoration:none;border-radius:4px;">
           Pay Invoice
         </a>
+
+        ${
+          isReminder
+            ? `<p style="color:red;"><strong>Note:</strong> This invoice is still pending. Kindly make the payment.</p>`
+            : ""
+        }
 
         <p>Thank you.</p>
       </div>
     `;
-    
-    const emailTo = [{ email: invoice.tenant.email , name: invoice.tenant.tenantName}];
-    await sendEmailClient(
-      emailTo,
-      subject,
-      html,
-    );
+
+    const emailTo = [
+      {
+        email: invoice.tenant.email,
+        name: invoice.tenant.tenantName,
+      },
+    ];
+
+    await sendEmailClient(emailTo, subject, html);
 
     return true;
   } catch (error: any) {

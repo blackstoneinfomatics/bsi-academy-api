@@ -31,6 +31,7 @@ import TenantModel from "./models/tenants";
 import { appStatus } from "./config/messages";
 import { TrialExpiredMail } from "./operations/trailExperiedMail";
 import { processReminders } from "./operations/remainder";
+import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -80,6 +81,12 @@ start();
 cron.schedule("0 0 * * 0", async () => {
   console.log("🧹 Weekly Redis + MongoDB cleanup");
   await cleanupOldDates(7);
+});
+
+//super admin subricption invoice remainder cronjob 
+cron.schedule("0 9 * * *", async () => {
+  console.log("🧹 Subscription invoice remainder cronjob");
+  await processSubscriptionInvoiceReminders();
 });
 
 
