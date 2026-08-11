@@ -148,7 +148,7 @@ export const PaymentTransactionSchema = new Schema<IPaymentTransaction>(
     },
   },
   {
-    collection: "payments",
+    collection: "Paymenttransaction",
     timestamps: true,
   }
 );
