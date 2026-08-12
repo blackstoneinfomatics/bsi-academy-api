@@ -124,6 +124,25 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+    // GET PLAN ANALYTICS
+    {
+      method: "GET",
+
+      path: "/plans/analytics",
+
+      options: {
+        handler: handler.getPlanAnalytics,
+
+        description: "Get plan revenue analytics by period",
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
   ];
 
   server.route(routes);

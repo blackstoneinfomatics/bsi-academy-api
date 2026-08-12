@@ -4,7 +4,7 @@ import {
   Request,
   ResponseToolkit,
 } from "@hapi/hapi";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 
 import {
   createPlan,
@@ -13,8 +13,15 @@ import {
   updatePlan,
   deletePlan,
   getPlanDashboard,
+  getPlanAnalytics,
 } from "../../operations/plan";
 import planModel, { createPlanValidation } from "../../models/plan-model";
+
+const getPlanAnalyticsValidation = z.object({
+  query: z.object({
+    period: z.enum(["monthly", "quarterly", "yearly"]).default("yearly"),
+  }),
+});
 
 
 const createInputValidation = z.object({
@@ -216,6 +223,39 @@ async updatePlan(
       return h.response({
         success: false,
         message: error.message || "Failed to fetch plan dashboard.",
+      }).code(500);
+    }
+  },
+
+  // GET PLAN ANALYTICS
+  async getPlanAnalytics(
+    req: Request,
+    h: ResponseToolkit
+  ) {
+    try {
+      const { query } = getPlanAnalyticsValidation.parse({
+        query: req.query,
+      });
+
+      const result = await getPlanAnalytics(query.period);
+
+      return h.response({
+        success: true,
+        message: "Plan analytics fetched successfully.",
+        data: result,
+      }).code(200);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return h.response({
+          success: false,
+          message: "Validation Failed",
+          errors: error.errors,
+        }).code(400);
+      }
+
+      return h.response({
+        success: false,
+        message: error.message || "Failed to fetch plan analytics.",
       }).code(500);
     }
   },

@@ -39,6 +39,26 @@ const register = async (server: Server): Promise<void> => {
   },
 },
 
+{
+  method: "GET",
+
+  path: "/subscription/analytics/growth",
+
+  options: {
+    handler:
+      handler.getTenantSubscriptionGrowthAnalytics,
+
+    description:
+      "Get tenant subscription growth analytics",
+
+    tags: ["api", "tenant-subscriptions"],
+
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
   ];
   server.route(routes);
 };  

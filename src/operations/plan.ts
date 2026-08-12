@@ -5,8 +5,25 @@
 import PlanModel, { createPlanValidation } from "../models/plan-model";
 import TenantModel from "../models/tenants";
 import TenantSubscriptionModel from "../models/tenantsubscription";
+import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
+import { SubscriptionInvoiceStatus } from "../shared/enum";
 import Boom from "@hapi/boom";
 import { z } from "zod";
+
+export type PlanAnalyticsPeriod = "monthly" | "quarterly" | "yearly";
+
+export interface PlanAnalyticsPlan {
+  planId: string;
+  planName: string;
+  revenue: number;
+  percentage: number;
+}
+
+export interface PlanAnalyticsResponse {
+  period: PlanAnalyticsPeriod;
+  plans: PlanAnalyticsPlan[];
+  popularPlan: PlanAnalyticsPlan | null;
+}
 
 export type CreatePlanPayload = z.infer<
   typeof createPlanValidation
@@ -296,4 +313,91 @@ export const getPlanDashboard = async () => {
         revenue: 0,
       },
   };
-};  
+};
+
+const getAnalyticsPeriodRange = (period: PlanAnalyticsPeriod) => {
+  const now = new Date();
+  const year = now.getFullYear();
+
+  if (period === "monthly") {
+    return {
+      start: new Date(year, now.getMonth(), 1),
+      end: new Date(year, now.getMonth() + 1, 1),
+    };
+  }
+
+  if (period === "quarterly") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+
+    return {
+      start: new Date(year, quarterStartMonth, 1),
+      end: new Date(year, quarterStartMonth + 3, 1),
+    };
+  }
+
+  return {
+    start: new Date(year, 0, 1),
+    end: new Date(year + 1, 0, 1),
+  };
+};
+
+// GET PLAN ANALYTICS (revenue by plan for the selected period)
+export const getPlanAnalytics = async (
+  period: PlanAnalyticsPeriod = "yearly"
+): Promise<PlanAnalyticsResponse> => {
+  const { start, end } = getAnalyticsPeriodRange(period);
+
+  const [activePlans, revenueByPlan] = await Promise.all([
+    PlanModel.find({ status: "Active" }).lean(),
+
+    SubscriptionInvoiceModel.aggregate([
+      {
+        $match: {
+          status: SubscriptionInvoiceStatus.PAID,
+          deletedAt: null,
+          invoiceDate: { $gte: start, $lt: end },
+        },
+      },
+      {
+        $group: {
+          _id: "$planId",
+          revenue: { $sum: "$totalAmount" },
+        },
+      },
+    ]),
+  ]);
+
+  const revenueByPlanId = new Map<string, number>(
+    revenueByPlan.map((entry) => [entry._id.toString(), entry.revenue])
+  );
+
+  const plansWithRevenue = activePlans.map((plan) => ({
+    planId: plan.planId,
+    planName: plan.planName,
+    revenue: revenueByPlanId.get(plan._id.toString()) || 0,
+  }));
+
+  const totalRevenue = plansWithRevenue.reduce(
+    (sum, plan) => sum + plan.revenue,
+    0
+  );
+
+  const plans: PlanAnalyticsPlan[] = plansWithRevenue.map((plan) => ({
+    ...plan,
+    percentage:
+      totalRevenue > 0
+        ? Math.round((plan.revenue / totalRevenue) * 100)
+        : 0,
+  }));
+
+  const popularPlan = plans.reduce<PlanAnalyticsPlan | null>(
+    (top, plan) => (!top || plan.revenue > top.revenue ? plan : top),
+    null
+  );
+
+  return {
+    period,
+    plans,
+    popularPlan,
+  };
+};

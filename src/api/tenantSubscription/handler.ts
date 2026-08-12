@@ -1,5 +1,17 @@
 import { ResponseToolkit, Request } from "@hapi/hapi";
-import { getActiveTenantSubscriptionRecord, getTenantSubscriptionDashboard } from "../../operations/tenantSubscription.";
+import { z, ZodError } from "zod";
+import {
+  getActiveTenantSubscriptionRecord,
+  getTenantSubscriptionDashboard,
+  getTenantSubscriptionGrowthAnalytics,
+} from "../../operations/tenantSubscription.";
+
+export const getTenantSubscriptionGrowthAnalyticsValidation = z.object({
+  query: z.object({
+    view: z.enum(["yearly", "monthly"]).default("yearly"),
+    year: z.coerce.number().int().min(2000).max(2100).optional(),
+  }),
+});
 
 
 export default {
@@ -42,5 +54,50 @@ export default {
   }
 },
 
+async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
+    try {
+      const { query } = getTenantSubscriptionGrowthAnalyticsValidation.parse({
+        query: req.query,
+      });
+
+      const result = await getTenantSubscriptionGrowthAnalytics(
+        query.view,
+        query.year
+      );
+
+      return h
+        .response({
+          success: true,
+          message:
+            "Tenant subscription growth analytics fetched successfully.",
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return h
+          .response({
+            success: false,
+            message: "Validation Failed",
+            errors: error.errors,
+          })
+          .code(400);
+      }
+
+      console.error(
+        "Tenant Subscription Growth Analytics Error:",
+        error
+      );
+
+      return h
+        .response({
+          success: false,
+          message:
+            error.message ||
+            "Failed to fetch tenant subscription growth analytics.",
+        })
+        .code(500);
+    }
+  },
 
 };
