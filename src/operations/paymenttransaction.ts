@@ -96,19 +96,11 @@ export class PaymentService {
     throw new Error("Validation Failed");
   }
 
-  if (paymentIntentResponse.status !== "succeeded") {
-    throw new Error("Payment Validation Failed");
-  }
-
   try {
     const invoice = await InvoiceModel.findById(invoiceId);
 
     if (!invoice) {
       throw new Error("Subscription Invoice not found.");
-    }
-
-    if (invoice.status === "PAID") {
-      throw new Error("Invoice has already been paid.");
     }
 
     const payment = await PaymentModel.findOne({
@@ -128,38 +120,58 @@ export class PaymentService {
       throw new Error("Tenant Subscription not found.");
     }
 
-    // 1. Update Payment (first - most critical)
-    payment.paymentStatus = PaymentStatus.SUCCESS;
     payment.paymentDate = new Date();
     payment.transactionReference = paymentIntentResponse.id;
-    payment.paymentMethod = paymentIntentResponse.payment_method_types?.[0] || "CARD";
+    payment.paymentMethod =
+      paymentIntentResponse.payment_method_types?.[0] || "CARD";
     payment.paymentResponse = paymentIntentResponse;
     payment.updatedBy = "System";
 
+  
+    if (paymentIntentResponse.status === "succeeded") {
+      if (invoice.status === "PAID") {
+        throw new Error("Invoice has already been paid.");
+      }
+
+      payment.paymentStatus = PaymentStatus.SUCCESS;
+      await payment.save();
+
+      invoice.status = SubscriptionInvoiceStatus.PAID;
+      await invoice.save();
+
+      // Update Subscription
+      const startDate = new Date();
+      const endDate = this.calculateEndDate(
+        startDate,
+        subscription.billingCycle,
+      );
+
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.paymentStatus = PaymentStatus.PAID;
+      subscription.startDate = startDate;
+      subscription.endDate = endDate;
+      subscription.nextRenewalDate = endDate;
+
+      await subscription.save();
+
+      return {
+        success: true,
+        message: "Payment completed successfully.",
+      };
+    }
+
+
+    payment.paymentStatus = PaymentStatus.FAILED;
+    payment.failureReason =
+      paymentIntentResponse?.last_payment_error?.message ||
+      paymentIntentResponse?.failure_message ||
+      "Payment failed";
+
     await payment.save();
 
-    // 2. Update Invoice
-    invoice.status = SubscriptionInvoiceStatus.PAID;
-    await invoice.save();
-
-    // 3. Update Subscription
-    const startDate = new Date();
-    const endDate = this.calculateEndDate(
-      startDate,
-      subscription.billingCycle,
-    );
-
-    subscription.status = SubscriptionStatus.ACTIVE;
-    subscription.paymentStatus = PaymentStatus.PAID;
-    subscription.startDate = startDate;
-    subscription.endDate = endDate;
-    subscription.nextRenewalDate = endDate;
-
-    await subscription.save();
-
     return {
-      success: true,
-      message: "Payment completed successfully.",
+      success: false,
+      message: payment.failureReason,
     };
   } catch (err) {
     console.error(err);
