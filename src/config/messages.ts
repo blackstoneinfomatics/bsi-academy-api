@@ -533,3 +533,14 @@ export const subscriptionInvoiceMessages = {
   INVOICE_NOT_FOUND: "Subscription Invoice not found",
   INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
 };
+
+export const subscriptionTrialMessages = {
+  CREATE: "Create Subscription Trial",
+  GET_ALL: "Get Subscription Trials",
+  GET_BY_ID: "Get Subscription Trial By Id",
+  UPDATE: "Update Subscription Trial",
+  DELETE: "Delete Subscription Trial",
+  GET_DASHBOARD_COUNT: "Get Subscription Trial Dashboard Count",
+  TRIAL_NOT_FOUND: "Subscription Trial not found",
+  INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+};

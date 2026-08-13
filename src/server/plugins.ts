@@ -42,6 +42,7 @@ import subscriptionSAASAPI from "../api/subscription_SAAS/router";
 import plansAPI from "../api/plan/router";
 import reminderAPI from "../api/remainder/router";
 import subscriptionInvoiceAPI from "../api/subcriptionInvoice/router";
+import subscriptionTrialAPI from "../api/subscriptionTrial/router";
 
 export const appPlugins = [
   {
@@ -174,5 +175,8 @@ export const appPlugins = [
   },
   {
     plugin:tenantSubscriptionAPI,
+  },
+  {
+    plugin:subscriptionTrialAPI,
   }
 ];

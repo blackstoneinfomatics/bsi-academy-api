@@ -102,6 +102,16 @@ export enum PaymentGateway {
   STRIPE = "STRIPE",
 }
 
+export enum SubscriptionTrialStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CANCELLED = "CANCELLED",
+  CONVERTED = "CONVERTED",
+  EXPIRED = "EXPIRED",
+  COMPLETED = "COMPLETED",
+  EXPIRING_SOON = "EXPIRING_SOON",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

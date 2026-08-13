@@ -419,81 +419,95 @@ export const getSubscriptionInvoices = async (query: any) => {
 };
 
 export const getSubscriptionInvoiceById = async (invoiceId: string) => {
-  const invoice = await SubscriptionInvoiceModel.findOne({
-    _id: invoiceId,
-    deletedAt: null,
-  })
-    .populate({
-      path: "tenantId",
-      select: "tenantCode tenantName emailId phoneNumber status",
+  try {
+    const invoice = await SubscriptionInvoiceModel.findOne({
+      _id: invoiceId,
+      deletedAt: null,
     })
-    .populate({
-      path: "planId",
-      select: "planCode planName billingCycle price",
-    })
-    .populate({
-      path: "subscriptionId",
-      select:
-        "subscriptionCode status paymentStatus billingCycle startDate endDate nextRenewalDate autoRenew",
-    });
+      .populate({
+        path: "tenantId",
+        select: "tenantCode tenantName emailId phoneNumber status",
+      })
+      .populate({
+        path: "planId",
+        select: "planCode planName billingCycle price",
+      })
+      .populate({
+        path: "subscriptionId",
+        select:
+          "subscriptionCode status paymentStatus billingCycle startDate endDate nextRenewalDate autoRenew",
+      });
 
-  if (!invoice) {
-    throw new Error("Subscription Invoice not found.");
+    if (!invoice) {
+      throw new Error("Subscription Invoice not found.");
+    }
+
+    const tenant = invoice.tenantId as any;
+    const plan = invoice.planId as any;
+    const subscription = invoice.subscriptionId as any;
+
+    return {
+      invoiceId: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      currency: invoice.currency,
+      paymentTerms: invoice.paymentTerms,
+      discountAmount: invoice.discountAmount,
+      subtotal: invoice.subtotal,
+      taxAmount: invoice.taxAmount,
+      totalAmount: invoice.totalAmount,
+      status: invoice.status,
+      notes: invoice.notes,
+      attachments: invoice.attachments,
+      nextReminderDate: invoice.nextReminderDate,
+
+      tenant: tenant
+        ? {
+            tenantId: tenant._id,
+            tenantCode: tenant.tenantCode,
+            tenantName: tenant.tenantName,
+            email: tenant.emailId,
+            phoneNumber: tenant.phoneNumber,
+            status: tenant.status,
+          }
+        : null,
+
+      subscriptionPlan: plan
+        ? {
+            planId: plan._id,
+            planCode: plan.planCode,
+            planName: plan.planName,
+            billingCycle: plan.billingCycle,
+            price: plan.price,
+          }
+        : null,
+
+      subscription: subscription
+        ? {
+            subscriptionId: subscription._id,
+            subscriptionCode: subscription.subscriptionCode,
+            status: subscription.status,
+            paymentStatus: subscription.paymentStatus,
+            billingCycle: subscription.billingCycle,
+            startDate: subscription.startDate,
+            endDate: subscription.endDate,
+            nextRenewalDate: subscription.nextRenewalDate,
+            autoRenew: subscription.autoRenew,
+          }
+        : null,
+
+      createdBy: invoice.createdBy,
+      createdAt: invoice.createdAt,
+      updatedAt: invoice.updatedAt,
+    };
+  } catch (error: any) {
+   
+    if (error.message === "Subscription Invoice not found.") {
+      throw error; 
+    }
+    throw new Error("Internal Server Error");
   }
-
-  const tenant = invoice.tenantId as any;
-  const plan = invoice.planId as any;
-  const subscription = invoice.subscriptionId as any;
-
-  return {
-    invoiceId: invoice._id,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceDate: invoice.invoiceDate,
-    dueDate: invoice.dueDate,
-    currency: invoice.currency,
-    paymentTerms: invoice.paymentTerms,
-    discountAmount: invoice.discountAmount,
-    subtotal: invoice.subtotal,
-    taxAmount: invoice.taxAmount,
-    totalAmount: invoice.totalAmount,
-    status: invoice.status,
-    notes: invoice.notes,
-    attachments: invoice.attachments,
-    nextReminderDate: invoice.nextReminderDate,
-
-    tenant: {
-      tenantId: tenant._id,
-      tenantCode: tenant.tenantCode,
-      tenantName: tenant.tenantName,
-      email: tenant.emailId,
-      phoneNumber: tenant.phoneNumber,
-      status: tenant.status,
-    },
-
-    subscriptionPlan: {
-      planId: plan._id,
-      planCode: plan.planCode,
-      planName: plan.planName,
-      billingCycle: plan.billingCycle,
-      price: plan.price,
-    },
-
-    subscription: {
-      subscriptionId: subscription._id,
-      subscriptionCode: subscription.subscriptionCode,
-      status: subscription.status,
-      paymentStatus: subscription.paymentStatus,
-      billingCycle: subscription.billingCycle,
-      startDate: subscription.startDate,
-      endDate: subscription.endDate,
-      nextRenewalDate: subscription.nextRenewalDate,
-      autoRenew: subscription.autoRenew,
-    },
-
-    createdBy: invoice.createdBy,
-    createdAt: invoice.createdAt,
-    updatedAt: invoice.updatedAt,
-  };
 };
 
 
@@ -562,7 +576,7 @@ export const sendSubscriptionInvoiceEmail = async (
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
         <h2>${heading}</h2>
         
-        <p>Dear ${invoice.tenant.tenantName},</p>
+        <p>Dear ${invoice.tenant?.tenantName},</p>
         <p>${introText}</p>
 
         <table cellpadding="6">
@@ -611,8 +625,8 @@ export const sendSubscriptionInvoiceEmail = async (
 
     const emailTo = [
       {
-        email: invoice.tenant.email,
-        name: invoice.tenant.tenantName,
+        email: invoice.tenant?.email,
+        name: invoice.tenant?.tenantName,
       },
     ];
 

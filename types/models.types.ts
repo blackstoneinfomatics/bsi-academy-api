@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus } from "../src/shared/enum";
+import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2645,4 +2645,29 @@ export interface IPaymentTransaction extends Document {
   updatedAt: Date;
 
   deletedAt?: Date | null;
+}
+
+export interface ISubscriptionTrial extends Document {
+
+  tenantId:Types.ObjectId;
+
+  trialStartDate: Date;
+
+  trialEndDate: Date;
+
+  status: SubscriptionTrialStatus;
+
+  isConverted: boolean;
+
+  convertedAt?: Date;
+
+  createdBy: string;
+
+  updatedBy?: string;
+
+  deletedAt?: Date;
+
+  createdAt: Date;
+
+  updatedAt: Date;
 }
