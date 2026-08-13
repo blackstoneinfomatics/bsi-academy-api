@@ -14,7 +14,7 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
 
     planId: {
       type: Schema.Types.ObjectId,
-      ref: "Plan",
+      ref: "plan",
       required: true,
     },
 

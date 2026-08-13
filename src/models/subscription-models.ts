@@ -16,7 +16,7 @@ const SubscriptionSchema = new Schema<Subscription>(
     },
     planId: {
       type: String,
-      ref: "Plan",
+      ref: "plan",
       required: true,
     },
     planName: {

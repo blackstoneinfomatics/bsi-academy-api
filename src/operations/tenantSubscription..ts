@@ -3,11 +3,14 @@ import SubscriptionInvoice from "../models/subscriptionInvoice";
 import { SubscriptionInvoiceStatus } from "../shared/enum";
 
 export const getActiveTenantSubscriptionRecord = async () => {
-  const tenants = await tenantsubscription.find({}).lean();
+  const tenants = await tenantsubscription
+    .find({})
+    .populate("tenantId")
+    .populate("planId")
+    .lean();
   return {
     total: tenants.length,  
     tenants,
-    
   };
 };
 
