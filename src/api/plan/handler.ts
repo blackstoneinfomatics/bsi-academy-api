@@ -23,6 +23,30 @@ const getPlanAnalyticsValidation = z.object({
   }),
 });
 
+const getPlansValidation = z.object({
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+    search: z.string().trim().optional(),
+    status: z.string().trim().optional(),
+    planStatus: z.enum(["Active", "In active", "MOST_POPULAR"]).optional(),
+    billingCycle: z
+      .enum(["MONTHLY", "YEARLY", "LIFETIME", "QUARTERLY", "HALF_YEARLY"])
+      .optional(),
+    sortBy: z
+      .enum([
+        "createdDate",
+        "updatedDate",
+        "planName",
+        "monthlyPrice",
+        "yearlyPrice",
+        "studentLimit",
+      ])
+      .default("createdDate"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }),
+});
+
 
 const createInputValidation = z.object({
   payload: createPlanValidation.pick({
@@ -31,9 +55,8 @@ const createInputValidation = z.object({
     billingCycle: true,
     planDescription: true,
     planStatus: true,
-    monthlyPrice: true,
-    yearlyPrice: true,
     setupFee: true,
+    totalPrice: true,
     trialDays: true,
     gstAndTax: true,
     allowedRoles: true,
@@ -128,7 +151,11 @@ async createPlan(req: Request, h: ResponseToolkit) {
     h: ResponseToolkit
   ) {
 
-    const plans = await getAllPlans();
+    const { query } = getPlansValidation.parse({
+      query: req.query,
+    });
+
+    const plans = await getAllPlans(query);
 
     return h.response({
       success: true,

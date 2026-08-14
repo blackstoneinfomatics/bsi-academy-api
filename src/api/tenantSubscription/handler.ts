@@ -5,6 +5,11 @@ import {
   getTenantSubscriptionDashboard,
   getTenantSubscriptionGrowthAnalytics,
 } from "../../operations/tenantSubscription.";
+import {
+  BillingCycle,
+  PaymentStatus,
+  SubscriptionStatus,
+} from "../../shared/enum";
 
 export const getTenantSubscriptionGrowthAnalyticsValidation = z.object({
   query: z.object({
@@ -13,10 +18,42 @@ export const getTenantSubscriptionGrowthAnalyticsValidation = z.object({
   }),
 });
 
+export const getTenantSubscriptionDetailsValidation = z.object({
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+    search: z.string().trim().optional(),
+    status: z.nativeEnum(SubscriptionStatus).optional(),
+    paymentStatus: z.nativeEnum(PaymentStatus).optional(),
+    billingCycle: z.nativeEnum(BillingCycle).optional(),
+    sortBy: z
+      .enum([
+        "createdAt",
+        "startDate",
+        "endDate",
+        "nextRenewalDate",
+        "subscriptionCode",
+      ])
+      .default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }),
+});
+
 
 export default {
    async getTenantSubscriptionDetails(req: Request, h: ResponseToolkit) {
-    return getActiveTenantSubscriptionRecord();
+    const { query } = getTenantSubscriptionDetailsValidation.parse({
+      query: req.query,
+    });
+
+    const result = await getActiveTenantSubscriptionRecord(query);
+
+    return h
+      .response({
+        success: true,
+        data: result,
+      })
+      .code(200);
   },
   
    async getTenantSubscriptionDashboard(

@@ -25,6 +25,28 @@ export interface PlanAnalyticsResponse {
   popularPlan: PlanAnalyticsPlan | null;
 }
 
+export interface GetPlansQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  planStatus?: "Active" | "In active" | "MOST_POPULAR";
+  billingCycle?:
+    | "MONTHLY"
+    | "YEARLY"
+    | "LIFETIME"
+    | "QUARTERLY"
+    | "HALF_YEARLY";
+  sortBy?:
+    | "createdDate"
+    | "updatedDate"
+    | "planName"
+    | "monthlyPrice"
+    | "yearlyPrice"
+    | "studentLimit";
+  sortOrder?: "asc" | "desc";
+}
+
 export type CreatePlanPayload = z.infer<
   typeof createPlanValidation
 >;
@@ -32,6 +54,9 @@ export type CreatePlanPayload = z.infer<
 export type UpdatePlanPayload = Partial<
   z.infer<typeof createPlanValidation>
 >;
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const getPlanForTenant = async (tenantId: string) => {
   const tenant = await TenantModel.findOne({
@@ -88,13 +113,85 @@ export const createPlan = async (
 
 
 // GET ALL PLANS
-export const getAllPlans =
-  async () => {
+export const getAllPlans = async (query: GetPlansQuery = {}) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    status,
+    planStatus,
+    billingCycle,
+    sortBy = "createdDate",
+    sortOrder = "desc",
+  } = query;
 
-    return await PlanModel.find()
+  const normalizedPage = Number(page);
+  const normalizedLimit = Number(limit);
+  const searchTerm = search?.trim();
+
+  const filter: Record<string, unknown> = {};
+
+  if (status) {
+    filter.status = status;
+  }
+
+  if (planStatus) {
+    filter.planStatus = planStatus;
+  }
+
+  if (billingCycle) {
+    filter.billingCycle = billingCycle;
+  }
+
+  if (searchTerm) {
+    const escapedSearch = escapeRegex(searchTerm);
+
+    filter.$or = [
+      {
+        planId: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+      {
+        planName: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+      {
+        planDescription: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  const [items, totalRecords] = await Promise.all([
+    PlanModel.find(filter)
+      .sort({
+        [sortBy]: sortOrder === "asc" ? 1 : -1,
+      })
+      .skip((normalizedPage - 1) * normalizedLimit)
+      .limit(normalizedLimit)
       .lean()
-      .exec();
+      .exec(),
+    PlanModel.countDocuments(filter),
+  ]);
+
+  return {
+    items,
+    pagination: {
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / normalizedLimit),
+      hasNextPage: normalizedPage * normalizedLimit < totalRecords,
+      hasPreviousPage: normalizedPage > 1,
+    },
   };
+};
 
 
 // GET PLAN BY ID

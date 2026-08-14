@@ -37,13 +37,13 @@ const PlanSchema = new Schema<Plans>(
 
     monthlyPrice: {
       type: Number,
-      required: true,
+      required: false,
       default: 0,
     },
 
     yearlyPrice: {
       type: Number,
-      required: true,
+      required: false,
       default: 0,
     },
 
@@ -88,6 +88,11 @@ const PlanSchema = new Schema<Plans>(
       type: Schema.Types.Mixed,
       required: true,
       default: {},
+    },
+    totalPrice: {
+      type: Number,
+      required: false,
+      default: 0,
     },
 
     canCreateCustomRole: {
@@ -153,9 +158,8 @@ export const createPlanValidation = z.object({
 
   planId: z.string().optional(),
   planName: z.string().min(1, "Plan name is required"),
-
+  totalPrice: z.number().nonnegative(),
   studentLimit: z.number().nonnegative(),
-
   billingCycle: z.enum([
     "MONTHLY",
     "YEARLY",
@@ -164,9 +168,9 @@ export const createPlanValidation = z.object({
     "HALF_YEARLY",
   ]),
 
-  monthlyPrice: z.number().nonnegative(),
+  monthlyPrice: z.number().nonnegative().optional(),
 
-  yearlyPrice: z.number().nonnegative(),
+  yearlyPrice: z.number().nonnegative().optional(),
 
   setupFee: z.number().nonnegative(),
 

@@ -4,8 +4,9 @@ import Tenants from "../models/tenants";
 import plan from "../models/plan-model";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import TenantSubscription from "../models/tenantsubscription";
-import { SubscriptionInvoiceStatus } from "../shared/enum";
+import { PaymentStatus, SubscriptionInvoiceStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
+import paymenttransaction from "../models/paymenttransaction";
 
 type InvoiceEmailType = "CREATED" | "REMINDER";
 
@@ -636,6 +637,443 @@ export const sendSubscriptionInvoiceEmail = async (
     return true;
   } catch (error: any) {
     console.error("Subscription invoice email failed:", error);
+    throw error;
+  }
+};
+
+
+
+export const getAllTransactions = async (query: any = {}) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      tenantName,
+      planName,
+      invoiceNumber,
+      invoiceFromDate,
+      invoiceToDate,
+      dueFromDate,
+      dueToDate,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = query;
+
+    const match: any = {
+      deletedAt: null,
+    };
+
+    if (status) {
+      match.paymentStatus = status;
+    }
+
+    if (invoiceFromDate || invoiceToDate) {
+      match.paymentDate = {};
+
+      if (invoiceFromDate) {
+        match.paymentDate.$gte = new Date(invoiceFromDate);
+      }
+
+      if (invoiceToDate) {
+        match.paymentDate.$lte = new Date(invoiceToDate);
+      }
+    }
+
+    const pipeline: any[] = [
+      {
+        $match: match,
+      },
+
+      {
+        $lookup: {
+          from: "tenants",
+          localField: "tenantId",
+          foreignField: "_id",
+          as: "tenant",
+        },
+      },
+      {
+        $unwind: {
+          path: "$tenant",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "subscriptioninvoice",
+          localField: "invoiceId",
+          foreignField: "_id",
+          as: "invoice",
+        },
+      },
+      {
+        $unwind: {
+          path: "$invoice",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "tenantsubscriptions",
+          localField: "subscriptionId",
+          foreignField: "_id",
+          as: "subscription",
+        },
+      },
+      {
+        $unwind: {
+          path: "$subscription",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "plan",
+          localField: "subscription.planId",
+          foreignField: "_id",
+          as: "plan",
+        },
+      },
+      {
+        $unwind: {
+          path: "$plan",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            {
+              paymentNumber: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              transactionReference: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              stripePaymentIntentId: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              "tenant.tenantName": {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              "invoice.invoiceNumber": {
+                $regex: search,
+                $options: "i",
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    if (tenantName) {
+      pipeline.push({
+        $match: {
+          "tenant.tenantName": {
+            $regex: tenantName,
+            $options: "i",
+          },
+        },
+      });
+    }
+
+    if (planName) {
+      pipeline.push({
+        $match: {
+          "plan.planName": {
+            $regex: planName,
+            $options: "i",
+          },
+        },
+      });
+    }
+
+    if (invoiceNumber) {
+      pipeline.push({
+        $match: {
+          "invoice.invoiceNumber": {
+            $regex: invoiceNumber,
+            $options: "i",
+          },
+        },
+      });
+    }
+
+    if (dueFromDate || dueToDate) {
+      const dueDate: any = {};
+
+      if (dueFromDate) {
+        dueDate.$gte = new Date(dueFromDate);
+      }
+
+      if (dueToDate) {
+        dueDate.$lte = new Date(dueToDate);
+      }
+
+      pipeline.push({
+        $match: {
+          "invoice.dueDate": dueDate,
+        },
+      });
+    }
+
+    const sortFieldMap: Record<string, string> = {
+      createdAt: "createdAt",
+      invoiceDate: "invoice.invoiceDate",
+      dueDate: "invoice.dueDate",
+      invoiceNumber: "invoice.invoiceNumber",
+      totalAmount: "amount",
+    };
+
+    const sortField = sortFieldMap[sortBy] || "createdAt";
+
+    pipeline.push({
+      $sort: {
+        [sortField]: sortOrder === "asc" ? 1 : -1,
+      },
+    });
+
+    pipeline.push({
+      $facet: {
+        items: [
+          {
+            $skip: (Number(page) - 1) * Number(limit),
+          },
+          {
+            $limit: Number(limit),
+          },
+          {
+            $project: {
+              _id: 0,
+
+              transactionId: "$_id",
+              paymentNumber: 1,
+
+              tenantId: 1,
+              invoiceId: 1,
+              subscriptionId: 1,
+
+              paymentType: 1,
+              gateway: 1,
+              paymentStatus: 1,
+              amount: 1,
+              currency: 1,
+              stripePaymentIntentId: 1,
+              transactionReference: 1,
+              paymentMethod: 1,
+              paymentResponse: 1,
+              failureReason: 1,
+              paymentDate: 1,
+              refundId: 1,
+              refundAmount: 1,
+              refundDate: 1,
+              refundReason: 1,
+              createdBy: 1,
+              updatedBy: 1,
+              createdAt: 1,
+              updatedAt: 1,
+
+              tenant: {
+                tenantId: "$tenant._id",
+                tenantCode: "$tenant.tenantCode",
+                tenantName: "$tenant.tenantName",
+              },
+
+              invoice: {
+                invoiceId: "$invoice._id",
+                invoiceNumber: "$invoice.invoiceNumber",
+                invoiceDate: "$invoice.invoiceDate",
+                dueDate: "$invoice.dueDate",
+              },
+
+              subscription: {
+                subscriptionId: "$subscription._id",
+                subscriptionCode: "$subscription.subscriptionCode",
+                billingCycle: "$subscription.billingCycle",
+                status: "$subscription.status",
+              },
+
+              subscriptionPlan: {
+                planId: "$plan._id",
+                planName: "$plan.planName",
+                billingCycle: "$plan.billingCycle",
+              },
+            },
+          },
+        ],
+
+        totalCount: [
+          {
+            $count: "count",
+          },
+        ],
+      },
+    });
+
+    const result = await paymenttransaction.aggregate(pipeline);
+
+    const items = result[0]?.items || [];
+    const totalRecords = result[0]?.totalCount[0]?.count || 0;
+
+    return {
+      items,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        totalRecords,
+        totalPages: Math.ceil(totalRecords / Number(limit)),
+        hasNextPage: Number(page) * Number(limit) < totalRecords,
+        hasPreviousPage: Number(page) > 1,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+
+export const getFinanceTransactionCardCount = async () => { 
+  try {
+    const now = new Date();
+    const successfulStatus = PaymentStatus.SUCCESS;
+    const pendingStatus = PaymentStatus.PENDING;
+    const failedStatus = PaymentStatus.FAILED;
+
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const startOfPreviousMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+
+    const getTrend = (current: number, previous: number) => {
+      if (previous === 0) {
+        return {
+          percentageChange: current > 0 ? 100.0 : 0.0,
+          trend: current > 0 ? "UP" : "NO_CHANGE",
+        };
+      }
+
+      const percentage = ((current - previous) / previous) * 100;
+
+      return {
+        percentageChange: Number(percentage.toFixed(2)),
+        trend: percentage > 0 ? "UP" : percentage < 0 ? "DOWN" : "NO_CHANGE",
+      };
+    };
+
+    // Total Invoices
+    const currentTotal = await paymenttransaction.countDocuments({
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+    const previousTotal = await paymenttransaction.countDocuments({
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+    // Successful Transactions
+    const currentSuccessful = await paymenttransaction.countDocuments({
+      paymentStatus: successfulStatus,
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+    const previousSuccessful = await paymenttransaction.countDocuments({
+      paymentStatus: successfulStatus,
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+    // Pending Transactions
+    const currentPending = await paymenttransaction.countDocuments({
+      paymentStatus: pendingStatus,
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+    const previousPending = await paymenttransaction.countDocuments({
+      paymentStatus: pendingStatus,
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+    // Failed Transactions
+    const currentFailed = await paymenttransaction.countDocuments({
+      paymentStatus: failedStatus,
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+    const previousFailed = await paymenttransaction.countDocuments({
+      paymentStatus: failedStatus,
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+    return {
+      totalTransactions: {
+        count: currentTotal,
+        previousMonthCount: previousTotal,
+        ...getTrend(currentTotal, previousTotal),
+      },
+      successfulTransactions: {
+        count: currentSuccessful,
+        previousMonthCount: previousSuccessful,
+        ...getTrend(currentSuccessful, previousSuccessful),
+      },
+      pendingTransactions: {
+        count: currentPending,
+        previousMonthCount: previousPending,
+        ...getTrend(currentPending, previousPending),
+      },
+      failedTransactions: {
+        count: currentFailed,
+        previousMonthCount: previousFailed,
+        ...getTrend(currentFailed, previousFailed),
+      },
+    };
+  } catch (error) {
     throw error;
   }
 };

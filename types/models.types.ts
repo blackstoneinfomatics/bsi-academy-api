@@ -2317,8 +2317,8 @@ export interface Plans extends Document {
   planName: string;
   studentLimit: number;
   billingCycle: "MONTHLY" | "YEARLY" | "LIFETIME" | "QUARTERLY" | "HALF_YEARLY";
-  monthlyPrice: number;
-  yearlyPrice: number;
+  monthlyPrice?: number;
+  yearlyPrice?: number;
   setupFee: number;
   trialDays: number;
   gstAndTax: number;
@@ -2328,6 +2328,7 @@ export interface Plans extends Document {
   features: Record<string, string[]>;
   canCreateCustomRole: boolean;
   customDomain: boolean;
+  totalPrice: number;
   domainName: string;
   backup: boolean;
   status: string;

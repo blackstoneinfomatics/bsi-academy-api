@@ -56,6 +56,25 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+    {
+      method: "GET",
+      path: "/finance/transactions",
+      options: {
+        handler: handler.getFinanceTransactions, 
+        tags: ["api", "payment"],  
+      },
+    }
+,
+    {
+      method: "GET",
+      path: "/finance/transactions/cards",
+      options: {
+        handler: handler.getFinanceTransactionsCards, 
+        tags: ["api", "payment"],  
+      },
+    }
+
   ];
   server.route(routes);
 };

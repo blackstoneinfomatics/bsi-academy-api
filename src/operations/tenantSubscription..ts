@@ -1,16 +1,165 @@
+import mongoose from "mongoose";
 import tenantsubscription from "../models/tenantsubscription";
 import SubscriptionInvoice from "../models/subscriptionInvoice";
 import { SubscriptionInvoiceStatus } from "../shared/enum";
 
-export const getActiveTenantSubscriptionRecord = async () => {
-  const tenants = await tenantsubscription
-    .find({})
-    .populate("tenantId")
-    .populate("planId")
-    .lean();
+export interface GetTenantSubscriptionRecordsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  paymentStatus?: string;
+  billingCycle?: string;
+  sortBy?:
+    | "createdAt"
+    | "startDate"
+    | "endDate"
+    | "nextRenewalDate"
+    | "subscriptionCode";
+  sortOrder?: "asc" | "desc";
+}
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const getActiveTenantSubscriptionRecord = async (
+  query: GetTenantSubscriptionRecordsQuery = {}
+) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    status,
+    paymentStatus,
+    billingCycle,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
+
+  const normalizedPage = Number(page);
+  const normalizedLimit = Number(limit);
+  const searchTerm = search?.trim();
+
+  const match: Record<string, unknown> = {
+    deletedAt: null,
+  };
+
+  if (status) {
+    match.status = status;
+  }
+
+  if (paymentStatus) {
+    match.paymentStatus = paymentStatus;
+  }
+
+  if (billingCycle) {
+    match.billingCycle = billingCycle;
+  }
+
+  const pipeline = [
+    {
+      $match: match,
+    },
+    {
+      $lookup: {
+        from: "tenants",
+        localField: "tenantId",
+        foreignField: "_id",
+        as: "tenant",
+      },
+    },
+    {
+      $unwind: {
+        path: "$tenant",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: "plan",
+        localField: "planId",
+        foreignField: "_id",
+        as: "plan",
+      },
+    },
+    {
+      $unwind: {
+        path: "$plan",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ] as mongoose.PipelineStage[];
+
+  if (searchTerm) {
+    const escapedSearch = escapeRegex(searchTerm);
+
+    pipeline.push({
+      $match: {
+        $or: [
+          {
+            subscriptionCode: {
+              $regex: escapedSearch,
+              $options: "i",
+            },
+          },
+          {
+            "tenant.tenantName": {
+              $regex: escapedSearch,
+              $options: "i",
+            },
+          },
+          {
+            "plan.planName": {
+              $regex: escapedSearch,
+              $options: "i",
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  pipeline.push({
+    $sort: {
+      [sortBy]: sortOrder === "asc" ? 1 : -1,
+    },
+  });
+
+  pipeline.push({
+    $facet: {
+      items: [
+        {
+          $skip: (normalizedPage - 1) * normalizedLimit,
+        },
+        {
+          $limit: normalizedLimit,
+        },
+      ],
+      totalCount: [
+        {
+          $count: "count",
+        },
+      ],
+    },
+  });
+
+  const result = await tenantsubscription.aggregate(
+    pipeline as mongoose.PipelineStage[]
+  );
+  const tenants = result[0]?.items || [];
+  const totalRecords = result[0]?.totalCount?.[0]?.count || 0;
+
   return {
-    total: tenants.length,  
+    total: totalRecords,
     tenants,
+    pagination: {
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / normalizedLimit),
+      hasNextPage: normalizedPage * normalizedLimit < totalRecords,
+      hasPreviousPage: normalizedPage > 1,
+    },
   };
 };
 

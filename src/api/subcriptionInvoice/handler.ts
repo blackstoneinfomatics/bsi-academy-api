@@ -6,6 +6,8 @@ import {
   getSubscriptionInvoiceDashboardCount,
   getSubscriptionInvoiceById,
   getSubscriptionInvoices,
+  getAllTransactions,
+  getFinanceTransactionCardCount,
 } from "../../operations/subcriptionInvoice";
 import { SubscriptionInvoiceStatus } from "../../shared/enum";
 
@@ -198,5 +200,33 @@ export default {
         })
         .code(500);
     }
+  },
+
+  async getFinanceTransactions(req: Request, h: ResponseToolkit) {
+    const { query } = getSubscriptionInvoicesValidation.parse({
+      query: req.query,
+    });
+
+    const reminders = await getAllTransactions(query);
+
+    return h
+      .response({
+        success: true,
+        data: reminders,
+      })
+      .code(200);
+  },
+
+  async getFinanceTransactionsCards(req: Request, h: ResponseToolkit) {
+    
+
+    const reminders = await getFinanceTransactionCardCount();
+
+    return h
+      .response({
+        success: true,
+        data: reminders,
+      })
+      .code(200);
   },
 };
