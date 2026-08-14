@@ -249,3 +249,103 @@ export const getSubscriptionTrialById = async (trialId: string) => {
     throw new Error("Internal Server Error");
   }
 };
+
+export const getSubscriptionTrialDashboardCount = async () => {
+  try {
+    const currentDate = new Date();
+
+    const startOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+
+    const endOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    const result = await SubscriptionTrial.aggregate([
+      {
+        $match: {
+          deletedAt: null,
+        },
+      },
+      {
+        $facet: {
+          totalTrials: [{ $count: "count" }],
+
+          activeTrials: [
+            {
+              $match: {
+                status: "ACTIVE",
+                trialEndDate: { $gte: currentDate },
+              },
+            },
+            { $count: "count" },
+          ],
+
+          expiredTrials: [
+            {
+              $match: {
+                trialEndDate: { $lt: currentDate },
+              },
+            },
+            { $count: "count" },
+          ],
+
+          convertedTrials: [
+            {
+              $match: {
+                status: "CONVERTED",
+                convertedAt: {
+                  $gte: startOfMonth,
+                  $lte: endOfMonth,
+                },
+              },
+            },
+            { $count: "count" },
+          ],
+        },
+      },
+      {
+        $project: {
+          totalTrials: {
+            $ifNull: [{ $arrayElemAt: ["$totalTrials.count", 0] }, 0],
+          },
+          activeTrials: {
+            $ifNull: [{ $arrayElemAt: ["$activeTrials.count", 0] }, 0],
+          },
+          expiredTrials: {
+            $ifNull: [{ $arrayElemAt: ["$expiredTrials.count", 0] }, 0],
+          },
+          convertedCount: {
+            $ifNull: [{ $arrayElemAt: ["$convertedTrials.count", 0] }, 0],
+          },
+        },
+      },
+    ]);
+
+    const data = result[0] || {
+      totalTrials: 0,
+      activeTrials: 0,
+      expiredTrials: 0,
+      convertedCount: 0,
+    };
+
+    return {
+        totalTrials: data.totalTrials,
+        activeTrials: data.activeTrials,
+        expiredTrials: data.expiredTrials,
+        convertedTrials:data.convertedCount,
+    };
+  } catch (error) {
+    console.error("❌ Error in getSubscriptionTrialDashboardCount:", error);
+    throw new Error("Internal Server Error");
+  }
+};

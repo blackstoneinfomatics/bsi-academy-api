@@ -1,7 +1,7 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import { z } from "zod";
 import { SubscriptionTrialStatus } from "../../shared/enum";
-import { getSubscriptionTrialById, getSubscriptionTrials } from "../../operations/subscriptiontrial";
+import { getSubscriptionTrialById, getSubscriptionTrialDashboardCount, getSubscriptionTrials } from "../../operations/subscriptiontrial";
 
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
@@ -83,6 +83,25 @@ export default {
       return h
         .response({
           message: "Subscription trial fetched successfully",
+          success: true,
+          data: result,
+        })
+        .code(200);
+    }catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message,
+        })
+        .code(500);
+    }
+  },
+  getSubscriptionTrialDashboardCount: async (request: Request, h: ResponseToolkit) => {
+    try{
+      const result = await getSubscriptionTrialDashboardCount();
+      return h
+        .response({
+          message: "Subscription trial dashboard count fetched successfully",
           success: true,
           data: result,
         })

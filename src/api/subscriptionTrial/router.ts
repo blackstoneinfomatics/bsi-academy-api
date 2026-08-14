@@ -5,18 +5,18 @@ import handler from "./handler";
 const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
   const routes: ServerRoute[] = [
-    // {
-    //   method: "GET",
-    //   path: "/subscription-trials/dashboard-count",
-    //   options: {
-    //     handler: handler.getSubscriptionTrialDashboardCount,
-    //     description: subscriptionTrialMessages.GET_DASHBOARD_COUNT,
-    //     tags: ["api", "subscription-trial"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   },
-    // },
+    {
+      method: "GET",
+      path: "/subscription-trials/dashboard-count",
+      options: {
+        handler: handler.getSubscriptionTrialDashboardCount,
+        description: subscriptionTrialMessages.GET_DASHBOARD_COUNT,
+        tags: ["api", "subscription-trial"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
     {
       method: "GET",
