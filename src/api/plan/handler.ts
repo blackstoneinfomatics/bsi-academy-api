@@ -31,7 +31,7 @@ const getPlansValidation = z.object({
     status: z.string().trim().optional(),
     planStatus: z.enum(["Active", "In active", "MOST_POPULAR"]).optional(),
     billingCycle: z
-      .enum(["MONTHLY", "YEARLY", "LIFETIME", "QUARTERLY", "HALF_YEARLY"])
+      .enum(["MONTHLY", "YEARLY",  "QUARTERLY", "HALF_YEARLY"])
       .optional(),
     sortBy: z
       .enum([
@@ -83,6 +83,23 @@ const updateInputValidation = z.object({
     .partial(),
 });
 
+const parseTaxRate = (value: unknown): number => {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const cleaned = value.trim().replace(/%$/, "");
+    const parsed = Number(cleaned);
+
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  throw new Error("Invalid gstAndTax value. Use number or percentage format like 18%.");
+};
+
 
 
 export default {
@@ -90,9 +107,19 @@ export default {
   // CREATE PLAN
 async createPlan(req: Request, h: ResponseToolkit) {
     try {
+      const payloadInput = (req.payload ?? {}) as Record<string, unknown>;
+      const gstRate = parseTaxRate(payloadInput.gstAndTax);
+
       const { payload } = createInputValidation.parse({
-        payload: req.payload,
+        payload: {
+          ...payloadInput,
+          gstAndTax: gstRate,
+        },
       });
+
+      const taxAmount = Number(
+        ((payload.totalPrice * payload.gstAndTax) / 100).toFixed(2)
+      );
 
       // Get the latest valid plan ID and generate the next sequential ID
       const lastPlan = await planModel
@@ -116,6 +143,7 @@ async createPlan(req: Request, h: ResponseToolkit) {
       const newPlan = await createPlan({
         ...payload,
         planId,
+        taxAmount,
       });
 
       console.log("Generated Plan ID:", planId);

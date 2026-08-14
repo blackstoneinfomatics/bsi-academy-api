@@ -34,7 +34,6 @@ export interface GetPlansQuery {
   billingCycle?:
     | "MONTHLY"
     | "YEARLY"
-    | "LIFETIME"
     | "QUARTERLY"
     | "HALF_YEARLY";
   sortBy?:

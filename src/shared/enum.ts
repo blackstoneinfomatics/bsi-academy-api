@@ -78,7 +78,6 @@ export enum BillingCycle {
   MONTHLY = "MONTHLY",
   QUARTERLY = "QUARTERLY",
   YEARLY = "YEARLY",
-  LIFETIME = "LIFETIME",
   HALF_YEARLY = "HALF_YEARLY",
 }
 

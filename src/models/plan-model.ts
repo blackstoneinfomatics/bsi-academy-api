@@ -30,7 +30,7 @@ const PlanSchema = new Schema<Plans>(
 
     billingCycle: {
       type: String,
-      enum: ["MONTHLY", "YEARLY", "LIFETIME", "QUARTERLY", "HALF_YEARLY"],
+      enum: ["MONTHLY", "YEARLY",  "QUARTERLY", "HALF_YEARLY"],
       required: true,
       default: "MONTHLY",
     },
@@ -65,7 +65,11 @@ const PlanSchema = new Schema<Plans>(
       default: 0,
     },
 
-
+   taxAmount: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
 
     planDescription: {
       type: String,
@@ -163,7 +167,6 @@ export const createPlanValidation = z.object({
   billingCycle: z.enum([
     "MONTHLY",
     "YEARLY",
-    "LIFETIME",
     "QUARTERLY",
     "HALF_YEARLY",
   ]),
@@ -177,7 +180,8 @@ export const createPlanValidation = z.object({
   trialDays: z.number().nonnegative(),
 
   gstAndTax: z.number().nonnegative(),
-
+  
+  taxAmount: z.number().nonnegative().optional(),
 
   planDescription: z.string().min(1, "Plan description is required"),
 
