@@ -426,7 +426,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
     })
       .populate({
         path: "tenantId",
-        select: "tenantCode tenantName emailId phoneNumber status",
+        select: "tenantCode tenantName emailId phoneNumber domainName status",
       })
       .populate({
         path: "planId",
@@ -469,6 +469,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
             tenantName: tenant.tenantName,
             email: tenant.emailId,
             phoneNumber: tenant.phoneNumber,
+            domainName: tenant.domainName,
             status: tenant.status,
           }
         : null,
