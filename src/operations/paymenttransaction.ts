@@ -36,34 +36,34 @@ export class PaymentService {
         throw new Error("Tenant Subscription not found.");
       }
 
-      // Existing pending payment
-      const existing = await PaymentModel.findOne({
-        invoiceId,
-        paymentStatus: PaymentStatus.PENDING,
-      });
+      // // Existing pending payment
+      // const existing = await PaymentModel.findOne({
+      //   invoiceId,
+      //   paymentStatus: PaymentStatus.PENDING,
+      // });
 
-      if (existing?.stripePaymentIntentId) {
-        const pi = await stripe.paymentIntents.retrieve(
-          existing.stripePaymentIntentId,
-        );
+      // if (existing?.stripePaymentIntentId) {
+      //   const pi = await stripe.paymentIntents.retrieve(
+      //     existing.stripePaymentIntentId,
+      //   );
 
-        if (pi.status === "requires_payment_method") {
-          return {
-            success: true,
-            message: "Reusing existing Payment Intent",
-            data: {
-              clientSecret: pi.client_secret,
-            },
-          };
-        }
-      }
+      //   if (pi.status === "requires_payment_method") {
+      //     return {
+      //       success: true,
+      //       message: "Reusing existing Payment Intent",
+      //       data: {
+      //         clientSecret: pi.client_secret,
+      //       },
+      //     };
+      //   }
+      // }
 
       const paymentNumber = await this.generatePaymentNumber();
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: invoice.totalAmount,
         currency: invoice.currency.toLowerCase(),
-        automatic_payment_methods: { enabled: true },
+         payment_method_types: ['card'],
         metadata: {
           invoiceId,
         },
