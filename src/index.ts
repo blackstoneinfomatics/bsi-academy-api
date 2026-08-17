@@ -90,7 +90,7 @@ cron.schedule("0 9 * * *", async () => {
   await processSubscriptionInvoiceReminders();
 });
 
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("0 9 * * *", async () => {
   console.log("🧹 Subscription trial expiring soon cronjob");
   await processTrialReminders();
 });
