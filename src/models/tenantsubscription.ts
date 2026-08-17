@@ -9,6 +9,7 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
       type: Schema.Types.ObjectId,
       ref: "Tenants",
       required: true,
+      unique: true,
       index: true,
     },
 

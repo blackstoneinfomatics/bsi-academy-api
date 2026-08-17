@@ -98,7 +98,7 @@ export default {
 
       const result = await createSubscriptionInvoice(
         payload as any,
-        "TEN000015",
+        "TEN000010",
         // request.headers.tenantid as string
       );
 

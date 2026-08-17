@@ -32,6 +32,7 @@ import { appStatus } from "./config/messages";
 import { TrialExpiredMail } from "./operations/trailExperiedMail";
 import { processReminders } from "./operations/remainder";
 import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
+import { processTrialReminders } from "./operations/subscriptiontrial";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -87,6 +88,11 @@ cron.schedule("0 0 * * 0", async () => {
 cron.schedule("0 9 * * *", async () => {
   console.log("🧹 Subscription invoice remainder cronjob");
   await processSubscriptionInvoiceReminders();
+});
+
+cron.schedule("*/1 * * * *", async () => {
+  console.log("🧹 Subscription trial expiring soon cronjob");
+  await processTrialReminders();
 });
 
 

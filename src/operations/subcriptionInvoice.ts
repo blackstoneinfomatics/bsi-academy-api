@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
 import { SubscriptionInvoice } from "../../types/models.types";
 import Tenants from "../models/tenants";
 import plan from "../models/plan-model";
+import emailTemplate from "../models/emailTemplate";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import TenantSubscription from "../models/tenantsubscription";
 import { PaymentStatus, SubscriptionInvoiceStatus } from "../shared/enum";
@@ -86,7 +86,7 @@ export const createSubscriptionInvoice = async (
 
     await newInvoice.save();
 
-    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(),"CREATED");
+    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
 
     return newInvoice;
   } catch (error: any) {
@@ -431,7 +431,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
       })
       .populate({
         path: "planId",
-        select: "planCode planName billingCycle price",
+        select: "planCode planName billingCycle totalPrice taxAmount gstAndTax",
       })
       .populate({
         path: "subscriptionId",
@@ -481,7 +481,9 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
             planCode: plan.planCode,
             planName: plan.planName,
             billingCycle: plan.billingCycle,
-            price: plan.price,
+            price: plan.totalPrice,
+            taxAmount: plan.taxAmount,
+            gstAndTax: plan.gstAndTax,
           }
         : null,
 
@@ -504,17 +506,15 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
       updatedAt: invoice.updatedAt,
     };
   } catch (error: any) {
-   
     if (error.message === "Subscription Invoice not found.") {
-      throw error; 
+      throw error;
     }
     throw new Error("Internal Server Error");
   }
 };
 
-
 export const processSubscriptionInvoiceReminders = async () => {
-  try{
+  try {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
 
@@ -529,7 +529,7 @@ export const processSubscriptionInvoiceReminders = async () => {
       status: SubscriptionInvoiceStatus.PENDING,
       deletedAt: null,
     });
-    
+
     for (const invoice of invoices) {
       try {
         await sendSubscriptionInvoiceEmail(invoice._id.toString(), "REMINDER");
@@ -537,7 +537,9 @@ export const processSubscriptionInvoiceReminders = async () => {
           { _id: invoice._id },
           { $inc: { paymentTerms: 1 } },
         );
-        console.log(`Reminder email sent for invoice: ${invoice.invoiceNumber}`);
+        console.log(
+          `Reminder email sent for invoice: ${invoice.invoiceNumber}`,
+        );
       } catch (error) {
         console.error(
           `Failed to send reminder email for invoice: ${invoice.invoiceNumber}`,
@@ -545,85 +547,66 @@ export const processSubscriptionInvoiceReminders = async () => {
         );
       }
     }
-
-  }catch(error){
+  } catch (error) {
     console.error("Error processing subscription invoice reminders:", error);
   }
-}
+};
 
 export const sendSubscriptionInvoiceEmail = async (
   invoiceId: string,
-  type: InvoiceEmailType = "CREATED"
+  type: InvoiceEmailType = "CREATED",
 ) => {
   try {
     const invoice = await getSubscriptionInvoiceById(invoiceId);
+    if(!invoice) {
+      throw new Error("Invoice not found.");
+    }
 
     const paymentLink = `https://blackstoneinfomaticstech.com/subscription-invoices/${invoice.invoiceId}/payment`;
 
     const isReminder = type === "REMINDER";
 
+    const Email = await emailTemplate
+      .findOne({
+        templateKey: `subscription-invoice-${type.toLowerCase()}`,
+      })
+      .exec();
+
+    if (!Email) {
+      throw new Error(`Email template for ${type} not found.`);
+    }
+
     const subject = isReminder
       ? `Reminder: Invoice ${invoice.invoiceNumber}`
       : `Subscription Invoice ${invoice.invoiceNumber}`;
 
-    const heading = isReminder
-      ? "Payment Reminder"
-      : "Subscription Invoice";
+    const html = Email.templateContent
+      .replace(/{{ADMIN_EMAIL}}/g, invoice?.tenant?.email)
+      .replace(/{{ORG_NAME}}/g, invoice?.tenant?.tenantName)
+      .replace(/{{PLAN_NAME}}/g, invoice?.subscriptionPlan?.planName)
+      .replace(/{{BILLING_CYCLE}}/g, invoice?.subscriptionPlan?.billingCycle)
+      .replace(/{{PLAN_PRICE}}/g, invoice?.subscriptionPlan?.price.toString())
+      .replace(/{{INVOICE_ID}}/g, invoice?.invoiceId.toString())
+      .replace(/{{INVOICE_DATE}}/g, new Date(invoice?.invoiceDate).toDateString())
+      .replace(/{{DUE_DATE}}/g, new Date(invoice?.dueDate).toDateString())
+      .replace(/{{TENANT_ID}}/g, invoice?.tenant?.tenantId.toString())
+      .replace(/{{DOMAIN}}/g, invoice?.tenant?.domainName || "-")
+      .replace(/{{PHONE}}/g, invoice?.tenant?.phoneNumber || "-")
+      .replace(/{{SUBTOTAL}}/g, invoice?.subtotal.toString())
+      .replace(/{{GST_RATE}}/g, invoice?.subscriptionPlan?.gstAndTax.toString())
+      .replace(/{{GST_AMOUNT}}/g, invoice?.taxAmount.toString())
+      .replace(/{{TOTAL_AMOUNT}}/g, invoice?.totalAmount.toString())
+      .replace(/{{PAYMENT_LINK}}/g, paymentLink)
+      .replace(/{{INVOICE_LINK}}/g, paymentLink)
+      .replace(/{{COMPANY_URL}}/g, "https://blackstoneinfomaticstech.com")
+      .replace(/{{LOGO_URL}}/g, "https://your-logo-url.com/logo.png")
+      .replace(/{{WEBSITE_URL}}/g, "https://blackstoneinfomaticstech.com")
+      .replace(/{{TERMS_URL}}/g, "https://blackstoneinfomaticstech.com/terms")
+      .replace(/{{PRIVACY_URL}}/g, "https://blackstoneinfomaticstech.com/privacy")
+      .replace(/{{PAYMENT_VALIDITY}}/g, "24 hours")
+      .replace(/{{INVITE_VALIDITY}}/g, "48 hours")
+      .replace(/{{REFUND_WINDOW}}/g, "7 days");
 
-    const introText = isReminder
-      ? "This is a reminder for your pending invoice."
-      : "Your subscription invoice has been generated successfully.";
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>${heading}</h2>
-        
-        <p>Dear ${invoice.tenant?.tenantName},</p>
-        <p>${introText}</p>
-
-        <table cellpadding="6">
-          <tr>
-            <td><strong>Invoice Number:</strong></td>
-            <td>${invoice.invoiceNumber}</td>
-          </tr>
-
-          <tr>
-            <td><strong>Invoice Date:</strong></td>
-            <td>${invoice.invoiceDate.toISOString().split("T")[0]}</td>
-          </tr>
-
-          ${
-            invoice.dueDate
-              ? `
-          <tr>
-            <td><strong>Due Date:</strong></td>
-            <td>${invoice.dueDate.toISOString().split("T")[0]}</td>
-          </tr>`
-              : ""
-          }
-
-          <tr>
-            <td><strong>Total Amount:</strong></td>
-            <td>${invoice.currency} ${invoice.totalAmount}</td>
-          </tr>
-        </table>
-
-        <br />
-
-        <a href="${paymentLink}" 
-           style="display:inline-block;padding:10px 16px;background:#007bff;color:#fff;text-decoration:none;border-radius:4px;">
-          Pay Invoice
-        </a>
-
-        ${
-          isReminder
-            ? `<p style="color:red;"><strong>Note:</strong> This invoice is still pending. Kindly make the payment.</p>`
-            : ""
-        }
-
-        <p>Thank you.</p>
-      </div>
-    `;
 
     const emailTo = [
       {
@@ -640,8 +623,6 @@ export const sendSubscriptionInvoiceEmail = async (
     throw error;
   }
 };
-
-
 
 export const getAllTransactions = async (query: any = {}) => {
   try {
@@ -951,8 +932,7 @@ export const getAllTransactions = async (query: any = {}) => {
   }
 };
 
-
-export const getFinanceTransactionCardCount = async () => { 
+export const getFinanceTransactionCardCount = async () => {
   try {
     const now = new Date();
     const successfulStatus = PaymentStatus.SUCCESS;

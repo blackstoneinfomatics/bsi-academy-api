@@ -1,8 +1,12 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import { z } from "zod";
 import { SubscriptionTrialStatus } from "../../shared/enum";
-import { getSubscriptionTrialById, getSubscriptionTrialDashboardCount, getSubscriptionTrials } from "../../operations/subscriptiontrial";
-
+import {
+  getSubscriptionTrialById,
+  getSubscriptionTrialDashboardCount,
+  getSubscriptionTrials,
+  updateSubscriptionTrial,
+} from "../../operations/subscriptiontrial";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
@@ -10,6 +14,12 @@ export const getSubscriptionTrialByIdValidation = z.object({
   params: z.object({
     trialId: objectId,
   }),
+});
+
+export const updateTrialValidation = z.object({
+  status: z.string().optional(),
+  trialEndDate: z.coerce.date().optional(),
+  updatedBy: z.string().optional(),
 });
 
 export const getSubscriptionTrialsValidation = z.object({
@@ -75,11 +85,11 @@ export default {
   },
 
   getSubscriptionTrialById: async (request: Request, h: ResponseToolkit) => {
-    try{
-         const { params } = getSubscriptionTrialByIdValidation.parse({
+    try {
+      const { params } = getSubscriptionTrialByIdValidation.parse({
         params: request.params,
       });
-       const result = await getSubscriptionTrialById(params.trialId);
+      const result = await getSubscriptionTrialById(params.trialId);
       return h
         .response({
           message: "Subscription trial fetched successfully",
@@ -87,7 +97,7 @@ export default {
           data: result,
         })
         .code(200);
-    }catch (error: any) {
+    } catch (error: any) {
       return h
         .response({
           success: false,
@@ -96,8 +106,11 @@ export default {
         .code(500);
     }
   },
-  getSubscriptionTrialDashboardCount: async (request: Request, h: ResponseToolkit) => {
-    try{
+  getSubscriptionTrialDashboardCount: async (
+    request: Request,
+    h: ResponseToolkit,
+  ) => {
+    try {
       const result = await getSubscriptionTrialDashboardCount();
       return h
         .response({
@@ -106,7 +119,7 @@ export default {
           data: result,
         })
         .code(200);
-    }catch (error: any) {
+    } catch (error: any) {
       return h
         .response({
           success: false,
@@ -114,5 +127,45 @@ export default {
         })
         .code(500);
     }
-  }
+  },
+
+  updateSubscriptionTrial: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const { trialId } = request.params as { trialId: string };
+
+      const parsed = updateTrialValidation.safeParse(request.payload);
+
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: "Validation Failed",
+          })
+          .code(400);
+      }
+
+      const result = await updateSubscriptionTrial(trialId, {
+        status: parsed.data.status,
+        trialEndDate: parsed.data.trialEndDate
+          ? new Date(parsed.data.trialEndDate)
+          : undefined,
+        updatedBy: parsed.data.updatedBy || "system",
+      });
+
+      return h
+        .response({
+          success: true,
+          message: "Trial updated successfully.",
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message,
+        })
+        .code(500);
+    }
+  },
 };
