@@ -315,7 +315,7 @@ export const getPlanDashboard = async () => {
     TenantSubscriptionModel.aggregate([
       {
         $match: {
-          status: "ACTIVE",
+          deletedAt: null,
         },
       },
       {
@@ -336,18 +336,22 @@ export const getPlanDashboard = async () => {
       },
       {
         $lookup: {
-          from: "plans", // Collection name
+          from: "plan",
           localField: "_id",
           foreignField: "_id",
           as: "plan",
         },
       },
       {
-        $unwind: "$plan",
+        $unwind: {
+          path: "$plan",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
         $project: {
-          _id: "$plan.planId",
+          _id: 0,
+          planId: "$plan.planId",
           planName: "$plan.planName",
           subscribedTenants: 1,
           revenue: {
@@ -403,11 +407,24 @@ export const getPlanDashboard = async () => {
     },
 
     topPerformingPlan:
-      topPerformingPlan[0] ?? {
-        planName: "",
-        subscribedTenants: 0,
-        revenue: 0,
-      },
+      topPerformingPlan[0]
+        ? {
+            ...topPerformingPlan[0],
+            percentage: totalSubscriptions
+              ? Math.round(
+                  (topPerformingPlan[0].subscribedTenants /
+                    totalSubscriptions) *
+                    100
+                )
+              : 0,
+          }
+        : {
+            planId: "",
+            planName: "",
+            subscribedTenants: 0,
+            revenue: 0,
+            percentage: 0,
+          },
   };
 };
 
