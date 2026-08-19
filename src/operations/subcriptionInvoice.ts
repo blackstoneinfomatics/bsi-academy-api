@@ -18,7 +18,6 @@ export const createSubscriptionInvoice = async (
     const tenant = await Tenants.findOne({
       tenantCode: tenantId,
       status: "Active",
-      // deletedAt: null,
     });
 
     if (!tenant) {
@@ -81,12 +80,12 @@ export const createSubscriptionInvoice = async (
 
     const newInvoice = new SubscriptionInvoiceModel({
       ...payload,
-      tenantId: tenant._id,
+      tenantId: tenantId,
     });
 
     await newInvoice.save();
 
-    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
+    // await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
 
     return newInvoice;
   } catch (error: any) {

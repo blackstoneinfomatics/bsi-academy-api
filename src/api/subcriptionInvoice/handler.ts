@@ -14,6 +14,7 @@ import { SubscriptionInvoiceStatus } from "../../shared/enum";
 export const createSubscriptionInvoiceValidation = z.object({
   payload: SubscriptionInvoiceBaseValidation.pick({
     planId: true,
+    tenantId: true,
     invoiceDate: true,
     dueDate: true,
     currency: true,
@@ -98,8 +99,7 @@ export default {
 
       const result = await createSubscriptionInvoice(
         payload as any,
-        "TEN000010",
-        // request.headers.tenantid as string
+        payload.tenantId as string,
       );
 
       return h

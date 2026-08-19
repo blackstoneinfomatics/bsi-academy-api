@@ -2464,7 +2464,7 @@ export interface ISubscriptionInvoice extends Document {
   
   invoiceNumber: string;
 
-  tenantId: Types.ObjectId;
+  tenantId: string;
 
   planId: Types.ObjectId;
 
@@ -2629,13 +2629,11 @@ export interface IPaymentTransaction extends Document {
 
   paymentDate?: Date;
 
-  refundId?: string;
+  netAmount?: number;
 
-  refundAmount?: number;
+  refundableAmount?: number;
 
-  refundDate?: Date;
-
-  refundReason?: string;
+  processingFee?: number;
 
   remarks?: string;
 
