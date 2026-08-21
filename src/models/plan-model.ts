@@ -17,7 +17,7 @@ const BillingPeriodSchema = new Schema<IBillingPeriod>(
     },
 
     duration: {
-      type: String,
+      type: Number,
       required: true,
     },
 
@@ -198,7 +198,7 @@ const PlanSchema = new Schema<Plans>(
 export const billingPeriodSchema = z.object({
   billingPeriodId: z.string().min(1, "billingPeriodId is required"),
   billingPeriod: z.string().min(1, "billingPeriod is required"),
-  duration: z.string().min(1, "duration is required"),
+  duration: z.number().min(1, "duration is required"),
   // Pricing is added later via the price/discount update step, so it's not
   // mandatory when a billing period is first added.
   price: z.number().nonnegative().default(0),
@@ -230,8 +230,6 @@ export type UpdateBillingPeriodPayload = z.infer<
 >;
 
 export const createPlanValidation = z.object({
-  // tenantId: z.string(),
-
   planId: z.string().optional(),
   planName: z.string().min(1, "Plan name is required"),
   totalPrice: z.number().nonnegative(),
@@ -242,32 +240,20 @@ export const createPlanValidation = z.object({
   taxAmount: z.number().nonnegative().optional(),
   billingPeriods: z.array(billingPeriodSchema).default([]),
   planDescription: z.string().min(1, "Plan description is required"),
-
   planStatus: z.enum([
     "Growing",
     "Low_Adoption",
     "Most_Popular",
   ]),
-
-
   allowedRoles: z.array(z.string()),
-
   features: z.record(z.string(), z.array(z.string())),
-
   canCreateCustomRole: z.boolean(),
-
   customDomain: z.boolean().default(false),
-
   domain: z.string().optional(),
-
   backup: z.boolean().default(false),
-
   status: z.string(),
-
   createdBy: z.string().optional(),
-
   lastUpdatedBy: z.string().optional(),
-
   createdDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), {
@@ -275,7 +261,6 @@ export const createPlanValidation = z.object({
     })
     .transform((val) => new Date(val))
     .optional(),
-
   updatedDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), {

@@ -2314,7 +2314,7 @@ export interface ITenantSettingsPayload {
 export interface IBillingPeriod {
   billingPeriodId: string;
   billingPeriod: string;
-  duration: string;
+  duration: number;
   price: number;
   discount: number;
   gstRate: number;
@@ -2323,7 +2323,6 @@ export interface IBillingPeriod {
 }
 
 export interface Plans extends Document {
-  // tenantId: string;
   planId: string;
   planName: string;
   studentLimit: number;
@@ -2397,39 +2396,24 @@ export interface Subscription extends Document {
 export interface IReminder {
   reminderId: string;
   tenantId: string;
-
   sendReminder: "ALL_OVERDUE_TENANTS" | "SPECIFIC_TENANTS" | "CUSTOM_SELECTION";
-
-  // Required when sendReminder is SPECIFIC_TENANTS or CUSTOM_SELECTION.
   tenantIds?: string[];
-
   minimumOverdueDays: number;
-
   subject: string;
-
   templateId: string;
-
   repeatReminder: boolean;
-
   repeatEveryDays: number;
-
   stopAfterPayment: boolean;
-
   channels: {
     email: boolean;
     sms: boolean;
     inApp: boolean;
     whatsapp: boolean;
   };
-
   status: string;
-
-  // Updated by the reminder cron every time a reminder is dispatched.
   lastReminderSentDate?: Date;
-
   createdDate: Date;
   createdBy: string;
-
   updatedDate: Date;
   lastUpdatedBy?: string;
 }
