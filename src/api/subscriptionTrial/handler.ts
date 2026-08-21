@@ -19,7 +19,16 @@ export const getSubscriptionTrialByIdValidation = z.object({
 });
 
 export const updateTrialValidation = z.object({
-  status: z.string().optional(),
+  status: z
+      .enum([
+        SubscriptionTrialStatus.ACTIVE,
+        SubscriptionTrialStatus.CANCELLED,
+        SubscriptionTrialStatus.CONVERTED,
+        SubscriptionTrialStatus.EXPIRED,
+        SubscriptionTrialStatus.INACTIVE,
+        SubscriptionTrialStatus.COMPLETED,
+      ])
+      .optional(),
   trialEndDate: z.coerce.date().optional(),
   updatedBy: z.string().optional(),
 });

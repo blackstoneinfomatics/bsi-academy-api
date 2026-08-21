@@ -641,6 +641,7 @@ export const subscriptionTrialMessages = {
   TRIAL_NOT_FOUND: "Subscription Trial not found.",
   INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
   VALIDATION_FAILED: "Validation failed. Please check the input data.",
+  STATUS_UNCHANGED: "Status is unchanged. Please provide a different status.",
   INVALID_DATE_LOGIC:
     "Invalid date logic. Trial End Date should be greater than or equal to Trial Start Date.",
 };

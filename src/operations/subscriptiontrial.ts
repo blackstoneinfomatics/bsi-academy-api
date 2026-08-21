@@ -4,7 +4,8 @@ import { SubscriptionTrialStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
 import { throwError } from "../helpers/throwError";
-import { subscriptionTrialMessages } from "../config/messages";
+import { subscriptionInvoiceMessages, subscriptionTrialMessages } from "../config/messages";
+import Tenants from "../models/tenants";
 
 export const getSubscriptionTrials = async (query: any) => {
   try {
@@ -42,7 +43,7 @@ export const getSubscriptionTrials = async (query: any) => {
         $lookup: {
           from: "tenants",
           localField: "tenantId",
-          foreignField: "_id",
+          foreignField: "tenantCode",
           as: "tenant",
         },
       },
@@ -145,6 +146,7 @@ export const getSubscriptionTrials = async (query: any) => {
             $project: {
               trialId: "$_id",
               tenantName: "$tenant.tenantName",
+              tenantId:"$tenant.tenantCode",
               trialStartDate: 1,
               trialEndDate: 1,
               status: "$derivedStatus",
@@ -182,18 +184,19 @@ export const getSubscriptionTrials = async (query: any) => {
 
 export const getSubscriptionTrialById = async (trialId: string) => {
   try {
-    const trial = await SubscriptionTrial.findById(trialId).populate(
-      "tenantId",
-      "tenantName email",
-    );
+    const trial = await SubscriptionTrial.findById(trialId);
 
     if (!trial) {
       throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
       return;
     }
-
-    const tenant = trial.tenantId as any;
-
+    
+    const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null ,status: "Active"}).lean();
+   
+    if(!tenant) {
+      throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
+      return;
+    }
     const currentDate = new Date();
 
     let daysLeft: number = 0;
@@ -231,8 +234,9 @@ export const getSubscriptionTrialById = async (trialId: string) => {
 
     return {
       trialId: trial._id,
+      tenantId: tenant?.tenantCode,
       tenantName: tenant?.tenantName,
-      tenantEmail: tenant?.email,
+      tenantEmail: tenant?.emailId,
 
       trialStartDate: trial.trialStartDate,
       trialEndDate: trial.trialEndDate,
@@ -354,7 +358,7 @@ export const getSubscriptionTrialDashboardCount = async () => {
 export const updateSubscriptionTrial = async (
   trialId: string,
   payload: {
-    status?: string;
+    status?: SubscriptionTrialStatus;
     trialEndDate?: Date;
     updatedBy: string;
   },
@@ -367,14 +371,23 @@ export const updateSubscriptionTrial = async (
     const trial = await SubscriptionTrial.findOne({
       _id: trialId,
       deletedAt: null,
-    }).populate("tenantId", "tenantName emailId");
+    });
+
+    if (trial?.status === payload.status) {
+      throwError(subscriptionTrialMessages.STATUS_UNCHANGED, 400);
+    }
 
     if (!trial) {
       throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
       return;
     }
+    
+    const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null , status: "Active", }).lean();
 
-    const tenant: any = trial.tenantId;
+    if(!tenant) {
+      throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
+      return;
+    }
 
     let emailType: string | null = null;
 
@@ -468,9 +481,7 @@ export const updateSubscriptionTrial = async (
       updatedAt: trial.updatedAt,
     };
   } catch (error: any) {
-  
-    console.error("❌ Error in updateSubscriptionTrial:", error);
-    throw new Error("Internal Server Error");
+     throw error;
   }
 };
 
@@ -491,11 +502,9 @@ export const processTrialReminders = async () => {
         $lt: nextDay,
       },
       status: SubscriptionTrialStatus.ACTIVE,
-    })
-      .populate("tenantId", "tenantName emailId")
-      .lean();
+    }).lean();
     for (const trial of trials) {
-      const tenant = trial.tenantId as any;
+      const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null , status: "Active", }).lean();
       if (!tenant) {
         console.error(`Tenant not found for trial ID: ${trial._id}`);
         continue;
@@ -546,7 +555,7 @@ const sendTrialEmail = async ({
       subject = "Trial Cancelled";
 
       message = template
-        .replace(/{{ORG_NAME}}/g, trial.tenantId.tenantName)
+        .replace(/{{ORG_NAME}}/g, tenantName)
         .replace(
           /{{TRIAL_END_DATE}}/g,
           new Date(trial.trialEndDate).toDateString(),
@@ -585,7 +594,7 @@ const sendTrialEmail = async ({
       subject = "Trial Extended";
 
       message = template
-        .replace(/{{ORG_NAME}}/g, trial.tenantId.tenantName)
+        .replace(/{{ORG_NAME}}/g, tenantName)
         .replace(
           /{{NEW_TRIAL_END_DATE}}/g,
           new Date(trial.trialEndDate).toDateString(),
@@ -611,7 +620,7 @@ const sendTrialEmail = async ({
       subject = "Trial Completed";
 
       message = template
-        .replace(/{{ORG_NAME}}/g, trial.tenantId.tenantName)
+        .replace(/{{ORG_NAME}}/g, tenantName)
         .replace(/{{SUPPORT_EMAIL}}/g, "support@blackstone.com")
         .replace(/{{COMPANY_URL}}/g, "https://blackstoneinfomaticstech.com")
         .replace(/{{LOGO_URL}}/g, "https://your-logo-url.com/logo.png")
@@ -637,7 +646,7 @@ const sendTrialEmail = async ({
       );
 
       message = template
-        .replace(/{{ORG_NAME}}/g, trial.tenantId.tenantName)
+        .replace(/{{ORG_NAME}}/g, tenantName)
         .replace(/{{TRIAL_END_DATE}}/g, trialEndDate.toDateString())
         .replace(/{{DAYS_REMAINING}}/g, String(daysRemaining))
         .replace(/{{SUPPORT_EMAIL}}/g, "support@blackstone.com")
