@@ -43,6 +43,7 @@ import plansAPI from "../api/plan/router";
 import reminderAPI from "../api/remainder/router";
 import subscriptionInvoiceAPI from "../api/subcriptionInvoice/router";
 import subscriptionTrialAPI from "../api/subscriptionTrial/router";
+import billingAPI from "../api/billing/router";
 
 export const appPlugins = [
   {
@@ -178,5 +179,8 @@ export const appPlugins = [
   },
   {
     plugin:subscriptionTrialAPI,
+  },
+  {
+    plugin:billingAPI,
   }
 ];

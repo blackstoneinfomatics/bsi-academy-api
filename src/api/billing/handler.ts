@@ -1,6 +1,6 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import { z } from "zod";
-import { BillingValidation } from "../../models/billing";
+import BillingModel, { BillingValidation } from "../../models/billing";
 import { BillingStatus } from "../../shared/enum";
 import {
   createBilling,
@@ -8,7 +8,6 @@ import {
   getBillings,
 } from "../../operations/billing";
 import { billingMessages } from "../../config/messages";
-
 
 export const createBillingValidation = z.object({
   payload: BillingValidation.pick({
@@ -139,5 +138,127 @@ export default {
     }
   },
 
-  
+  getBillingCards: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const now = new Date();
+      const startOfCurrentMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+      const startOfNextMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        1,
+      );
+      const startOfPreviousMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1,
+      );
+
+      const getTrend = (current: number, previous: number) => {
+        if (previous === 0) {
+          return {
+            percentageChange: current > 0 ? 100 : 0,
+            trend: current > 0 ? "UP" : "NO_CHANGE",
+          };
+        }
+
+        const percentage = ((current - previous) / previous) * 100;
+
+        return {
+          percentageChange: Number(percentage.toFixed(2)),
+          trend: percentage > 0 ? "UP" : percentage < 0 ? "DOWN" : "NO_CHANGE",
+        };
+      };
+
+      const currentMonthMatch = {
+        status: BillingStatus.PAID,
+        paymentDate: {
+          $gte: startOfCurrentMonth,
+          $lt: startOfNextMonth,
+        },
+      };
+
+      const previousMonthMatch = {
+        status: BillingStatus.PAID,
+        paymentDate: {
+          $gte: startOfPreviousMonth,
+          $lt: startOfCurrentMonth,
+        },
+      };
+
+      const [paidExpensesCurrent, paidExpensesPrevious] = await Promise.all([
+        BillingModel.countDocuments(currentMonthMatch),
+        BillingModel.countDocuments(previousMonthMatch),
+      ]);
+
+      const [expenseCategoryCurrent, expenseCategoryPrevious] = await Promise.all([
+        BillingModel.aggregate([
+          { $match: currentMonthMatch },
+          { $group: { _id: "$category" } },
+          { $count: "total" },
+        ]),
+        BillingModel.aggregate([
+          { $match: previousMonthMatch },
+          { $group: { _id: "$category" } },
+          { $count: "total" },
+        ]),
+      ]);
+
+      const [thisMonthExpensesCurrent, thisMonthExpensesPrevious] = await Promise.all([
+        BillingModel.aggregate([
+          { $match: currentMonthMatch },
+          { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
+        ]),
+        BillingModel.aggregate([
+          { $match: previousMonthMatch },
+          { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
+        ]),
+      ]);
+
+      const paidTrend = getTrend(paidExpensesCurrent, paidExpensesPrevious);
+      const categoryTrend = getTrend(
+        Number(expenseCategoryCurrent[0]?.total ?? 0),
+        Number(expenseCategoryPrevious[0]?.total ?? 0),
+      );
+      const monthExpenseTrend = getTrend(
+        Number(thisMonthExpensesCurrent[0]?.totalAmount ?? 0),
+        Number(thisMonthExpensesPrevious[0]?.totalAmount ?? 0),
+      );
+
+      return h
+        .response({
+          success: true,
+          message: billingMessages.GET_BY_ID_SUCCESS,
+          data: {
+            paidExpenses: {
+              value: paidExpensesCurrent,
+              percentageChange: paidTrend.percentageChange,
+              trend: paidTrend.trend,
+            },
+            expenseCategories: {
+              value: Number(expenseCategoryCurrent[0]?.total ?? 0),
+              percentageChange: categoryTrend.percentageChange,
+              trend: categoryTrend.trend,
+            },
+            thisMonthExpenses: {
+              value: Number(thisMonthExpensesCurrent[0]?.totalAmount ?? 0),
+              percentageChange: monthExpenseTrend.percentageChange,
+              trend: monthExpenseTrend.trend,
+            },
+          },
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err?.message || billingMessages.VALIDATION_FAILED,
+          ...(err?.errors ? { errors: err.errors } : {}),
+        })
+        .code(err?.statusCode || 500);
+    }
+  },
 };

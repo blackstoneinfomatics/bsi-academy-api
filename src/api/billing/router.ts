@@ -43,6 +43,21 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+
+{
+      method: "GET",
+      path: "/billing/cards",
+      options: {
+        handler: handler.getBillingCards,
+        description: billingMessages.GET_COUNT,
+        tags: ["api", "billing"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
   ];
 
   server.route(routes);

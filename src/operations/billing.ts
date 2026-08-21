@@ -85,11 +85,9 @@ export const getBillings = async (query: GetBillingsQuery = {}) => {
       .exec(),
     BillingModel.countDocuments(filter),
   ]);
-  const totalCount = await BillingModel.countDocuments(filter);
   return {
     items,
     pagination: {
-      totalCount,
       page: normalizedPage,
       limit: normalizedLimit,
       totalRecords,
@@ -102,12 +100,20 @@ export const getBillings = async (query: GetBillingsQuery = {}) => {
 
 // GET BILLING BY ID
 export const getBillingById = async (id: string) => {
-  const totalCount = await BillingModel.countDocuments({ _id: id, deletedAt: null });
-  return await BillingModel.findOne({
-    _id: id,
-    deletedAt: null,
-     totalCount,
-  }).lean();
-};
+  const [billing, totalCount] = await Promise.all([
+    BillingModel.findOne({
+      _id: id,
+      deletedAt: null,
+    }).lean(),
 
+    BillingModel.countDocuments({
+      deletedAt: null,
+    }),
+  ]);
+
+  return {
+    billing,
+    totalCount,
+  };
+};
 
