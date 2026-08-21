@@ -7,6 +7,8 @@ import TenantSubscription from "../models/tenantsubscription";
 import { PaymentStatus, SubscriptionInvoiceStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import paymenttransaction from "../models/paymenttransaction";
+import { throwError } from "../helpers/throwError";
+import { subscriptionInvoiceMessages } from "../config/messages";
 
 type InvoiceEmailType = "CREATED" | "REMINDER";
 
@@ -21,7 +23,7 @@ export const createSubscriptionInvoice = async (
     });
 
     if (!tenant) {
-      throw new Error("Tenant not found.");
+      throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
     }
 
     const subscriptionPlan = await plan.findOne({
@@ -30,17 +32,15 @@ export const createSubscriptionInvoice = async (
     });
 
     if (!subscriptionPlan) {
-      throw new Error("Subscription Plan not found.");
+      throwError(subscriptionInvoiceMessages.SUBSCRIPTION_PLAN_NOT_FOUND, 404);
     }
 
     if (payload.dueDate < payload.invoiceDate) {
-      throw new Error(
-        "Due Date should be greater than or equal to Invoice Date.",
-      );
+      throwError(subscriptionInvoiceMessages.INVALID_DUE_DATE, 400);
     }
 
     if (payload.paymentTerms < 0) {
-      throw new Error("Payment Terms should be a non-negative number.");
+      throwError(subscriptionInvoiceMessages.INVALID_PAYMENT_TERMS, 400);
     }
 
     if (
@@ -48,9 +48,7 @@ export const createSubscriptionInvoice = async (
       (payload.nextReminderDate < payload.invoiceDate ||
         payload.nextReminderDate < payload.dueDate)
     ) {
-      throw new Error(
-        "Next Reminder Date should be greater than or equal to Invoice Date and Due Date.",
-      );
+      throwError(subscriptionInvoiceMessages.INVALID_REMINDER_DATE, 400);
     }
 
     const tenantSubscription = await TenantSubscription.findOne({
@@ -59,7 +57,7 @@ export const createSubscriptionInvoice = async (
     });
 
     if (!tenantSubscription) {
-      throw new Error("Tenant Subscription not found.");
+      throwError(subscriptionInvoiceMessages.TENANT_SUBSCRIPTION_NOT_FOUND, 404);
     }
 
     const duplicateInvoice = await SubscriptionInvoiceModel.findOne({
@@ -67,13 +65,13 @@ export const createSubscriptionInvoice = async (
     });
 
     if (duplicateInvoice) {
-      throw new Error("Invoice number already exists.");
+      throwError(subscriptionInvoiceMessages.DUPLICATE_INVOICE, 409);
     }
 
     if (payload.attachments?.length) {
       for (const url of payload.attachments) {
         if (!url.startsWith("https://")) {
-          throw new Error("Invalid Attachment URL.");
+          throwError(subscriptionInvoiceMessages.INVALID_ATTACHMENT_URL, 400);
         }
       }
     }
@@ -85,7 +83,10 @@ export const createSubscriptionInvoice = async (
 
     await newInvoice.save();
 
-    // await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
+    await sendSubscriptionInvoiceEmail(
+      newInvoice._id.toString(),
+      "CREATED",
+    );
 
     return newInvoice;
   } catch (error: any) {
@@ -424,10 +425,10 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
       _id: invoiceId,
       deletedAt: null,
     })
-      .populate({
-        path: "tenantId",
-        select: "tenantCode tenantName emailId phoneNumber domainName status",
-      })
+      // .populate({
+      //   path: "tenantId",
+      //   select: "tenantCode tenantName emailId phoneNumber domainName status",
+      // })
       .populate({
         path: "planId",
         select: "planCode planName billingCycle totalPrice taxAmount gstAndTax",
@@ -438,11 +439,15 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
           "subscriptionCode status paymentStatus billingCycle startDate endDate nextRenewalDate autoRenew",
       });
 
+    const tenant = await Tenants.findOne({
+      tenantCode: invoice?.tenantId,
+    });
+    
     if (!invoice) {
-      throw new Error("Subscription Invoice not found.");
-    }
+      throwError(subscriptionInvoiceMessages.INVOICE_NOT_FOUND, 404);
+      return;
+     }
 
-    const tenant = invoice.tenantId as any;
     const plan = invoice.planId as any;
     const subscription = invoice.subscriptionId as any;
 
@@ -557,8 +562,14 @@ export const sendSubscriptionInvoiceEmail = async (
 ) => {
   try {
     const invoice = await getSubscriptionInvoiceById(invoiceId);
-    if(!invoice) {
-      throw new Error("Invoice not found.");
+    if (
+      !invoice ||
+      !invoice.tenant ||
+      !invoice.subscriptionPlan ||
+      !invoice.subscription
+    ) {
+      throwError(subscriptionInvoiceMessages.INVOICE_NOT_FOUND, 404);
+      return;
     }
 
     const paymentLink = `https://blackstoneinfomaticstech.com/subscription-invoices/${invoice.invoiceId}/payment`;
@@ -586,7 +597,10 @@ export const sendSubscriptionInvoiceEmail = async (
       .replace(/{{BILLING_CYCLE}}/g, invoice?.subscriptionPlan?.billingCycle)
       .replace(/{{PLAN_PRICE}}/g, invoice?.subscriptionPlan?.price.toString())
       .replace(/{{INVOICE_ID}}/g, invoice?.invoiceId.toString())
-      .replace(/{{INVOICE_DATE}}/g, new Date(invoice?.invoiceDate).toDateString())
+      .replace(
+        /{{INVOICE_DATE}}/g,
+        new Date(invoice?.invoiceDate).toDateString(),
+      )
       .replace(/{{DUE_DATE}}/g, new Date(invoice?.dueDate).toDateString())
       .replace(/{{TENANT_ID}}/g, invoice?.tenant?.tenantId.toString())
       .replace(/{{DOMAIN}}/g, invoice?.tenant?.domainName || "-")
@@ -601,11 +615,13 @@ export const sendSubscriptionInvoiceEmail = async (
       .replace(/{{LOGO_URL}}/g, "https://your-logo-url.com/logo.png")
       .replace(/{{WEBSITE_URL}}/g, "https://blackstoneinfomaticstech.com")
       .replace(/{{TERMS_URL}}/g, "https://blackstoneinfomaticstech.com/terms")
-      .replace(/{{PRIVACY_URL}}/g, "https://blackstoneinfomaticstech.com/privacy")
+      .replace(
+        /{{PRIVACY_URL}}/g,
+        "https://blackstoneinfomaticstech.com/privacy",
+      )
       .replace(/{{PAYMENT_VALIDITY}}/g, "24 hours")
       .replace(/{{INVITE_VALIDITY}}/g, "48 hours")
       .replace(/{{REFUND_WINDOW}}/g, "7 days");
-
 
     const emailTo = [
       {

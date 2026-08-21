@@ -10,6 +10,8 @@ import {
   getFinanceTransactionCardCount,
 } from "../../operations/subcriptionInvoice";
 import { SubscriptionInvoiceStatus } from "../../shared/enum";
+import { subscriptionInvoiceMessages } from "../../config/messages";
+import { throwError } from "../../helpers/throwError";
 
 export const createSubscriptionInvoiceValidation = z.object({
   payload: SubscriptionInvoiceBaseValidation.pick({
@@ -93,40 +95,34 @@ export const getSubscriptionInvoicesValidation = z.object({
 export default {
   createSubscriptionInvoice: async (request: Request, h: ResponseToolkit) => {
     try {
-      const { payload } = createSubscriptionInvoiceValidation.parse({
+      const parsed = createSubscriptionInvoiceValidation.safeParse({
         payload: request.payload,
       });
 
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
       const result = await createSubscriptionInvoice(
-        payload as any,
-        payload.tenantId as string,
+        parsed.data?.payload as any,
+        parsed.data?.payload.tenantId as string,
       );
 
       return h
         .response({
-          message: "Subscription invoice created successfully",
+          message: subscriptionInvoiceMessages.CREATE_SUCCESS,
           data: result,
         })
         .code(200);
     } catch (err: any) {
-      console.log(err);
-
-      if (err instanceof ZodError) {
-        return h
-          .response({
-            success: false,
-            message: "Validation Failed",
-            errors: err.errors,
-          })
-          .code(400);
-      }
 
       return h
         .response({
           success: false,
           message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
         })
-        .code(500);
+        .code(err.statusCode || 500) 
     }
   },
 
@@ -141,7 +137,7 @@ export default {
         .response({
           success: true,
           message:
-            "Subscription invoice dashboard statistics fetched successfully.",
+            subscriptionInvoiceMessages.FETCH_ALL_SUCCESS,
           data: result,
         })
         .code(200);
@@ -150,8 +146,9 @@ export default {
         .response({
           success: false,
           message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
         })
-        .code(500);
+        .code(err.statusCode || 500) 
     }
   },
 
@@ -165,15 +162,17 @@ export default {
 
     return h.response({
       success: true,
-      message: "Subscription Invoices fetched successfully.",
+      message: subscriptionInvoiceMessages.FETCH_DASHBOARD_COUNT_SUCCESS,
       data: result,
     }).code(200);
 
   } catch (err: any) {
     return h.response({
-      success: false,
-      message: err.message,
-    }).code(500);
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500) 
   }
 },
 
@@ -188,7 +187,7 @@ export default {
       return h
         .response({
           success: true,
-          message: "Subscription Invoice details fetched successfully.",
+          message: subscriptionInvoiceMessages.FETCH_SUCCESS,
           data: result,
         })
         .code(200);
@@ -196,9 +195,10 @@ export default {
       return h
         .response({
           success: false,
-          message: err.message,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
         })
-        .code(500);
+        .code(err.statusCode || 500) 
     }
   },
 

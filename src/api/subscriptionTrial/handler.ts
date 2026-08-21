@@ -7,6 +7,8 @@ import {
   getSubscriptionTrials,
   updateSubscriptionTrial,
 } from "../../operations/subscriptiontrial";
+import { subscriptionTrialMessages } from "../../config/messages";
+import { throwError } from "../../helpers/throwError";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
@@ -69,18 +71,19 @@ export default {
       const result = await getSubscriptionTrials(query);
       return h
         .response({
-          message: "Subscription trials fetched successfully",
+          message: subscriptionTrialMessages.FETCH_ALL_SUCCESS,
           success: true,
           data: result,
         })
         .code(200);
     } catch (error: any) {
-      return h
+     return h
         .response({
           success: false,
-          message: error.message,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
         })
-        .code(500);
+        .code(error.statusCode || 500) 
     }
   },
 
@@ -92,18 +95,19 @@ export default {
       const result = await getSubscriptionTrialById(params.trialId);
       return h
         .response({
-          message: "Subscription trial fetched successfully",
+          message: subscriptionTrialMessages.FETCH_SUCCESS,
           success: true,
           data: result,
         })
         .code(200);
     } catch (error: any) {
       return h
-        .response({
+         .response({
           success: false,
-          message: error.message,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
         })
-        .code(500);
+        .code(error.statusCode || 500) 
     }
   },
   getSubscriptionTrialDashboardCount: async (
@@ -114,7 +118,7 @@ export default {
       const result = await getSubscriptionTrialDashboardCount();
       return h
         .response({
-          message: "Subscription trial dashboard count fetched successfully",
+          message: subscriptionTrialMessages.GET_DASHBOARD_COUNT_SUCCESS,
           success: true,
           data: result,
         })
@@ -123,9 +127,10 @@ export default {
       return h
         .response({
           success: false,
-          message: error.message,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
         })
-        .code(500);
+        .code(error.statusCode || 500) 
     }
   },
 
@@ -135,27 +140,22 @@ export default {
 
       const parsed = updateTrialValidation.safeParse(request.payload);
 
-      if (!parsed.success) {
-        return h
-          .response({
-            success: false,
-            message: "Validation Failed",
-          })
-          .code(400);
-      }
+       if (!parsed.success) {
+              throwError(parsed.error.errors[0].message, 400);
+            }
 
       const result = await updateSubscriptionTrial(trialId, {
-        status: parsed.data.status,
-        trialEndDate: parsed.data.trialEndDate
+        status: parsed.data?.status,
+        trialEndDate: parsed.data?.trialEndDate
           ? new Date(parsed.data.trialEndDate)
           : undefined,
-        updatedBy: parsed.data.updatedBy || "system",
+        updatedBy: parsed.data?.updatedBy || "system",
       });
 
       return h
         .response({
           success: true,
-          message: "Trial updated successfully.",
+          message: subscriptionTrialMessages.UPDATE_SUCCESS,
           data: result,
         })
         .code(200);
@@ -163,9 +163,10 @@ export default {
       return h
         .response({
           success: false,
-          message: error.message,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
         })
-        .code(500);
+        .code(error.statusCode || 500) 
     }
   },
 };

@@ -3,6 +3,8 @@ import SubscriptionTrial from "../models/subcriptionTrial";
 import { SubscriptionTrialStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
+import { throwError } from "../helpers/throwError";
+import { subscriptionTrialMessages } from "../config/messages";
 
 export const getSubscriptionTrials = async (query: any) => {
   try {
@@ -186,7 +188,8 @@ export const getSubscriptionTrialById = async (trialId: string) => {
     );
 
     if (!trial) {
-      throw new Error("Subscription Trial not found.");
+      throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
+      return;
     }
 
     const tenant = trial.tenantId as any;
@@ -241,10 +244,7 @@ export const getSubscriptionTrialById = async (trialId: string) => {
       convertedAt: trial.convertedAt,
     };
   } catch (error: any) {
-    if (error.message === "Subscription Trial not found.") {
-      throw error;
-    }
-
+  
     console.error("❌ Error in getSubscriptionTrialById:", error);
 
     throw new Error("Internal Server Error");
@@ -361,7 +361,7 @@ export const updateSubscriptionTrial = async (
 ) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(trialId)) {
-      throw new Error("Validation Failed");
+      throwError(subscriptionTrialMessages.VALIDATION_FAILED, 400);
     }
 
     const trial = await SubscriptionTrial.findOne({
@@ -370,7 +370,8 @@ export const updateSubscriptionTrial = async (
     }).populate("tenantId", "tenantName emailId");
 
     if (!trial) {
-      throw new Error("Trial not found.");
+      throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
+      return;
     }
 
     const tenant: any = trial.tenantId;
@@ -379,7 +380,7 @@ export const updateSubscriptionTrial = async (
 
     if (payload.trialEndDate) {
       if (payload.trialEndDate < trial.trialStartDate) {
-        throw new Error("Invalid Date Logic");
+        throwError(subscriptionTrialMessages.INVALID_DATE_LOGIC, 400);
       }
 
       trial.trialEndDate = payload.trialEndDate;
@@ -398,7 +399,7 @@ export const updateSubscriptionTrial = async (
       ];
 
       if (!allowedStatus.includes(payload.status as SubscriptionTrialStatus)) {
-        throw new Error("Validation Failed - Invalid Status");
+        throwError(subscriptionTrialMessages.VALIDATION_FAILED, 400);
       }
 
       trial.status = payload.status as SubscriptionTrialStatus;
@@ -467,14 +468,7 @@ export const updateSubscriptionTrial = async (
       updatedAt: trial.updatedAt,
     };
   } catch (error: any) {
-    if (
-      error.message === "Trial not found." ||
-      error.message === "Validation Failed" ||
-      error.message === "Invalid Date Logic"
-    ) {
-      throw error;
-    }
-
+  
     console.error("❌ Error in updateSubscriptionTrial:", error);
     throw new Error("Internal Server Error");
   }

@@ -22,6 +22,7 @@ import EmailTemplate from "../../models/emailTemplate";
 import { sendEmailClient } from "../../shared/email";
 import { z } from "zod";
 import { PaymentService } from "../../operations/paymenttransaction";
+import { throwError } from "../../helpers/throwError";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
@@ -414,7 +415,7 @@ export const createStudentPaymentIntent = async (
     return h.response({ error: err }).code(400);
   }
 };
- 
+
 export const createSubscriptionInvoicePayment = async (
   request: Request,
   h: ResponseToolkit,
@@ -425,31 +426,30 @@ export const createSubscriptionInvoicePayment = async (
     );
 
     if (!parsed.success) {
-      return h
-        .response({
-          success: false,
-          message: "Validation Failed",
-        })
-        .code(400);
+      throwError(parsed.error.errors[0].message, 400);
     }
 
-    const { invoiceId, paymentIntentResponse } = parsed.data.payload;
-    
-    if(paymentIntentResponse) {
-    const result = await paymentService.confirmPayment(invoiceId, paymentIntentResponse);
-     return h.response(result).code(200);
+    if (parsed.data?.payload.paymentIntentResponse) {
+      const result = await paymentService.confirmPayment(
+        parsed.data?.payload.invoiceId,
+        parsed.data?.payload.paymentIntentResponse,
+      );
+      return h.response(result).code(200);
     }
 
-   const result = await paymentService.createPaymentIntent(invoiceId);
-   return h.response(result).code(200);
+    const result = await paymentService.createPaymentIntent(
+      parsed.data?.payload.invoiceId || "",
+    );
+    return h.response(result).code(200);
   } catch (error: any) {
     console.log(error);
     return h
       .response({
         success: false,
         message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
       })
-      .code(500);
+      .code(error.statusCode || 500);
   }
 };
 

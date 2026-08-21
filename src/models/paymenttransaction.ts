@@ -103,27 +103,22 @@ export const PaymentTransactionSchema = new Schema<IPaymentTransaction>(
       default: null,
     },
 
-    refundId: {
-      type: String,
-      default: null,
-    },
-
-    refundAmount: {
+    refundableAmount: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    refundDate: {
-      type: Date,
-      default: null,
+    netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
-    refundReason: {
-      type: String,
-      trim: true,
-      maxlength: 500,
-      default: null,
+    processingFee: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     remarks: {
@@ -148,7 +143,7 @@ export const PaymentTransactionSchema = new Schema<IPaymentTransaction>(
     },
   },
   {
-    collection: "Paymenttransaction",
+    collection: "paymenttransaction",
     timestamps: true,
   }
 );
@@ -159,7 +154,6 @@ const objectId = z
 
 export const PaymentValidation = z.object({
   invoiceId: objectId,
-
   paymentIntentResponse: z.any().optional(),
 });
 

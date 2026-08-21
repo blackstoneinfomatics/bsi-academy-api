@@ -7,7 +7,8 @@ export const studentMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 
 export const evaluationMessages: Record<string, string> = Object.freeze({
@@ -19,7 +20,8 @@ export const evaluationMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 
 export const userMessages: Record<string, string> = Object.freeze({
@@ -31,10 +33,10 @@ export const userMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
   ACTIVE_USER_NOT_FOUND: "Active user not found with the provided credentials",
 });
-
 
 export const authMessages: Record<string, string> = Object.freeze({
   CHANGE_PASSWORD: "Update users password",
@@ -57,7 +59,8 @@ export const recruitmentMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete candidates by candidateIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 
 export const addMeetingMessages: Record<string, string> = Object.freeze({
@@ -78,8 +81,8 @@ export const addMeetingMessages: Record<string, string> = Object.freeze({
 });
 
 export const attendeeStatus: Record<string, any> = Object.freeze({
-   PRESENT:"present",
-   ABSENT: "absent"
+  PRESENT: "present",
+  ABSENT: "absent",
 });
 
 export const appStatus: Record<string, any> = Object.freeze({
@@ -87,7 +90,7 @@ export const appStatus: Record<string, any> = Object.freeze({
   IN_ACTIVE: "Inactive",
   DELETED: "Deleted",
   ARCHIVED: "Archived",
-  NEW: "New"
+  NEW: "New",
 });
 
 export const teacherStatus: Record<string, any> = Object.freeze({
@@ -113,9 +116,9 @@ export const classStatus: Record<string, any> = Object.freeze({
 });
 
 export const learningInterest: Record<string, any> = Object.freeze({
-  QURAN :"Quran",
+  QURAN: "Quran",
   ISLAMIC: "Islamic Studies",
-  ARABIC : "Arabic",
+  ARABIC: "Arabic",
 });
 export const numberOfStudents: Record<string, number> = Object.freeze({
   ONE: 1,
@@ -125,43 +128,43 @@ export const numberOfStudents: Record<string, number> = Object.freeze({
   FIVE: 5,
 });
 export const preferredTeacher: Record<string, any> = Object.freeze({
-  TEACHER_1 : "Male",
-  TEACHER_2 : "Female",
-  TEACHER_3 : "Either",
+  TEACHER_1: "Male",
+  TEACHER_2: "Female",
+  TEACHER_3: "Either",
 });
 
 export const referenceSource: Record<string, any> = Object.freeze({
   FRIEND: "Friend",
   SOCIALMEDIA: "Social Media", // Keep as string
-  EMAIL: "E-Mail", 
-  GOOGLE:"Google",
-  OTHER: "Other"  
+  EMAIL: "E-Mail",
+  GOOGLE: "Google",
+  OTHER: "Other",
 });
 
 export const appPlatforms: Record<string, any> = Object.freeze({
   WEB: "Web",
-  ONLINE: "Online"
-})
+  ONLINE: "Online",
+});
 
 export const evaluationStatus: Record<string, any> = Object.freeze({
-  PENDING:"PENDING",
-  INPROGRESS:"INPROGRESS",
-  COMPLETED:"COMPLETED"
-  });
+  PENDING: "PENDING",
+  INPROGRESS: "INPROGRESS",
+  COMPLETED: "COMPLETED",
+});
 
-  export const role: Record<string, string> = Object.freeze({
-    ACADEMICCOACH: "ACADEMICCOACH",
-    TEACHER: "Teacher",
-  });
+export const role: Record<string, string> = Object.freeze({
+  ACADEMICCOACH: "ACADEMICCOACH",
+  TEACHER: "Teacher",
+});
 
-  export const applicationStatus: Record<string, any> = Object.freeze({
-    NEWAPPLICATION:"NEWAPPLICATION",
-    SHORTLISTED:"SHORTLISTED",
-    REJECTED:"REJECTED",
-    WAITING:"WAITING",
-    SENDAPPROVAL: "SENDAPPROVAL",
-    APPROVED: "APPROVED"
-    });
+export const applicationStatus: Record<string, any> = Object.freeze({
+  NEWAPPLICATION: "NEWAPPLICATION",
+  SHORTLISTED: "SHORTLISTED",
+  REJECTED: "REJECTED",
+  WAITING: "WAITING",
+  SENDAPPROVAL: "SENDAPPROVAL",
+  APPROVED: "APPROVED",
+});
 
 export const eventType: Record<string, string> = Object.freeze({
   MEETING_SCHEDULED: "MEETING_SCHEDULED",
@@ -170,13 +173,13 @@ export const eventType: Record<string, string> = Object.freeze({
 });
 export const appRegexPatterns = Object.freeze({
   OBJECT_ID: /^[a-fA-F0-9]{24}$/,
-  NUMBER: /^\d+$/
+  NUMBER: /^\d+$/,
 });
 
 export const teacherPosition: Record<string, any> = Object.freeze({
-  QURANTEACHER :"Quran Teacher",
+  QURANTEACHER: "Quran Teacher",
   ISLAMICTEACHER: "Islamic Teacher",
-  ARABICTEACHER : "Arabic Teacher",
+  ARABICTEACHER: "Arabic Teacher",
 });
 
 export const commonMessages: Record<string, any> = Object.freeze({
@@ -196,16 +199,19 @@ export const commonMessages: Record<string, any> = Object.freeze({
   TENANT_NOT_FOUND: "Tenant not found",
   EMAIL_TEMPLATE_NOT_FOUND: "Email template not found",
   GREETINGS: "Greetings to all",
-  LIMIT: '10',
-  OFFSET: '0',
+  LIMIT: "10",
+  OFFSET: "0",
   INVALID_TYPE: "Invalid type",
-  PROFILE_UPLOAD_FILE_TYPES: ['image/jpeg', 'image/jpg', 'image/png'],
+  PROFILE_UPLOAD_FILE_TYPES: ["image/jpeg", "image/jpg", "image/png"],
 });
-
 
 export const appStatusCodes: number[] = [200];
 
-export const appDateTime: string[] = ["YYYY-MM-DD HH:mm:ss", "DD MMM YYYY", "YYYY-MM-DDTHH:mm:ss"];
+export const appDateTime: string[] = [
+  "YYYY-MM-DD HH:mm:ss",
+  "DD MMM YYYY",
+  "YYYY-MM-DDTHH:mm:ss",
+];
 
 export const appDataTypes = Object.freeze({
   TEXT: "text",
@@ -214,19 +220,19 @@ export const appDataTypes = Object.freeze({
   CHIPS: "chip",
 });
 
-
 export const meetingSchedulesMessages: Record<string, any> = Object.freeze({
   LIST: "Retrieve all the meeting schedules list",
   BYID: "Retrieve meeting schedules details by meetingScheduleId",
-  INTERVIEW_LIST:"Retrieve all the interview scheduled meeting",
-  INTERVIEW_LIST_CANDIDATE:"Retrieve all the interview scheduled meeting for candidate",
+  INTERVIEW_LIST: "Retrieve all the interview scheduled meeting",
+  INTERVIEW_LIST_CANDIDATE:
+    "Retrieve all the interview scheduled meeting for candidate",
   MEETING_SCHEDULE_NOT_FOUND: "Meeting schedule not found",
-  GET_ALL_LIST_START: 'getAllMeetingSchedulesRecords - Start',
-  GET_ALL_LIST_SUCCESS: 'getAllMeetingSchedulesRecords - Success',
-  MEETING_STATUS: ['Pending', 'Completed', 'Cancelled'],
-  CANDIDATE_RESPONSE: ['ACCEPTED', 'NOT RESPONDED', 'DECLINED'],
+  GET_ALL_LIST_START: "getAllMeetingSchedulesRecords - Start",
+  GET_ALL_LIST_SUCCESS: "getAllMeetingSchedulesRecords - Success",
+  MEETING_STATUS: ["Pending", "Completed", "Cancelled"],
+  CANDIDATE_RESPONSE: ["ACCEPTED", "NOT RESPONDED", "DECLINED"],
   DATE_FORMAT: /^\d{4}-\d{2}-\d{2}$/,
-  DATE_FORMAT_INVALID: 'Date must be in the format YYYY-MM-DD',
+  DATE_FORMAT_INVALID: "Date must be in the format YYYY-MM-DD",
   CREATE: "Create a new meeting schedules",
   UPDATE: "Update meeting schedule details by meetingScheduleId",
   DELETE: "Delete meeting schedule details by meetingScheduleId",
@@ -235,43 +241,49 @@ export const meetingSchedulesMessages: Record<string, any> = Object.freeze({
   MEETING_SCHEDULED_CANCELLED: "Meeting schedule has been cancelled",
   UPDATE_FAILED: "Failed to update the meeting schedule",
   DELETE_FAILED: "Failed to delete the meeting schedule",
-  REFERENCE_TYPE: ['MEETING_SCHEDULED'],
+  REFERENCE_TYPE: ["MEETING_SCHEDULED"],
   INVALID_ID: "Invalid ID",
-  INVALID_DATE_RANGE: "The date range is invalid because the start date is greater than the end date.",
+  INVALID_DATE_RANGE:
+    "The date range is invalid because the start date is greater than the end date.",
   MISSING_DATE_PAIR: "Both the start date and end date are required.",
   TEAMS_FOR_BUSINESS: "teamsForBusiness",
   REQUIRED: "required",
   OPTIONAL: "optional",
   HTML: "HTML",
-  VERIFY_INTEGRATION: 'Verify the integration for',
-  FAILED_TO_CONNECT: 'Failed to connect',
-  CHECK_INTEGRATION: '. Kindly check the integration',
-  INVALID_CREDENTIAL: 'Invalid credentials provided for tenant configuration.',
-  UNAUTHORIZED_ACCESS: 'Unauthorized access. Please check the tenant credentials.',
-  FORBIDDEN_ACCESS: 'Forbidden access. You do not have permission to perform this action.',
+  VERIFY_INTEGRATION: "Verify the integration for",
+  FAILED_TO_CONNECT: "Failed to connect",
+  CHECK_INTEGRATION: ". Kindly check the integration",
+  INVALID_CREDENTIAL: "Invalid credentials provided for tenant configuration.",
+  UNAUTHORIZED_ACCESS:
+    "Unauthorized access. Please check the tenant credentials.",
+  FORBIDDEN_ACCESS:
+    "Forbidden access. You do not have permission to perform this action.",
   FAILED_ACCESS_TOKEN: `Failed to retrieve access token for schedule meeting. Kindly verfiy the clander integration`,
   EMAIL_NOT_FOUND: "The requested resource or user email was not found",
-  UNKNOWN_ERROR: 'An unknown error occurred while creating the event:',
+  UNKNOWN_ERROR: "An unknown error occurred while creating the event:",
   NORESPONSE: "No response received from the server while creating the event.",
   FAILED_TO_CREATE_EVENT: "Failed to create calendar event.",
   FAILED_TO_UPDATE_EVENT: "Failed to update calendar event",
-  UNKNOWN_ERROR_UPDATE_EVENT: 'An unexpected error occurred while updating the event.',
+  UNKNOWN_ERROR_UPDATE_EVENT:
+    "An unexpected error occurred while updating the event.",
   INVALID_REFERENCE_ID: "Invalid referenceId",
-  FAILED_ASSESSMENT: 'Failed to connect Assessment. Please check the integration.'
+  FAILED_ASSESSMENT:
+    "Failed to connect Assessment. Please check the integration.",
 });
 
 export const ClassSchedulesMessages: Record<string, any> = Object.freeze({
   LIST: "Retrieve all the meeting schedules list",
   BYID: "Retrieve meeting schedules details by meetingScheduleId",
-  INTERVIEW_LIST:"Retrieve all the interview scheduled meeting",
-  INTERVIEW_LIST_CANDIDATE:"Retrieve all the interview scheduled meeting for candidate",
+  INTERVIEW_LIST: "Retrieve all the interview scheduled meeting",
+  INTERVIEW_LIST_CANDIDATE:
+    "Retrieve all the interview scheduled meeting for candidate",
   MEETING_SCHEDULE_NOT_FOUND: "Meeting schedule not found",
-  GET_ALL_LIST_START: 'getAllMeetingSchedulesRecords - Start',
-  GET_ALL_LIST_SUCCESS: 'getAllMeetingSchedulesRecords - Success',
-  MEETING_STATUS: ['Pending', 'Completed', 'Cancelled'],
-  CANDIDATE_RESPONSE: ['ACCEPTED', 'NOT RESPONDED', 'DECLINED'],
+  GET_ALL_LIST_START: "getAllMeetingSchedulesRecords - Start",
+  GET_ALL_LIST_SUCCESS: "getAllMeetingSchedulesRecords - Success",
+  MEETING_STATUS: ["Pending", "Completed", "Cancelled"],
+  CANDIDATE_RESPONSE: ["ACCEPTED", "NOT RESPONDED", "DECLINED"],
   DATE_FORMAT: /^\d{4}-\d{2}-\d{2}$/,
-  DATE_FORMAT_INVALID: 'Date must be in the format YYYY-MM-DD',
+  DATE_FORMAT_INVALID: "Date must be in the format YYYY-MM-DD",
   CREATE: "Create a new meeting schedules",
   UPDATE: "Update meeting schedule details by meetingScheduleId",
   DELETE: "Delete meeting schedule details by meetingScheduleId",
@@ -280,37 +292,41 @@ export const ClassSchedulesMessages: Record<string, any> = Object.freeze({
   MEETING_SCHEDULED_CANCELLED: "Meeting schedule has been cancelled",
   UPDATE_FAILED: "Failed to update the meeting schedule",
   DELETE_FAILED: "Failed to delete the meeting schedule",
-  REFERENCE_TYPE: ['MEETING_SCHEDULED'],
+  REFERENCE_TYPE: ["MEETING_SCHEDULED"],
   INVALID_ID: "Invalid ID",
-  INVALID_DATE_RANGE: "The date range is invalid because the start date is greater than the end date.",
+  INVALID_DATE_RANGE:
+    "The date range is invalid because the start date is greater than the end date.",
   MISSING_DATE_PAIR: "Both the start date and end date are required.",
   TEAMS_FOR_BUSINESS: "teamsForBusiness",
   REQUIRED: "required",
   OPTIONAL: "optional",
   HTML: "HTML",
-  VERIFY_INTEGRATION: 'Verify the integration for',
-  FAILED_TO_CONNECT: 'Failed to connect',
-  CHECK_INTEGRATION: '. Kindly check the integration',
-  INVALID_CREDENTIAL: 'Invalid credentials provided for tenant configuration.',
-  UNAUTHORIZED_ACCESS: 'Unauthorized access. Please check the tenant credentials.',
-  FORBIDDEN_ACCESS: 'Forbidden access. You do not have permission to perform this action.',
+  VERIFY_INTEGRATION: "Verify the integration for",
+  FAILED_TO_CONNECT: "Failed to connect",
+  CHECK_INTEGRATION: ". Kindly check the integration",
+  INVALID_CREDENTIAL: "Invalid credentials provided for tenant configuration.",
+  UNAUTHORIZED_ACCESS:
+    "Unauthorized access. Please check the tenant credentials.",
+  FORBIDDEN_ACCESS:
+    "Forbidden access. You do not have permission to perform this action.",
   FAILED_ACCESS_TOKEN: `Failed to retrieve access token for schedule meeting. Kindly verfiy the clander integration`,
   EMAIL_NOT_FOUND: "The requested resource or user email was not found",
-  UNKNOWN_ERROR: 'An unknown error occurred while creating the event:',
+  UNKNOWN_ERROR: "An unknown error occurred while creating the event:",
   NORESPONSE: "No response received from the server while creating the event.",
   FAILED_TO_CREATE_EVENT: "Failed to create calendar event.",
   FAILED_TO_UPDATE_EVENT: "Failed to update calendar event",
-  UNKNOWN_ERROR_UPDATE_EVENT: 'An unexpected error occurred while updating the event.',
+  UNKNOWN_ERROR_UPDATE_EVENT:
+    "An unexpected error occurred while updating the event.",
   INVALID_REFERENCE_ID: "Invalid referenceId",
-  FAILED_ASSESSMENT: 'Failed to connect Assessment. Please check the integration.'
+  FAILED_ASSESSMENT:
+    "Failed to connect Assessment. Please check the integration.",
 });
 
-
 export const socketEventNames: Record<string, any> = Object.freeze({
-  USERS: 'users',
-  DASHBOARD: 'dashboard',
-  WEB_NOTIFICATION: 'web-notification'
-})
+  USERS: "users",
+  DASHBOARD: "dashboard",
+  WEB_NOTIFICATION: "web-notification",
+});
 
 export const fileMessages: Record<string, any> = Object.freeze({
   MAX_FILE_SIZE: 20971520,
@@ -323,10 +339,21 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   TENANT_SETTINGS_NOT_FOUND: "Tenant settings not found",
   TENANT_SETTINGS_ALREADY_EXIST: "Tenant settings is already exists",
   KEY_ALREADY_EXIST: "Key is already exists",
-  MODULE_TYPES: ['Integration', 'General', 'Preference'],
-  KEYNAMES: ['ATS_ZOHO_CONFIG', 'CALENDAR_GOOGLE_CONFIG', 'CALENDAR_TEAMS_CONFIG', 'MAIL_GOOGLE_CONFIG', 'MAIL_OUTLOOK_CONFIG', 'DATE_FORMAT', 'TIME_ZONE', 'AI_MODEL', 'CUSTOM_DOMAIN', 'BACKUP'],
-  GET_ALL_LIST_START: 'getAllTenantSettingsRecords - Start',
-  GET_ALL_LIST_SUCCESS: 'getAllTenantSettingsRecords - Success',
+  MODULE_TYPES: ["Integration", "General", "Preference"],
+  KEYNAMES: [
+    "ATS_ZOHO_CONFIG",
+    "CALENDAR_GOOGLE_CONFIG",
+    "CALENDAR_TEAMS_CONFIG",
+    "MAIL_GOOGLE_CONFIG",
+    "MAIL_OUTLOOK_CONFIG",
+    "DATE_FORMAT",
+    "TIME_ZONE",
+    "AI_MODEL",
+    "CUSTOM_DOMAIN",
+    "BACKUP",
+  ],
+  GET_ALL_LIST_START: "getAllTenantSettingsRecords - Start",
+  GET_ALL_LIST_SUCCESS: "getAllTenantSettingsRecords - Success",
   UPDATE_FAILED: "Failed to update the tenant settings",
   BYID: "Get Tenant details by Tenant Code",
 });
@@ -335,7 +362,6 @@ export const dashboardMessages: Record<string, any> = Object.freeze({
   WIDGET_COUNT: "Get dashboard widget counts",
   // ... any other dashboard-related messages
 });
-
 
 export const alstudentsMessages: Record<string, string> = Object.freeze({
   LIST: "Retrieve all the users list",
@@ -346,7 +372,8 @@ export const alstudentsMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 
 export const assignemntMessages: Record<string, any> = Object.freeze({
@@ -355,7 +382,8 @@ export const assignemntMessages: Record<string, any> = Object.freeze({
   ASSIGNMENT_DELETED: "Assignment has been successfully deleted.",
   ASSIGNMENT_NOT_FOUND: "The requested assignment could not be found.",
   INVALID_ASSIGNMENT_NAME: "Assignment name cannot be empty or null.",
-  INVALID_ASSIGNMENT_TYPE: "At least one assignment type must be selected and not empty.",
+  INVALID_ASSIGNMENT_TYPE:
+    "At least one assignment type must be selected and not empty.",
   INVALID_DATE_RANGE: "The due date must be later than the assigned date.",
   SERVER_ERROR: "An unexpected server error occurred. Please try again later.",
 });
@@ -367,54 +395,50 @@ export const assigmentType: Record<string, any> = Object.freeze({
   IMAGE_IDENTIFICATION: "image identification",
   WORD_MATCHING: "word match",
   READING_COMPREHENSION: "reading comprehension",
- });    
-
+});
 
 export const notificationsMessages: Record<string, any> = Object.freeze({
   LIST: "Retrieve all the notifications list",
   BULK_UPDATE: "Update all the notifications list by userId",
-  NEXT_EVALUATION : "Next EvaluationClass scheduled",
-  UPCOMING_CLASSES : "Upcoming classes scheduled",
-  ADD_STUDENT : "New Student Added",
-  ADD_STUDENT_TRAIL : "Student Added on Trailclass",
-  SCHEDULE_CLASS : "Schedule Class",
-  RESCHEDULE_REQUEST : "Reschedule Requested",
-  ADD_TEACHER : "New Teacher Added",
-  TEACHER_RESCHEDULE : "Teacher reschedule requestedx`",
-  RESCHEDULE_REASON : "Reason for Reschedule",
-  LIVE_CLASS : "Live class Updated",
-  SUBMIT_FEEDBACK : "FeedBack Submitted",
-  ASSIGN_ASSIGNMENT : "Assignment Assigned",
-  ASSIGNMENT_COMPLETED : "Assignment Completed",
-  PAYMENT_ALERT : "Payment Status Updated",
-  UPCOMING_TASK : "Upcoming Task Alert",
-  TRAILCLASS_STATUS : "Trailclass status Updated",
-  LIVE_CLASS_FEEDBACK : "Live class Feedback Updated",
-  ADD_APPLICANT : "New Applicant Added",
-  APPLICATION_STATUS : "Application Status updated",
-  ADD_MEETING : "New Meeting Added",
-  WEEKLY_MEETING : "Weekely Meeting",
-  ADD_TEACHER_FOR_MEETING : "New Teacher added on Meeting",
-  ADD_TRAILCLASS_REQUEST : "Trailclass Request Added",
-  PAUSE_CLASS : "Class paused",
-  RESUME_CLASS : "Class Resumed",
-  ADD_STAFF : "New staffaddded",
-  ADD_COURSE : "New course added",
-  ADD_KNOWLEDGEBASE : "New knowledgebase Added",
-  ADD_ASSIGNMENT : "New Assignment Added",
-  ADD_PACKAGE : "New Package Added",
-  ADD_MEETING_TRAINING : "New Meeting and Training Added",
-  NEW_INVOICE : "New Invoice Added",
-  ROLE_ACCESS : "Roll access",
-
+  NEXT_EVALUATION: "Next EvaluationClass scheduled",
+  UPCOMING_CLASSES: "Upcoming classes scheduled",
+  ADD_STUDENT: "New Student Added",
+  ADD_STUDENT_TRAIL: "Student Added on Trailclass",
+  SCHEDULE_CLASS: "Schedule Class",
+  RESCHEDULE_REQUEST: "Reschedule Requested",
+  ADD_TEACHER: "New Teacher Added",
+  TEACHER_RESCHEDULE: "Teacher reschedule requestedx`",
+  RESCHEDULE_REASON: "Reason for Reschedule",
+  LIVE_CLASS: "Live class Updated",
+  SUBMIT_FEEDBACK: "FeedBack Submitted",
+  ASSIGN_ASSIGNMENT: "Assignment Assigned",
+  ASSIGNMENT_COMPLETED: "Assignment Completed",
+  PAYMENT_ALERT: "Payment Status Updated",
+  UPCOMING_TASK: "Upcoming Task Alert",
+  TRAILCLASS_STATUS: "Trailclass status Updated",
+  LIVE_CLASS_FEEDBACK: "Live class Feedback Updated",
+  ADD_APPLICANT: "New Applicant Added",
+  APPLICATION_STATUS: "Application Status updated",
+  ADD_MEETING: "New Meeting Added",
+  WEEKLY_MEETING: "Weekely Meeting",
+  ADD_TEACHER_FOR_MEETING: "New Teacher added on Meeting",
+  ADD_TRAILCLASS_REQUEST: "Trailclass Request Added",
+  PAUSE_CLASS: "Class paused",
+  RESUME_CLASS: "Class Resumed",
+  ADD_STAFF: "New staffaddded",
+  ADD_COURSE: "New course added",
+  ADD_KNOWLEDGEBASE: "New knowledgebase Added",
+  ADD_ASSIGNMENT: "New Assignment Added",
+  ADD_PACKAGE: "New Package Added",
+  ADD_MEETING_TRAINING: "New Meeting and Training Added",
+  NEW_INVOICE: "New Invoice Added",
+  ROLE_ACCESS: "Roll access",
 });
-
 
 export const notificationStatus: Record<string, any> = Object.freeze({
-  SEEN : "Seen",
+  SEEN: "Seen",
   UN_SEEN: "Unseen",
 });
-
 
 export const roleAccess: Record<string, string> = Object.freeze({
   LIST: "Retrieve all the users list",
@@ -425,7 +449,8 @@ export const roleAccess: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 
 export const otherEmployeesMessages: Record<string, string> = Object.freeze({
@@ -437,7 +462,8 @@ export const otherEmployeesMessages: Record<string, string> = Object.freeze({
   BULK_DELETE: "Bulk Delete employee by employeeIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
-  USER_PROFILE_INVALID_FILE_TYPE: "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
+  USER_PROFILE_INVALID_FILE_TYPE:
+    "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
 });
 export const addAminMeetingMessages: Record<string, string> = Object.freeze({
   LIST: "Retrieve all meetings",
@@ -456,7 +482,6 @@ export const addAminMeetingMessages: Record<string, string> = Object.freeze({
   INVALID_STATUS: "Invalid meeting status",
 });
 
-
 export const addKnowledgeBaseMessages: Record<string, string> = Object.freeze({
   LIST: "Retrieve all meetings",
   BYID: "Retrieve meeting details by meetingId",
@@ -471,7 +496,7 @@ export const addKnowledgeBaseMessages: Record<string, string> = Object.freeze({
 });
 
 export const uploadedFormat: Record<string, any> = Object.freeze({
-  PDF :"Pdf",
+  PDF: "Pdf",
   VIDEO: "Video",
 });
 
@@ -484,7 +509,7 @@ export const leaveStatus: Record<string, any> = Object.freeze({
 export const leave: Record<string, any> = Object.freeze({
   APPROVED: "APPROVED",
   REJECTED: "REJECTED",
-  WAITINGLIST: "WAITINGLIST"
+  WAITINGLIST: "WAITINGLIST",
 });
 
 export const leaveRequestMessages: Record<string, string> = Object.freeze({
@@ -499,48 +524,124 @@ export const leaveRequestMessages: Record<string, string> = Object.freeze({
   USER_NOT_FOUND: "Employee not found or inactive. Please contact admin",
   ADMIN_NOT_FOUND: "Admin not found or unauthorized to approve",
   INVALID_DATE_FORMAT: "Invalid date format. Please use YYYY-MM-DD",
-  INVALID_LEAVE_TYPE: "Invalid leave type. Accepted values are PAID, CASUAL, or SICK",
-  INSUFFICIENT_LEAVE_BALANCE: "Insufficient leave balance for the requested period",
+  INVALID_LEAVE_TYPE:
+    "Invalid leave type. Accepted values are PAID, CASUAL, or SICK",
+  INSUFFICIENT_LEAVE_BALANCE:
+    "Insufficient leave balance for the requested period",
   LEAVE_QUOTA_EXCEEDED: "Monthly leave quota exceeded",
   FROM_DATE_REQUIRED: "From date is required",
   TO_DATE_REQUIRED: "To date is required",
   REASON_REQUIRED: "Reason for leave is required",
 });
 export const syncJob: Record<string, any> = Object.freeze({
-  ZOHO_RECRUIT: 'Please connect to the Zoho Recruit',
-  SYNC_JOB: 'Sync jobs from the ATS integrations',
-  AUTHORIZATION_CODE: 'authorization_code',
-  REFRESH_TOKEN: 'refresh_token',
-  JOB_OPENING_STATUS: ['In-progress', 'On-Hold', 'Filled', 'Cancelled', 'Declined', 'Inactive', 'Waiting for approval', 'Submitted by client'],
-  ADDITIONAL_DETAILS: ['workExperience', 'salary', 'requiredskills'],
-  JOB_SYNCED: 'Job synced Successfully',
-  UPDATED: 'job updated from Other Applications- Zoho Recurit.',
-  CREATED: 'job imported from Other Applications- Zoho Recruit.',
-  INVALID_ACCESS_TOKEN: 'Invalid access token',
-  ENDPOINT_NOT_FOUND: 'Endpoint not found',
-  API_REQUEST_FAILED: 'API request failed:',
-  UNEXPECTED_ERROR: 'An unexpected error occurred',
-  CONTENT_TYPE: ['Bearer', 'application/json', 'application/x-www-form-urlencoded'],
+  ZOHO_RECRUIT: "Please connect to the Zoho Recruit",
+  SYNC_JOB: "Sync jobs from the ATS integrations",
+  AUTHORIZATION_CODE: "authorization_code",
+  REFRESH_TOKEN: "refresh_token",
+  JOB_OPENING_STATUS: [
+    "In-progress",
+    "On-Hold",
+    "Filled",
+    "Cancelled",
+    "Declined",
+    "Inactive",
+    "Waiting for approval",
+    "Submitted by client",
+  ],
+  ADDITIONAL_DETAILS: ["workExperience", "salary", "requiredskills"],
+  JOB_SYNCED: "Job synced Successfully",
+  UPDATED: "job updated from Other Applications- Zoho Recurit.",
+  CREATED: "job imported from Other Applications- Zoho Recruit.",
+  INVALID_ACCESS_TOKEN: "Invalid access token",
+  ENDPOINT_NOT_FOUND: "Endpoint not found",
+  API_REQUEST_FAILED: "API request failed:",
+  UNEXPECTED_ERROR: "An unexpected error occurred",
+  CONTENT_TYPE: [
+    "Bearer",
+    "application/json",
+    "application/x-www-form-urlencoded",
+  ],
 });
 
 export const subscriptionInvoiceMessages = {
+  // Actions
   CREATE: "Create Subscription Invoice",
   GET_ALL: "Get Subscription Invoices",
   GET_BY_ID: "Get Subscription Invoice By Id",
   UPDATE: "Update Subscription Invoice",
   DELETE: "Delete Subscription Invoice",
   GET_DASHBOARD_COUNT: "Get Subscription Invoice Dashboard Count",
-  INVOICE_NOT_FOUND: "Subscription Invoice not found",
-  INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+
+  // Success Responses
+  CREATE_SUCCESS: "Subscription Invoice created successfully.",
+  UPDATE_SUCCESS: "Subscription Invoice updated successfully.",
+  DELETE_SUCCESS: "Subscription Invoice deleted successfully.",
+  FETCH_SUCCESS: "Subscription Invoice fetched successfully.",
+  FETCH_ALL_SUCCESS: "Subscription Invoices fetched successfully.",
+  FETCH_DASHBOARD_COUNT_SUCCESS:
+    "Subscription Invoice dashboard statistics fetched successfully.",
+
+  // Errors
+  TENANT_NOT_FOUND: "Tenant not found.",
+  INVOICE_NOT_FOUND: "Subscription Invoice not found.",
+  SUBSCRIPTION_PLAN_NOT_FOUND: "Subscription Plan not found.",
+  INVALID_DUE_DATE: "Due Date should be greater than or equal to Invoice Date.",
+  INVALID_PAYMENT_TERMS: "Payment Terms should be a non-negative number.",
+  INVALID_REMINDER_DATE:
+    "Next Reminder Date should be greater than or equal to Invoice Date and Due Date.",
+  TENANT_SUBSCRIPTION_NOT_FOUND: "Tenant Subscription not found.",
+  DUPLICATE_INVOICE: "Invoice number already exists.",
+  INVALID_ATTACHMENT_URL: "Invalid Attachment URL.",
 };
 
 export const subscriptionTrialMessages = {
+  // Actions
   CREATE: "Create Subscription Trial",
   GET_ALL: "Get Subscription Trials",
   GET_BY_ID: "Get Subscription Trial By Id",
   UPDATE: "Update Subscription Trial",
   DELETE: "Delete Subscription Trial",
   GET_DASHBOARD_COUNT: "Get Subscription Trial Dashboard Count",
-  TRIAL_NOT_FOUND: "Subscription Trial not found",
+
+  // Success Responses
+  CREATE_SUCCESS: "Subscription Trial created successfully.",
+  UPDATE_SUCCESS: "Subscription Trial updated successfully.",
+  DELETE_SUCCESS: "Subscription Trial deleted successfully.",
+  FETCH_SUCCESS: "Subscription Trial fetched successfully.",
+  FETCH_ALL_SUCCESS: "Subscription Trials fetched successfully.",
+  GET_DASHBOARD_COUNT_SUCCESS:
+    "Subscription Trial dashboard statistics fetched successfully.",
+
+  // Errors
+  TRIAL_NOT_FOUND: "Subscription Trial not found.",
   INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+  VALIDATION_FAILED: "Validation failed. Please check the input data.",
+  INVALID_DATE_LOGIC:
+    "Invalid date logic. Trial End Date should be greater than or equal to Trial Start Date.",
+};
+
+export const paymentMessages = {
+  // Actions
+  CREATE_SUBSCRIPTION_INVOICE_PAYMENT: "Create Subscription Invoice Payment",
+  CONFIRM_PAYMENT: "Confirm Payment",
+  GET_FINANCE_TRANSACTIONS: "Get Finance Transactions",
+
+  // Success Responses
+  CREATE_PAYMENT_INTENT_SUCCESS: "Payment Intent created successfully.",
+  CONFIRM_PAYMENT_SUCCESS: "Payment confirmed successfully.",
+  GET_FINANCE_TRANSACTIONS_SUCCESS:
+    "Finance transactions fetched successfully.",
+
+  // Errors
+  PAYMENT_INTENT_CREATION_FAILED: "Failed to create payment intent.",
+  PAYMENT_CONFIRMATION_FAILED: "Failed to confirm payment.",
+  FINANCE_TRANSACTIONS_FETCH_FAILED: "Failed to fetch finance transactions.",
+   INVOICE_NOT_FOUND: "Subscription Invoice not found.",
+  INVOICE_ALREADY_PAID: "Invoice has already been paid.",
+  SUBSCRIPTION_NOT_FOUND: "Tenant Subscription not found.",
+  PAYMENT_NOT_FOUND: "Payment not found.",
+  VALIDATION_FAILED: "Validation Failed",
+  PAYMENT_FAILED: "Payment failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+  INVALID_BILLING_CYCLE: "Invalid billing cycle",
 };
