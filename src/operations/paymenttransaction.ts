@@ -239,10 +239,7 @@ export class PaymentService {
 
         // Update Subscription
         const startDate = new Date();
-        const endDate = this.calculateEndDate(
-          startDate,
-          subscription.billingCycle,
-        );
+        const endDate = this.calculateEndDate(startDate, subscription.duration);
 
         subscription.status = SubscriptionStatus.ACTIVE;
         subscription.paymentStatus = PaymentStatus.PAID;
@@ -286,29 +283,25 @@ export class PaymentService {
     return `PAY-${year}-${String(count + 1).padStart(6, "0")}`;
   }
 
-  private calculateEndDate(start: Date, cycle: BillingCycle) {
+  private calculateEndDate(start: Date, durationInMonths: number): Date {
+    if (!durationInMonths || durationInMonths <= 0) {
+      throw new Error(`Invalid duration: ${durationInMonths}`);
+    }
+
     const date = new Date(start);
 
-    switch (cycle) {
-      case BillingCycle.MONTHLY:
-        date.setMonth(date.getMonth() + 1);
-        break;
+    const originalDay = date.getDate();
 
-      case BillingCycle.QUARTERLY:
-        date.setMonth(date.getMonth() + 3);
-        break;
+    date.setDate(1);
+    date.setMonth(date.getMonth() + durationInMonths);
 
-      case BillingCycle.HALF_YEARLY:
-        date.setMonth(date.getMonth() + 6);
-        break;
+    const lastDay = new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0,
+    ).getDate();
 
-      case BillingCycle.YEARLY:
-        date.setFullYear(date.getFullYear() + 1);
-        break;
-
-      default:
-        throw new Error(`Invalid billing cycle: ${cycle}`);
-    }
+    date.setDate(Math.min(originalDay, lastDay));
 
     return date;
   }

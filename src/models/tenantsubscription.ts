@@ -1,13 +1,16 @@
 import mongoose, { Schema } from "mongoose";
 import { ITenantSubscription } from "../../types/models.types";
-import { BillingCycle, PaymentStatus, SubscriptionStatus } from "../shared/enum";
+import {
+  BillingCycle,
+  PaymentStatus,
+  SubscriptionStatus,
+} from "../shared/enum";
 import { z } from "zod";
 
 export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
   {
     tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenants",
+      type: String,
       required: true,
       unique: true,
       index: true,
@@ -27,10 +30,11 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
       index: true,
     },
 
-    billingCycle: {
-      type: String,
-      enum: BillingCycle,
+    duration: {
+      type: Number,
       required: true,
+      default: 0,
+      min: 0,
     },
 
     status: {
@@ -90,15 +94,13 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
   {
     collection: "tenantsubscriptions",
     timestamps: true,
-  }
+  },
 );
 
-const objectId = z
-  .string()
-  .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
 export const TenantSubscriptionBaseValidation = z.object({
-  tenantId: objectId,
+  tenantId: z.string().trim().min(1, "Tenant ID is required"),
 
   planId: objectId,
 
@@ -108,7 +110,7 @@ export const TenantSubscriptionBaseValidation = z.object({
     .min(1, "Subscription code is required")
     .max(100),
 
-  billingCycle: z.nativeEnum(BillingCycle),
+  duration: z.number().int().positive("Duration must be a positive integer"),
 
   status: z
     .nativeEnum(SubscriptionStatus)
@@ -128,24 +130,21 @@ export const TenantSubscriptionBaseValidation = z.object({
 
   autoRenew: z.boolean().default(false).optional(),
 
-  remarks: z
-    .string()
-    .trim()
-    .max(1000)
-    .optional(),
+  remarks: z.string().trim().max(1000).optional(),
 
   createdBy: z.string().trim().min(1, "Created by is required"),
 
   updatedBy: z.string().trim().optional(),
 });
 
- export const TenantSubscriptionValidation =
+export const TenantSubscriptionValidation =
   TenantSubscriptionBaseValidation.refine(
-    (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
+    (data) =>
+      !data.startDate || !data.endDate || data.endDate >= data.startDate,
     {
       path: ["endDate"],
       message: "End date must be greater than or equal to start date.",
-    }
+    },
   );
 
 export type CreateTenantSubscriptionDto = z.infer<
@@ -153,5 +152,5 @@ export type CreateTenantSubscriptionDto = z.infer<
 >;
 export default mongoose.model<ITenantSubscription>(
   "TenantSubscription",
-  TenantSubscriptionSchema
+  TenantSubscriptionSchema,
 );

@@ -616,6 +616,7 @@ export const subscriptionInvoiceMessages = {
   TENANT_SUBSCRIPTION_NOT_FOUND: "Tenant Subscription not found.",
   DUPLICATE_INVOICE: "Invoice number already exists.",
   INVALID_ATTACHMENT_URL: "Invalid Attachment URL.",
+  BILLING_PERIOD_NOT_FOUND: "Billing Period not found.",
 };
 
 export const subscriptionTrialMessages = {

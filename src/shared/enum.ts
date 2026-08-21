@@ -97,6 +97,18 @@ export enum PaymentStatus {
   PAID = "PAID",
 }
 
+export enum RefundStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
+  FAILED = "FAILED",
+}
+
+export enum RefundApprovalStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
 export enum PaymentGateway {
   STRIPE = "STRIPE",
 }

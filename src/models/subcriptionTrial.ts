@@ -6,8 +6,7 @@ import { z } from "zod";
 export const TrialSchema = new Schema<ISubscriptionTrial>(
   {
     tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenants",
+      type: String,
       required: true,
       index: true,
     },
@@ -70,7 +69,7 @@ TrialSchema.index(
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
 export const TrialBaseValidation = z.object({
-  tenantId: objectId,
+  tenantId: z.string().trim().min(1, "Tenant ID is required"),
 
   trialStartDate: z.coerce.date(),
 

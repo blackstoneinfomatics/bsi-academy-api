@@ -18,8 +18,7 @@ export const PaymentTransactionSchema = new Schema<IPaymentTransaction>(
     },
 
     tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenants",
+      type: String,
       required: true,
       index: true,
     },

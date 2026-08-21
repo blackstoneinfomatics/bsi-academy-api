@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import CustomEnumerator, { AssignmentStatus, BillingCycle, BillingStatus, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
+import CustomEnumerator, { AssignmentStatus, BillingCycle, BillingStatus, PaymentGateway, PaymentStatus, PaymentType, RefundApprovalStatus, RefundStatus, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2314,7 +2314,7 @@ export interface ITenantSettingsPayload {
 export interface IBillingPeriod {
   billingPeriodId: string;
   billingPeriod: string;
-  duration: number;
+  duration:number;
   price: number;
   discount: number;
   gstRate: number;
@@ -2464,6 +2464,8 @@ export interface ISubscriptionInvoice extends Document {
 
   nextReminderDate?: Date;
 
+  billingPeriodId: string;
+
   currency: string;
 
   paymentTerms: number;
@@ -2494,6 +2496,9 @@ export interface ISubscriptionInvoice extends Document {
 }
 
 export interface SubscriptionInvoice  {
+
+  tenantId: string;
+
   invoiceNumber: string;
 
   planId: Types.ObjectId;
@@ -2505,6 +2510,8 @@ export interface SubscriptionInvoice  {
   dueDate: Date;
 
   nextReminderDate?: Date;
+
+  billingPeriodId: string;
 
   currency: string;
 
@@ -2545,13 +2552,13 @@ export interface IBilling extends Document {
 
 export interface ITenantSubscription extends Document {
 
-  tenantId: Types.ObjectId;
+tenantId: string;
 
   planId: Types.ObjectId;
 
   subscriptionCode: string;
 
-  billingCycle: BillingCycle;
+  duration: number;
 
   status: SubscriptionStatus;
 
@@ -2579,13 +2586,13 @@ export interface ITenantSubscription extends Document {
 }
 export interface TenantSubscription  {
 
-  tenantId: Types.ObjectId;
+  tenantId: string;
 
   planId: Types.ObjectId;
 
   subscriptionCode: string;
 
-  billingCycle: BillingCycle;
+  duration: number;
 
   status: SubscriptionStatus;
 
@@ -2605,7 +2612,7 @@ export interface TenantSubscription  {
 export interface IPaymentTransaction extends Document {
   paymentNumber: string;
 
-  tenantId: Types.ObjectId;
+  tenantId: string;
 
   invoiceId: Types.ObjectId;
 
@@ -2654,7 +2661,7 @@ export interface IPaymentTransaction extends Document {
 
 export interface ISubscriptionTrial extends Document {
 
-  tenantId:Types.ObjectId;
+  tenantId: string;
 
   trialStartDate: Date;
 
@@ -2671,6 +2678,55 @@ export interface ISubscriptionTrial extends Document {
   updatedBy?: string;
 
   deletedAt?: Date;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+}
+
+export interface IRefundTransaction extends Document {
+
+  refundNumber: string;
+
+  refundStatus: RefundStatus;
+
+  tenantId: string;
+
+  invoiceId: Types.ObjectId;
+
+  paymentId: Types.ObjectId;
+
+  subscriptionId: Types.ObjectId;
+
+  gateway: PaymentGateway;
+
+  stripeRefundId?: string | null;
+
+  amount: number;
+
+  currency: string;
+
+  settlementAmount?: number | null;
+
+  settlementCurrency?: string | null;
+
+  exchangeRate?: number | null;
+
+  refundReason?: string;
+
+  status: RefundApprovalStatus;
+
+  refundedAt?: Date | null;
+
+  failureReason?: string | null;
+
+  refundResponse?: any;
+
+  createdBy: string;
+
+  updatedBy?: string | null;
+
+  deletedAt?: Date | null;
 
   createdAt: Date;
 

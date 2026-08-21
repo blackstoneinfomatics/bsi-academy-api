@@ -17,6 +17,7 @@ export const createSubscriptionInvoiceValidation = z.object({
   payload: SubscriptionInvoiceBaseValidation.pick({
     planId: true,
     tenantId: true,
+    billingPeriodId: true,
     invoiceDate: true,
     dueDate: true,
     currency: true,

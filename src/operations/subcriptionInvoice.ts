@@ -9,6 +9,7 @@ import { sendEmailClient } from "../shared/email";
 import paymenttransaction from "../models/paymenttransaction";
 import { throwError } from "../helpers/throwError";
 import { subscriptionInvoiceMessages } from "../config/messages";
+import { duration } from "moment";
 
 type InvoiceEmailType = "CREATED" | "REMINDER";
 
@@ -28,11 +29,15 @@ export const createSubscriptionInvoice = async (
 
     const subscriptionPlan = await plan.findOne({
       _id: payload.planId,
+      billingPeriods: {
+        $elemMatch: { billingPeriodId: payload.billingPeriodId },
+      },
       status: "Active",
     });
 
     if (!subscriptionPlan) {
       throwError(subscriptionInvoiceMessages.SUBSCRIPTION_PLAN_NOT_FOUND, 404);
+      return;
     }
 
     if (payload.dueDate < payload.invoiceDate) {
@@ -57,7 +62,11 @@ export const createSubscriptionInvoice = async (
     });
 
     if (!tenantSubscription) {
-      throwError(subscriptionInvoiceMessages.TENANT_SUBSCRIPTION_NOT_FOUND, 404);
+      throwError(
+        subscriptionInvoiceMessages.TENANT_SUBSCRIPTION_NOT_FOUND,
+        404,
+      );
+      return;
     }
 
     const duplicateInvoice = await SubscriptionInvoiceModel.findOne({
@@ -81,12 +90,18 @@ export const createSubscriptionInvoice = async (
       tenantId: tenantId,
     });
 
+    await tenantSubscription.updateOne({
+      $set: {
+        duration: subscriptionPlan.billingPeriods.find(
+          (billingPeriod) =>
+            billingPeriod.billingPeriodId === payload.billingPeriodId,
+        )?.duration,
+      },
+    });
+
     await newInvoice.save();
 
-    await sendSubscriptionInvoiceEmail(
-      newInvoice._id.toString(),
-      "CREATED",
-    );
+    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
 
     return newInvoice;
   } catch (error: any) {
@@ -269,15 +284,13 @@ export const getSubscriptionInvoices = async (query: any) => {
     }
 
     const pipeline: any[] = [
-      {
-        $match: match,
-      },
+      { $match: match },
 
       {
         $lookup: {
           from: "tenants",
           localField: "tenantId",
-          foreignField: "_id",
+          foreignField: "tenantCode",
           as: "tenant",
         },
       },
@@ -300,6 +313,27 @@ export const getSubscriptionInvoices = async (query: any) => {
         $unwind: {
           path: "$plan",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $addFields: {
+          selectedBillingPeriod: {
+            $first: {
+              $filter: {
+                input: "$plan.billingPeriods",
+                as: "bp",
+                cond: {
+                  $eq: ["$$bp.billingPeriodId", "$billingPeriodId"],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          duration: "$selectedBillingPeriod.duration",
         },
       },
     ];
@@ -376,9 +410,10 @@ export const getSubscriptionInvoices = async (query: any) => {
               },
 
               subscriptionPlan: {
-                planId: "$plan._id",
+                _id: "$plan._id",
+                planId: "$plan.planId",
                 planName: "$plan.planName",
-                billingCycle: "$plan.billingCycle",
+                duration: "$duration",
               },
 
               invoiceDate: 1,
@@ -424,31 +459,42 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
     const invoice = await SubscriptionInvoiceModel.findOne({
       _id: invoiceId,
       deletedAt: null,
-    })
-      // .populate({
-      //   path: "tenantId",
-      //   select: "tenantCode tenantName emailId phoneNumber domainName status",
-      // })
-      .populate({
-        path: "planId",
-        select: "planCode planName billingCycle totalPrice taxAmount gstAndTax",
-      })
-      .populate({
-        path: "subscriptionId",
-        select:
-          "subscriptionCode status paymentStatus billingCycle startDate endDate nextRenewalDate autoRenew",
-      });
+    }).populate({
+      path: "subscriptionId",
+      select:
+        "subscriptionCode status paymentStatus duration startDate endDate nextRenewalDate autoRenew",
+    });
 
     const tenant = await Tenants.findOne({
       tenantCode: invoice?.tenantId,
     });
-    
+
     if (!invoice) {
       throwError(subscriptionInvoiceMessages.INVOICE_NOT_FOUND, 404);
       return;
-     }
+    }
 
-    const plan = invoice.planId as any;
+    const subscriptionPlan = await plan.findOne({
+      _id: invoice.planId,
+      billingPeriods: {
+        $elemMatch: { billingPeriodId: invoice.billingPeriodId },
+      },
+    });
+
+    if (!subscriptionPlan) {
+      throwError(subscriptionInvoiceMessages.SUBSCRIPTION_PLAN_NOT_FOUND, 404);
+      return;
+    }
+
+    const billingPeriod = subscriptionPlan.billingPeriods.find(
+      (bp) => bp.billingPeriodId === invoice.billingPeriodId,
+    );
+
+    if(!billingPeriod) {
+      throwError(subscriptionInvoiceMessages.BILLING_PERIOD_NOT_FOUND, 404);
+      return;
+    }
+
     const subscription = invoice.subscriptionId as any;
 
     return {
@@ -456,6 +502,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
       invoiceNumber: invoice.invoiceNumber,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
+      billingPeriodId: invoice.billingPeriodId,
       currency: invoice.currency,
       paymentTerms: invoice.paymentTerms,
       discountAmount: invoice.discountAmount,
@@ -469,8 +516,8 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
 
       tenant: tenant
         ? {
-            tenantId: tenant._id,
-            tenantCode: tenant.tenantCode,
+            _id: tenant._id,
+            tenantId: tenant.tenantCode,
             tenantName: tenant.tenantName,
             email: tenant.emailId,
             phoneNumber: tenant.phoneNumber,
@@ -479,15 +526,17 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
           }
         : null,
 
-      subscriptionPlan: plan
+      subscriptionPlan: subscriptionPlan
         ? {
-            planId: plan._id,
-            planCode: plan.planCode,
-            planName: plan.planName,
-            billingCycle: plan.billingCycle,
-            price: plan.totalPrice,
-            taxAmount: plan.taxAmount,
-            gstAndTax: plan.gstAndTax,
+            _id: subscriptionPlan._id,
+            planId: subscriptionPlan.planId,
+            planName: subscriptionPlan.planName,
+            billingPeriod: billingPeriod.billingPeriod,
+            duration: billingPeriod.duration,
+            price: billingPeriod.price,
+            discount: billingPeriod.discount,
+            gstRate: billingPeriod.gstRate,
+            taxAmount: billingPeriod.taxAmount,
           }
         : null,
 
@@ -497,7 +546,7 @@ export const getSubscriptionInvoiceById = async (invoiceId: string) => {
             subscriptionCode: subscription.subscriptionCode,
             status: subscription.status,
             paymentStatus: subscription.paymentStatus,
-            billingCycle: subscription.billingCycle,
+            duration: subscription.duration,
             startDate: subscription.startDate,
             endDate: subscription.endDate,
             nextRenewalDate: subscription.nextRenewalDate,
@@ -594,8 +643,8 @@ export const sendSubscriptionInvoiceEmail = async (
       .replace(/{{ADMIN_EMAIL}}/g, invoice?.tenant?.email)
       .replace(/{{ORG_NAME}}/g, invoice?.tenant?.tenantName)
       .replace(/{{PLAN_NAME}}/g, invoice?.subscriptionPlan?.planName)
-      .replace(/{{BILLING_CYCLE}}/g, invoice?.subscriptionPlan?.billingCycle)
-      .replace(/{{PLAN_PRICE}}/g, invoice?.subscriptionPlan?.price.toString())
+      .replace(/{{BILLING_CYCLE}}/g, invoice?.subscriptionPlan?.duration.toString())
+      .replace(/{{PLAN_PRICE}}/g, invoice?.subtotal.toString())
       .replace(/{{INVOICE_ID}}/g, invoice?.invoiceId.toString())
       .replace(
         /{{INVOICE_DATE}}/g,
@@ -606,7 +655,10 @@ export const sendSubscriptionInvoiceEmail = async (
       .replace(/{{DOMAIN}}/g, invoice?.tenant?.domainName || "-")
       .replace(/{{PHONE}}/g, invoice?.tenant?.phoneNumber || "-")
       .replace(/{{SUBTOTAL}}/g, invoice?.subtotal.toString())
-      .replace(/{{GST_RATE}}/g, invoice?.subscriptionPlan?.gstAndTax.toString())
+      .replace(
+        /{{GST_RATE}}/g,
+        invoice?.subscriptionPlan?.gstRate.toString(),
+      )
       .replace(/{{GST_AMOUNT}}/g, invoice?.taxAmount.toString())
       .replace(/{{TOTAL_AMOUNT}}/g, invoice?.totalAmount.toString())
       .replace(/{{PAYMENT_LINK}}/g, paymentLink)

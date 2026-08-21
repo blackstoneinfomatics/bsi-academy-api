@@ -47,6 +47,13 @@ export const SubscriptionInvoiceSchema = new Schema<ISubscriptionInvoice>(
       default: null,
     },
 
+    billingPeriodId:{
+    type: String,
+    required: true,
+    default: "0",
+    trim: true,
+  },
+
     currency: {
       type: String,
       required: true,
@@ -143,6 +150,8 @@ export const SubscriptionInvoiceBaseValidation = z
     invoiceDate: z.coerce.date(),
 
     dueDate: z.coerce.date(),
+
+    billingPeriodId: z.string().trim().min(1, "Billing period is required"),
 
     nextReminderDate: z.coerce.date().optional(),
 
