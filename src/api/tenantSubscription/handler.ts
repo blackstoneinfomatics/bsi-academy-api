@@ -4,6 +4,8 @@ import {
   getActiveTenantSubscriptionRecord,
   getTenantSubscriptionDashboard,
   getTenantSubscriptionGrowthAnalytics,
+  getTenantSubscriptionanalyticsCard,
+  getTenantSubscriptionActivities,
 } from "../../operations/tenantSubscription.";
 import {
   BillingCycle,
@@ -86,6 +88,65 @@ export default {
         message:
           error.message ||
           "Failed to fetch tenant subscription dashboard.",
+      })
+      .code(500);
+  }
+},
+
+async getTenantSubscriptionanalyticsCard(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const result = await getTenantSubscriptionanalyticsCard();
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant subscription analytics card fetched successfully.",
+        data: result,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error("Tenant Subscription Analytics Card Error:", error);
+
+    return h
+      .response({
+        success: false,
+        message:
+          error.message ||
+          "Failed to fetch tenant subscription analytics card.",
+      })
+      .code(500);
+  }
+},
+
+async getTenantSubscriptionActivities(
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const result = await getTenantSubscriptionActivities();
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant subscription activities fetched successfully.",
+        data: result,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error(
+      "Tenant Subscription Activities Error:",
+      error
+    );
+
+    return h
+      .response({
+        success: false,
+        message:
+          error.message ||
+          "Failed to fetch tenant subscription activities.",
       })
       .code(500);
   }

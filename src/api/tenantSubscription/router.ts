@@ -59,12 +59,37 @@ const register = async (server: Server): Promise<void> => {
   },
 },
 
+{
+  method: "GET",
+  path: "/tenantsubscription/analytics/card",
+  options: {
+    handler: handler.getTenantSubscriptionanalyticsCard,
+    description: "Get tenant subscription analytics card",
+    tags: ["api", "tenantSubscription"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/tenant-subscription-activities",
+  options: {
+    handler: handler.getTenantSubscriptionActivities,
+    description: "Get today's tenant subscription activities",
+    tags: ["api", "tenant-subscription"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+
+
   ];
   server.route(routes);
 };  
-
-
-
 
 
 export = {
