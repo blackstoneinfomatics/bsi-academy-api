@@ -1,5 +1,5 @@
 import { ResponseToolkit, Request } from "@hapi/hapi";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import {
   getActiveTenantSubscriptionRecord,
   getTenantSubscriptionDashboard,
@@ -171,16 +171,6 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
         })
         .code(200);
     } catch (error: any) {
-      if (error instanceof ZodError) {
-        return h
-          .response({
-            success: false,
-            message: tenantSubscriptionMessages.VALIDATION_FAILED,
-            errors: error.errors,
-          })
-          .code(400);
-      }
-
       console.error(
         "Tenant Subscription Growth Analytics Error:",
         error
@@ -190,10 +180,11 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
         .response({
           success: false,
           message:
-            error.message ||
+            error?.message ||
             tenantSubscriptionMessages.GROWTH_ANALYTICS_FETCH_FAILED,
+          ...(error?.errors ? { errors: error.errors } : {}),
         })
-        .code(500);
+        .code(error?.statusCode || 500);
     }
   },
 

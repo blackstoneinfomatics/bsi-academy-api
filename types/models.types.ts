@@ -2429,11 +2429,9 @@ export interface IReminderHistory {
   reminderId: string;
   tenantId: string;
   subscriptionId: string;
-
   subject: string;
   overdueDays: number;
   amount: number;
-
   channels: {
     email: IReminderChannelResult;
     sms: IReminderChannelResult;
@@ -2531,27 +2529,17 @@ export interface SubscriptionInvoice  {
 
 export interface IBilling extends Document {
   billingName: string;
-
+  billingId: string;
   paymentDate: Date;
-
   amount: number;
-
   category: string;
-
   paymentMethod: string;
-
   addedBy: string;
-
   status: BillingStatus;
-
   createdBy?: string;
-
   updatedBy?: string;
-
   createdAt: Date;
-
   updatedAt: Date;
-
   deletedAt?: Date | null;
 }
 

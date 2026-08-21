@@ -672,12 +672,23 @@ export const paymentMessages = {
 
 
 export const billingMessages = {
+  // Actions
   CREATE: "Create Billing",
   GET_ALL: "Get Billing List",
   GET_BY_ID: "Get Billing By Id",
   GET_COUNT: "Get Billing Count",
+
+  // Success Responses
+  CREATE_SUCCESS: "Billing created successfully",
+  GET_ALL_SUCCESS: "Billing list fetched successfully",
+  GET_BY_ID_SUCCESS: "Billing details fetched successfully",
+  GET_COUNT_SUCCESS: "Billing count fetched successfully",
+
+  // Errors
   BILLING_NOT_FOUND: "Billing record not found",
   INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
 };
 
 export const tenantSubscriptionMessages = {
