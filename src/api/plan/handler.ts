@@ -4,18 +4,25 @@ import {
   Request,
   ResponseToolkit,
 } from "@hapi/hapi";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 
 import {
   createPlan,
   getAllPlans,
   getPlanById,
   updatePlan,
+  addPlanBillingPeriod,
+  updatePlanBillingPeriod,
   deletePlan,
   getPlanDashboard,
   getPlanAnalytics,
 } from "../../operations/plan";
-import planModel, { createPlanValidation } from "../../models/plan-model";
+import planModel, {
+  createPlanValidation,
+  addBillingPeriodValidation,
+  updateBillingPeriodValidation,
+} from "../../models/plan-model";
+import { planMessages } from "../../config/messages";
 
 const getPlanAnalyticsValidation = z.object({
   query: z.object({
@@ -29,7 +36,7 @@ const getPlansValidation = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(10),
     search: z.string().trim().optional(),
     status: z.string().trim().optional(),
-    planStatus: z.enum(["Active", "In active", "MOST_POPULAR"]).optional(),
+    planStatus: z.enum(["Growing", "Low_Adoption", "Most_Popular"]).optional(),
     billingCycle: z
       .enum(["MONTHLY", "YEARLY",  "QUARTERLY", "HALF_YEARLY"])
       .optional(),
@@ -52,17 +59,19 @@ const createInputValidation = z.object({
   payload: createPlanValidation.pick({
     planName: true,
     studentLimit: true,
-    billingCycle: true,
+    userLimit: true,
     planDescription: true,
     planStatus: true,
-    setupFee: true,
     totalPrice: true,
     trialDays: true,
     gstAndTax: true,
+    taxAmount: true,
+    billingPeriods: true,
     allowedRoles: true,
     features: true,
     canCreateCustomRole: true,
     customDomain: true,
+    domain: true,
     backup: true,
     status: true,
     createdBy: true,
@@ -83,6 +92,21 @@ const updateInputValidation = z.object({
     .partial(),
 });
 
+const addBillingPeriodInputValidation = z.object({
+  params: z.object({
+    planId: z.string(),
+  }),
+  payload: addBillingPeriodValidation,
+});
+
+const updateBillingPeriodInputValidation = z.object({
+  params: z.object({
+    planId: z.string(),
+    billingPeriodId: z.string(),
+  }),
+  payload: updateBillingPeriodValidation,
+});
+
 const parseTaxRate = (value: unknown): number => {
   if (typeof value === "number") {
     return value;
@@ -97,7 +121,7 @@ const parseTaxRate = (value: unknown): number => {
     }
   }
 
-  throw new Error("Invalid gstAndTax value. Use number or percentage format like 18%.");
+  throw new Error(planMessages.INVALID_GST_AND_TAX);
 };
 
 
@@ -117,9 +141,26 @@ async createPlan(req: Request, h: ResponseToolkit) {
         },
       });
 
-      const taxAmount = Number(
+      const computedTaxAmount = Number(
         ((payload.totalPrice * payload.gstAndTax) / 100).toFixed(2)
       );
+
+      const normalizedBillingPeriods = payload.billingPeriods.map((period) => {
+        const discountAmount = (period.price * period.discount) / 100;
+        const discountedBase = Math.max(0, period.price - discountAmount);
+        const effectiveGstRate = period.gstRate ?? payload.gstAndTax;
+        const taxAmount = Number(
+          ((discountedBase * effectiveGstRate) / 100).toFixed(2)
+        );
+        const totalAmount = Number((discountedBase + taxAmount).toFixed(2));
+
+        return {
+          ...period,
+          gstRate: effectiveGstRate,
+          taxAmount,
+          totalAmount,
+        };
+      });
 
       // Get the latest valid plan ID and generate the next sequential ID
       const lastPlan = await planModel
@@ -143,7 +184,8 @@ async createPlan(req: Request, h: ResponseToolkit) {
       const newPlan = await createPlan({
         ...payload,
         planId,
-        taxAmount,
+        taxAmount: computedTaxAmount,
+        billingPeriods: normalizedBillingPeriods,
       });
 
       console.log("Generated Plan ID:", planId);
@@ -156,18 +198,18 @@ async createPlan(req: Request, h: ResponseToolkit) {
       return h
         .response({
           success: true,
-          message: "Plan created successfully",
+          message: planMessages.PLAN_CREATED_SUCCESS,
           data: newPlan,
         })
         .code(201);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
 
       return h
         .response({
           success: false,
-          message: "Failed to create plan",
-          error,
+          message: error?.message || planMessages.FAILED_TO_CREATE_PLAN,
+          ...(error?.errors ? { errors: error.errors } : {}),
         })
         .code(500);
     }
@@ -178,17 +220,24 @@ async createPlan(req: Request, h: ResponseToolkit) {
     req: Request,
     h: ResponseToolkit
   ) {
+    try {
+      const { query } = getPlansValidation.parse({
+        query: req.query,
+      });
 
-    const { query } = getPlansValidation.parse({
-      query: req.query,
-    });
+      const plans = await getAllPlans(query);
 
-    const plans = await getAllPlans(query);
-
-    return h.response({
-      success: true,
-      data: plans,
-    }).code(200);
+      return h.response({
+        success: true,
+        data: plans,
+      }).code(200);
+    } catch (error: any) {
+      return h.response({
+        success: false,
+        message: error?.message || planMessages.FAILED_TO_FETCH_PLANS,
+        ...(error?.errors ? { errors: error.errors } : {}),
+      }).code(500);
+    }
   },
 
   // GET PLAN BY ID
@@ -215,28 +264,126 @@ async updatePlan(
   req: Request,
   h: ResponseToolkit
 ) {
-  const { params, payload } =
-    updateInputValidation.parse({
-      params: req.params,
-      payload: req.payload,
-    });
+  try {
+    const { params, payload } =
+      updateInputValidation.parse({
+        params: req.params,
+        payload: req.payload,
+      });
 
-  const updatedPlan = await updatePlan(
-    params.planId,
-    payload
-  );
+    const updatedPlan = await updatePlan(
+      params.planId,
+      payload
+    );
 
-  if (!updatedPlan) {
+    if (!updatedPlan) {
+      return h.response({
+        success: false,
+        message: planMessages.PLAN_NOT_FOUND,
+      }).code(404);
+    }
+
+    return h.response({
+      success: true,
+      data: updatedPlan,
+    }).code(200);
+  } catch (error: any) {
     return h.response({
       success: false,
-      message: "Plan not found",
-    }).code(404);
+      message: error?.message || planMessages.FAILED_TO_UPDATE_PLAN,
+      ...(error?.errors ? { errors: error.errors } : {}),
+    }).code(500);
   }
+},
 
-  return h.response({
-    success: true,
-    data: updatedPlan,
-  }).code(200);
+  // ADD BILLING PERIOD
+async addBillingPeriod(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const { params, payload } =
+      addBillingPeriodInputValidation.parse({
+        params: req.params,
+        payload: req.payload,
+      });
+
+    const updatedPlan = await addPlanBillingPeriod(
+      params.planId,
+      payload
+    );
+
+    if (updatedPlan === "DUPLICATE") {
+      return h.response({
+        success: false,
+        message: planMessages.BILLING_PERIOD_ALREADY_EXISTS,
+      }).code(400);
+    }
+
+    if (!updatedPlan) {
+      return h.response({
+        success: false,
+        message: planMessages.PLAN_NOT_FOUND,
+      }).code(404);
+    }
+
+    // $push always appends, so the newly generated billing period is the last entry.
+    const billingPeriod =
+      updatedPlan.billingPeriods[updatedPlan.billingPeriods.length - 1];
+
+    return h.response({
+      success: true,
+      message: planMessages.BILLING_PERIOD_ADDED_SUCCESS,
+      data: {
+        planId: updatedPlan.planId,
+        billingPeriod,
+      },
+    }).code(201);
+  } catch (error: any) {
+    return h.response({
+      success: false,
+      message: error?.message || planMessages.FAILED_TO_ADD_BILLING_PERIOD,
+      ...(error?.errors ? { errors: error.errors } : {}),
+    }).code(500);
+  }
+},
+
+  // UPDATE BILLING PERIOD
+async updateBillingPeriod(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const { params, payload } =
+      updateBillingPeriodInputValidation.parse({
+        params: req.params,
+        payload: req.payload,
+      });
+
+    const updatedPlan = await updatePlanBillingPeriod(
+      params.planId,
+      params.billingPeriodId,
+      payload
+    );
+
+    if (!updatedPlan) {
+      return h.response({
+        success: false,
+        message: planMessages.PLAN_NOT_FOUND,
+      }).code(404);
+    }
+
+    return h.response({
+      success: true,
+      data: updatedPlan,
+    }).code(200);
+  } catch (error: any) {
+    return h.response({
+      success: false,
+      message: error?.message || planMessages.FAILED_TO_UPDATE_BILLING_PERIOD,
+      ...(error?.errors ? { errors: error.errors } : {}),
+    }).code(500);
+  }
 },
 
 
@@ -256,7 +403,7 @@ async updatePlan(
 
     return h.response({
       success: result.deletedCount > 0,
-      message: result.deletedCount > 0 ? "Plan deleted successfully" : "Plan not found",
+      message: result.deletedCount > 0 ? planMessages.PLAN_DELETED_SUCCESS : planMessages.PLAN_NOT_FOUND,
     }).code(200);
   },
 
@@ -271,13 +418,13 @@ async updatePlan(
 
       return h.response({
         success: true,
-        message: "Plan dashboard fetched successfully.",
+        message: planMessages.PLAN_DASHBOARD_FETCHED_SUCCESS,
         data: result,
       }).code(200);
     } catch (error: any) {
       return h.response({
         success: false,
-        message: error.message || "Failed to fetch plan dashboard.",
+        message: error?.message || planMessages.FAILED_TO_FETCH_PLAN_DASHBOARD,
       }).code(500);
     }
   },
@@ -296,21 +443,14 @@ async updatePlan(
 
       return h.response({
         success: true,
-        message: "Plan analytics fetched successfully.",
+        message: planMessages.PLAN_ANALYTICS_FETCHED_SUCCESS,
         data: result,
       }).code(200);
     } catch (error: any) {
-      if (error instanceof ZodError) {
-        return h.response({
-          success: false,
-          message: "Validation Failed",
-          errors: error.errors,
-        }).code(400);
-      }
-
       return h.response({
         success: false,
-        message: error.message || "Failed to fetch plan analytics.",
+        message: error?.message || planMessages.FAILED_TO_FETCH_PLAN_ANALYTICS,
+        ...(error?.errors ? { errors: error.errors } : {}),
       }).code(500);
     }
   },

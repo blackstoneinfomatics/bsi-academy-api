@@ -182,6 +182,30 @@ export const teacherPosition: Record<string, any> = Object.freeze({
   ARABICTEACHER: "Arabic Teacher",
 });
 
+export const planMessages: Record<string, string> = Object.freeze({
+  INVALID_GST_AND_TAX: "Invalid gstAndTax value. Use number or percentage format like 18%.",
+  VALIDATION_FAILED: "Validation Failed",
+  PLAN_CREATED_SUCCESS: "Plan created successfully",
+  PLAN_NOT_FOUND: "Plan not found",
+  PLAN_DELETED_SUCCESS: "Plan deleted successfully",
+  BILLING_PERIOD_ADDED_SUCCESS: "Billing period added successfully",
+  BILLING_PERIOD_ALREADY_EXISTS: "Billing period already exists on this Plan.",
+  BILLING_PERIOD_NOT_FOUND: "Billing period not found",
+  PLAN_DASHBOARD_FETCHED_SUCCESS: "Plan dashboard fetched successfully.",
+  PLAN_ANALYTICS_FETCHED_SUCCESS: "Plan analytics fetched successfully.",
+  FAILED_TO_CREATE_PLAN: "Failed to create plan",
+  FAILED_TO_FETCH_PLANS: "Failed to fetch plans.",
+  FAILED_TO_UPDATE_PLAN: "Failed to update plan.",
+  FAILED_TO_ADD_BILLING_PERIOD: "Failed to add billing period.",
+  FAILED_TO_UPDATE_BILLING_PERIOD: "Failed to update billing period.",
+  FAILED_TO_FETCH_PLAN_DASHBOARD: "Failed to fetch plan dashboard.",
+  FAILED_TO_FETCH_PLAN_ANALYTICS: "Failed to fetch plan analytics.",
+  CUSTOM_DOMAIN_NOT_AVAILABLE: "Custom Domain feature is not available for your current subscription.",
+  BACKUP_NOT_AVAILABLE: "Backup feature is not available for your current subscription.",
+  CUSTOM_DOMAIN_REQUIRED: "Please provide the tenant custom domain.",
+  DEFAULT_DOMAIN_REQUIRED: "Please provide the default running domain.",
+});
+
 export const commonMessages: Record<string, any> = Object.freeze({
   SERVER_HEALTH: "Service Health Check",
   SERVER_HEALTH_NOTES: "Return the current status of the API",
@@ -644,4 +668,35 @@ export const paymentMessages = {
   PAYMENT_FAILED: "Payment failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
   INVALID_BILLING_CYCLE: "Invalid billing cycle",
+};
+
+
+export const billingMessages = {
+  CREATE: "Create Billing",
+  GET_ALL: "Get Billing List",
+  GET_BY_ID: "Get Billing By Id",
+  GET_COUNT: "Get Billing Count",
+  BILLING_NOT_FOUND: "Billing record not found",
+  INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
+};
+
+export const tenantSubscriptionMessages = {
+  // Success Responses
+  DASHBOARD_FETCH_SUCCESS: "Tenant subscription dashboard fetched successfully.",
+  ANALYTICS_CARD_FETCH_SUCCESS:
+    "Tenant subscription analytics card fetched successfully.",
+  ACTIVITIES_FETCH_SUCCESS:
+    "Tenant subscription activities fetched successfully.",
+  GROWTH_ANALYTICS_FETCH_SUCCESS:
+    "Tenant subscription growth analytics fetched successfully.",
+
+  // Errors
+  VALIDATION_FAILED: "Validation Failed",
+  DASHBOARD_FETCH_FAILED: "Failed to fetch tenant subscription dashboard.",
+  ANALYTICS_CARD_FETCH_FAILED:
+    "Failed to fetch tenant subscription analytics card.",
+  ACTIVITIES_FETCH_FAILED:
+    "Failed to fetch tenant subscription activities.",
+  GROWTH_ANALYTICS_FETCH_FAILED:
+    "Failed to fetch tenant subscription growth analytics.",
 };

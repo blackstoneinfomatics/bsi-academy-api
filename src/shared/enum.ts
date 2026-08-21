@@ -111,6 +111,13 @@ export enum SubscriptionTrialStatus {
   EXPIRING_SOON = "EXPIRING_SOON",
 }
 
+export enum BillingStatus {
+  PAID = "PAID",
+  PENDING = "PENDING",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

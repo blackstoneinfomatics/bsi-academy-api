@@ -2,13 +2,18 @@
 // plan-service.ts
 // ==============================
 
-import PlanModel, { createPlanValidation } from "../models/plan-model";
+import PlanModel, {
+  createPlanValidation,
+  AddBillingPeriodPayload,
+  UpdateBillingPeriodPayload,
+} from "../models/plan-model";
 import TenantModel from "../models/tenants";
 import TenantSubscriptionModel from "../models/tenantsubscription";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import { SubscriptionInvoiceStatus } from "../shared/enum";
 import Boom from "@hapi/boom";
 import { z } from "zod";
+import { planMessages } from "../config/messages";
 
 export type PlanAnalyticsPeriod = "monthly" | "quarterly" | "yearly";
 
@@ -30,12 +35,7 @@ export interface GetPlansQuery {
   limit?: number;
   search?: string;
   status?: string;
-  planStatus?: "Active" | "In active" | "MOST_POPULAR";
-  billingCycle?:
-    | "MONTHLY"
-    | "YEARLY"
-    | "QUARTERLY"
-    | "HALF_YEARLY";
+  planStatus?: "Growing" | "Low_Adoption" | "Most_Popular";
   sortBy?:
     | "createdDate"
     | "updatedDate"
@@ -77,9 +77,7 @@ export const validateCustomDomainFeatureAccess = async (
   const plan = await getPlanForTenant(tenantId);
 
   if (!plan?.customDomain) {
-    throw Boom.forbidden(
-      "Custom Domain feature is not available for your current subscription."
-    );
+    throw Boom.forbidden(planMessages.CUSTOM_DOMAIN_NOT_AVAILABLE);
   }
 
   return true;
@@ -91,9 +89,7 @@ export const validateBackupFeatureAccess = async (
   const plan = await getPlanForTenant(tenantId);
 
   if (!plan?.backup) {
-    throw Boom.forbidden(
-      "Backup feature is not available for your current subscription."
-    );
+    throw Boom.forbidden(planMessages.BACKUP_NOT_AVAILABLE);
   }
 
   return true;
@@ -103,7 +99,6 @@ export const validateBackupFeatureAccess = async (
 export const createPlan = async (
   payload: CreatePlanPayload
 ) => {
-
   const newPlan =
     new PlanModel(payload);
 
@@ -119,7 +114,6 @@ export const getAllPlans = async (query: GetPlansQuery = {}) => {
     search,
     status,
     planStatus,
-    billingCycle,
     sortBy = "createdDate",
     sortOrder = "desc",
   } = query;
@@ -138,9 +132,6 @@ export const getAllPlans = async (query: GetPlansQuery = {}) => {
     filter.planStatus = planStatus;
   }
 
-  if (billingCycle) {
-    filter.billingCycle = billingCycle;
-  }
 
   if (searchTerm) {
     const escapedSearch = escapeRegex(searchTerm);
@@ -215,14 +206,14 @@ export const updatePlan = async (
   if (payload.customDomain === true) {
     // Frontend must send tenant custom domain
     if (!payload.domain) {
-      throw new Error("Please provide the tenant custom domain.");
+      throw new Error(planMessages.CUSTOM_DOMAIN_REQUIRED);
     }
   }
 
   if (payload.customDomain === false) {
     // Frontend must send default running domain
     if (!payload.domain) {
-      throw new Error("Please provide the default running domain.");
+      throw new Error(planMessages.DEFAULT_DOMAIN_REQUIRED);
     }
   }
 
@@ -234,6 +225,86 @@ export const updatePlan = async (
       $set: {
         ...payload,
         updatedDate: new Date(),
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).lean();
+};
+
+
+const generateBillingPeriodId = (
+  existingBillingPeriods: { billingPeriodId: string }[]
+) => {
+  let lastNumber = 0;
+
+  for (const billingPeriod of existingBillingPeriods) {
+    const match = billingPeriod.billingPeriodId.match(/^BP-(\d+)$/);
+    const number = match ? parseInt(match[1], 10) : NaN;
+
+    if (!Number.isNaN(number) && number > lastNumber) {
+      lastNumber = number;
+    }
+  }
+
+  return `BP-${String(lastNumber + 1).padStart(3, "0")}`;
+};
+
+// ADD BILLING PERIOD
+export const addPlanBillingPeriod = async (
+  planId: string,
+  payload: AddBillingPeriodPayload
+) => {
+  const plan = await PlanModel.findOne({ planId }).lean();
+
+  if (!plan) {
+    return null;
+  }
+
+  const billingPeriodId = generateBillingPeriodId(plan.billingPeriods);
+
+  const billingPeriodAlreadyExists = plan.billingPeriods.some(
+    (billingPeriod) => billingPeriod.billingPeriodId === billingPeriodId
+  );
+
+  if (billingPeriodAlreadyExists) {
+    return "DUPLICATE" as const;
+  }
+
+  return await PlanModel.findOneAndUpdate(
+    { planId },
+    { $push: { billingPeriods: { ...payload, billingPeriodId } } },
+    { new: true, runValidators: true }
+  ).lean();
+};
+
+
+// UPDATE BILLING PERIOD
+export const updatePlanBillingPeriod = async (
+  planId: string,
+  billingPeriodId: string,
+  payload: UpdateBillingPeriodPayload
+) => {
+  const plan = await PlanModel.findOne({ planId }).lean();
+
+  if (!plan) {
+    return null;
+  }
+
+  return await PlanModel.findOneAndUpdate(
+    {
+      planId,
+      "billingPeriods.billingPeriodId": billingPeriodId,
+    },
+    {
+      $set: {
+        "billingPeriods.$.price": payload.price,
+        "billingPeriods.$.discount": payload.discount,
+        "billingPeriods.$.gstRate": payload.gstRate,
+        "billingPeriods.$.taxAmount": payload.taxAmount,
+        "billingPeriods.$.totalAmount": payload.totalAmount,
       },
     },
     {

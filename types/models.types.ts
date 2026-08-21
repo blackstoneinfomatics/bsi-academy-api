@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import CustomEnumerator, { AssignmentStatus, BillingCycle, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
+import CustomEnumerator, { AssignmentStatus, BillingCycle, BillingStatus, PaymentGateway, PaymentStatus, PaymentType, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2311,20 +2311,29 @@ export interface ITenantSettingsPayload {
   lastUpdatedDate?: Date;
   lastUpdatedBy?: string;
 }
+export interface IBillingPeriod {
+  billingPeriodId: string;
+  billingPeriod: string;
+  duration: string;
+  price: number;
+  discount: number;
+  gstRate: number;
+  taxAmount: number;
+  totalAmount: number;
+}
+
 export interface Plans extends Document {
   // tenantId: string;
   planId: string;
   planName: string;
   studentLimit: number;
-  billingCycle: "MONTHLY" | "YEARLY" |  "QUARTERLY" | "HALF_YEARLY";
-  monthlyPrice?: number;
-  yearlyPrice?: number;
-  setupFee: number;
+  userLimit: number;
   trialDays: number;
   gstAndTax: number;
   taxAmount: number;
+  billingPeriods: IBillingPeriod[];
   planDescription: string;
-  planStatus: "ACTIVE" | "INACTIVE" | "MOST_POPULAR";
+  planStatus: "Growing" | "Low_Adoption" | "Most_Popular";
   allowedRoles: string[];
   features: Record<string, string[]>;
   canCreateCustomRole: boolean;
@@ -2344,16 +2353,13 @@ export interface PlansCreate {
   planId: string;
   planName: string;
   studentLimit: number;
-  billingCycle: "MONTHLY" | "YEARLY" |  "QUARTERLY" | "HALF_YEARLY";
-  monthlyPrice: number;
-  yearlyPrice: number;
-  setupFee: number;
+  userLimit: number;
   trialDays: number;
   gstAndTax: number;
   taxAmount: number;
   maxUsers: number;
   planDescription: string;
-  planStatus: string;
+  planStatus: "Growing" | "Low_Adoption" | "Most_Popular";
   allowedRoles: string[];
   features: Record<string, string[]>;
   canCreateCustomRole: boolean;
@@ -2539,8 +2545,34 @@ export interface SubscriptionInvoice  {
   createdBy: string;
 }
 
+export interface IBilling extends Document {
+  billingName: string;
+
+  paymentDate: Date;
+
+  amount: number;
+
+  category: string;
+
+  paymentMethod: string;
+
+  addedBy: string;
+
+  status: BillingStatus;
+
+  createdBy?: string;
+
+  updatedBy?: string;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  deletedAt?: Date | null;
+}
+
 export interface ITenantSubscription extends Document {
-  
+
   tenantId: Types.ObjectId;
 
   planId: Types.ObjectId;

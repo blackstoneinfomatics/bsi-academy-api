@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   SubscriptionStatus,
 } from "../../shared/enum";
+import { tenantSubscriptionMessages } from "../../config/messages";
 
 export const getTenantSubscriptionGrowthAnalyticsValidation = z.object({
   query: z.object({
@@ -69,8 +70,7 @@ export default {
     return h
       .response({
         success: true,
-        message:
-          "Tenant subscription dashboard fetched successfully.",
+        message: tenantSubscriptionMessages.DASHBOARD_FETCH_SUCCESS,
         data: result,
       })
       .code(200);
@@ -87,7 +87,7 @@ export default {
         success: false,
         message:
           error.message ||
-          "Failed to fetch tenant subscription dashboard.",
+          tenantSubscriptionMessages.DASHBOARD_FETCH_FAILED,
       })
       .code(500);
   }
@@ -103,7 +103,7 @@ async getTenantSubscriptionanalyticsCard(
     return h
       .response({
         success: true,
-        message: "Tenant subscription analytics card fetched successfully.",
+        message: tenantSubscriptionMessages.ANALYTICS_CARD_FETCH_SUCCESS,
         data: result,
       })
       .code(200);
@@ -115,7 +115,7 @@ async getTenantSubscriptionanalyticsCard(
         success: false,
         message:
           error.message ||
-          "Failed to fetch tenant subscription analytics card.",
+          tenantSubscriptionMessages.ANALYTICS_CARD_FETCH_FAILED,
       })
       .code(500);
   }
@@ -131,7 +131,7 @@ async getTenantSubscriptionActivities(
     return h
       .response({
         success: true,
-        message: "Tenant subscription activities fetched successfully.",
+        message: tenantSubscriptionMessages.ACTIVITIES_FETCH_SUCCESS,
         data: result,
       })
       .code(200);
@@ -146,7 +146,7 @@ async getTenantSubscriptionActivities(
         success: false,
         message:
           error.message ||
-          "Failed to fetch tenant subscription activities.",
+          tenantSubscriptionMessages.ACTIVITIES_FETCH_FAILED,
       })
       .code(500);
   }
@@ -166,8 +166,7 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
       return h
         .response({
           success: true,
-          message:
-            "Tenant subscription growth analytics fetched successfully.",
+          message: tenantSubscriptionMessages.GROWTH_ANALYTICS_FETCH_SUCCESS,
           data: result,
         })
         .code(200);
@@ -176,7 +175,7 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
         return h
           .response({
             success: false,
-            message: "Validation Failed",
+            message: tenantSubscriptionMessages.VALIDATION_FAILED,
             errors: error.errors,
           })
           .code(400);
@@ -192,7 +191,7 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
           success: false,
           message:
             error.message ||
-            "Failed to fetch tenant subscription growth analytics.",
+            tenantSubscriptionMessages.GROWTH_ANALYTICS_FETCH_FAILED,
         })
         .code(500);
     }
