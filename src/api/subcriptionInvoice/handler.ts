@@ -136,7 +136,7 @@ export default {
         .response({
           success: true,
           message:
-            subscriptionInvoiceMessages.FETCH_ALL_SUCCESS,
+            subscriptionInvoiceMessages.FETCH_DASHBOARD_COUNT_SUCCESS,
           data: result,
         })
         .code(200);
@@ -161,7 +161,7 @@ export default {
 
     return h.response({
       success: true,
-      message: subscriptionInvoiceMessages.FETCH_DASHBOARD_COUNT_SUCCESS,
+      message: subscriptionInvoiceMessages.FETCH_ALL_SUCCESS,
       data: result,
     }).code(200);
 

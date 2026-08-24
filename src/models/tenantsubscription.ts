@@ -22,6 +22,12 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
       required: true,
     },
 
+    planName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     subscriptionCode: {
       type: String,
       required: true,

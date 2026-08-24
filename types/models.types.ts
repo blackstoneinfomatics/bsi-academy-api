@@ -2555,6 +2555,8 @@ export interface ITenantSubscription extends Document {
 tenantId: string;
 
   planId: Types.ObjectId;
+  
+  planName: string;
 
   subscriptionCode: string;
 
@@ -2589,6 +2591,8 @@ export interface TenantSubscription  {
   tenantId: string;
 
   planId: Types.ObjectId;
+
+  planName: string;
 
   subscriptionCode: string;
 
@@ -2700,6 +2704,10 @@ export interface IRefundTransaction extends Document {
 
   gateway: PaymentGateway;
 
+  paymentMethod?: string;
+
+  refundMethod?: string;
+
   stripeRefundId?: string | null;
 
   amount: number;
@@ -2709,6 +2717,10 @@ export interface IRefundTransaction extends Document {
   settlementAmount?: number | null;
 
   settlementCurrency?: string | null;
+
+  requestedDate: Date;
+
+  paymentDate: Date;
 
   exchangeRate?: number | null;
 

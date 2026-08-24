@@ -44,6 +44,8 @@ import subscriptionInvoiceAPI from "../api/subcriptionInvoice/router";
 import subscriptionTrialAPI from "../api/subscriptionTrial/router";
 import billingAPI from "../api/billing/router";
 import financeAPI from "../api/finance/router";
+import refundTransactionAPI from "../api/refund/router";
+
 export const appPlugins = [
   {
     plugin: systemLifeCycle,
@@ -181,5 +183,8 @@ export const appPlugins = [
   },
   {
     plugin:financeAPI,
-  }
+  },
+  {
+    plugin:refundTransactionAPI,
+  },
 ];
