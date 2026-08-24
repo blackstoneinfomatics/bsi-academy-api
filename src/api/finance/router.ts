@@ -25,7 +25,7 @@ const register = async (server: Server): Promise<void> => {
     ,
     {
       method: "GET",
-      path: "/finance/dashboard/count",
+      path: "/finance/analytics/count",
       options: {
         handler: handler.getFinanceDashboardCount,
         description: "Get finance dashboard card counts and summary values for total revenue, collected, pending and refunded",
