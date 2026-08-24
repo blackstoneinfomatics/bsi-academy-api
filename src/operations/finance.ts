@@ -667,215 +667,133 @@ export const getFinanceTodayActivities = async () => {
   }
 };
 
-export const getRevenueDashboardSummary = async (query: {
-  month?: number | string;
-  year?: number | string;
-} = {}) => {
-  const selectedYear = Number(query.year || new Date().getFullYear());
-  const selectedMonth = Number(query.month || new Date().getMonth() + 1);
-
-  const currentMonthStart = new Date(selectedYear, selectedMonth - 1, 1);
-  const currentMonthEnd = new Date(
-    selectedYear,
-    selectedMonth,
-    0,
-    23,
-    59,
-    59,
-    999,
-  );
-
-  const previousMonthStart = new Date(selectedYear, selectedMonth - 2, 1);
-  const previousMonthEnd = new Date(
-    selectedYear,
-    selectedMonth - 1,
-    0,
-    23,
-    59,
-    59,
-    999,
-  );
-
+export const getRevenueDashboardSummary = async () => {
   const invoiceMatch: any = {
     deletedAt: null,
-    invoiceDate: {
-      $gte: currentMonthStart,
-      $lte: currentMonthEnd,
-    },
   };
 
-  const prevInvoiceMatch: any = {
-    deletedAt: null,
-    invoiceDate: {
-      $gte: previousMonthStart,
-      $lte: previousMonthEnd,
-    },
-  };
-
- 
-
-  const currentPaymentMatch: any = {
-    paymentDate: {
-      $gte: currentMonthStart,
-      $lte: currentMonthEnd,
-    },
+  const paymentMatch: any = {
     paymentStatus: {
       $in: [PaymentStatus.SUCCESS, PaymentStatus.PAID],
     },
   };
 
-  const previousPaymentMatch: any = {
-    paymentDate: {
-      $gte: previousMonthStart,
-      $lte: previousMonthEnd,
-    },
-    paymentStatus: {
-      $in: [PaymentStatus.SUCCESS, PaymentStatus.PAID],
-    },
-  };
-
-  const currentRefundMatch: any = {
-    refundedAt: {
-      $gte: currentMonthStart,
-      $lte: currentMonthEnd,
-    },
-    refundStatus: RefundStatus.PAID,
-    status: RefundApprovalStatus.APPROVED,
-  };
-
-  const previousRefundMatch: any = {
-    refundedAt: {
-      $gte: previousMonthStart,
-      $lte: previousMonthEnd,
-    },
+  const refundMatch: any = {
     refundStatus: RefundStatus.PAID,
     status: RefundApprovalStatus.APPROVED,
   };
 
   const [
-    currentRevenueAgg,
-    previousRevenueAgg,
-    currentCollectedAgg,
-    previousCollectedAgg,
-    currentRefundAgg,
-    previousRefundAgg,
-    annualRevenueSeries,
+    revenueAgg,
+    collectedAgg,
+    refundAgg,
   ] = await Promise.all([
-    SubscriptionInvoiceModel.aggregate([
-      { $match: invoiceMatch },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-    ]),
-    SubscriptionInvoiceModel.aggregate([
-      { $match: prevInvoiceMatch },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-    ]),
-    PaymentTransactionModel.aggregate([
-      { $match: currentPaymentMatch },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-    PaymentTransactionModel.aggregate([
-      { $match: previousPaymentMatch },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-    RefundTransactionModel.aggregate([
-      { $match: currentRefundMatch },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-    RefundTransactionModel.aggregate([
-      { $match: previousRefundMatch },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
+    // TOTAL REVENUE
     SubscriptionInvoiceModel.aggregate([
       {
-        $match: {
-          deletedAt: null,
-          invoiceDate: {
-            $gte: new Date(selectedYear, 0, 1),
-            $lte: new Date(selectedYear, 11, 31, 23, 59, 59, 999),
-          },
-        },
+        $match: invoiceMatch,
       },
       {
         $group: {
-          _id: { month: { $month: "$invoiceDate" } },
-          totalRevenue: { $sum: "$totalAmount" },
+          _id: null,
+          total: {
+            $sum: "$totalAmount",
+          },
         },
       },
-      { $sort: { "_id.month": 1 } },
+    ]),
+
+    // TOTAL COLLECTED
+    PaymentTransactionModel.aggregate([
+      {
+        $match: paymentMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]),
+
+    // TOTAL REFUNDED
+    RefundTransactionModel.aggregate([
+      {
+        $match: refundMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
+          },
+        },
+      },
     ]),
   ]);
 
-  const totalRevenueCurrent = currentRevenueAgg[0]?.total || 0;
-  const totalRevenuePrevious = previousRevenueAgg[0]?.total || 0;
-  const totalCollectedCurrent = currentCollectedAgg[0]?.total || 0;
-  const totalCollectedPrevious = previousCollectedAgg[0]?.total || 0;
-  const totalRefundedCurrent = currentRefundAgg[0]?.total || 0;
-  const totalRefundedPrevious = previousRefundAgg[0]?.total || 0;
+  const totalRevenue = revenueAgg[0]?.total || 0;
 
-  const totalPendingCurrent = Math.max(0, totalRevenueCurrent - totalCollectedCurrent);
-  const totalPendingPrevious = Math.max(0, totalRevenuePrevious - totalCollectedPrevious);
+  const totalCollected = collectedAgg[0]?.total || 0;
+
+  const totalRefunded = refundAgg[0]?.total || 0;
+
+  const totalPending = Math.max(
+    0,
+    totalRevenue - totalCollected,
+  );
 
   const totalCollectionRate =
-    totalRevenueCurrent > 0
-      ? (totalCollectedCurrent / totalRevenueCurrent) * 100
+    totalRevenue > 0
+      ? (totalCollected / totalRevenue) * 100
       : 0;
 
   const totalOverdueRate =
-    totalRevenueCurrent > 0
-      ? ((totalRevenueCurrent - totalCollectedCurrent) / totalRevenueCurrent) * 100
+    totalRevenue > 0
+      ? (totalPending / totalRevenue) * 100
       : 0;
 
-  const netRevenue = Math.max(0, totalCollectedCurrent - totalRefundedCurrent);
-
-  const monthLabels = Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(selectedYear, index, 1);
-    return date.toLocaleString("en-US", { month: "short" });
-  });
-
-  const revenueByMonth = annualRevenueSeries.reduce(
-    (acc: Record<number, number>, item: any) => {
-      acc[item._id.month] = item.totalRevenue || 0;
-      return acc;
-    },
-    {},
+  const netRevenue = Math.max(
+    0,
+    totalCollected - totalRefunded,
   );
-
-  const chartValues = monthLabels.map((_, index) => {
-    const monthNumber = index + 1;
-    return revenueByMonth[monthNumber] || 0;
-  });
 
   return {
     cards: {
-      totalRevenue: getTrend(totalRevenueCurrent, totalRevenuePrevious),
-      collected: getTrend(totalCollectedCurrent, totalCollectedPrevious),
-      pending: getTrend(totalPendingCurrent, totalPendingPrevious),
-      refunded: getTrend(totalRefundedCurrent, totalRefundedPrevious),
+      totalRevenue: {
+        value: Number(totalRevenue.toFixed(2)),
+      },
+
+      collected: {
+        value: Number(totalCollected.toFixed(2)),
+      },
+
+      pending: {
+        value: Number(totalPending.toFixed(2)),
+      },
+
+      refunded: {
+        value: Number(totalRefunded.toFixed(2)),
+      },
     },
+
     summary: {
       totalCollectionRate: {
         value: Number(totalCollectionRate.toFixed(2)),
-        trend: totalCollectionRate >= 0 ? "UP" : "DOWN",
       },
+
       totalOverdueRate: {
         value: Number(totalOverdueRate.toFixed(2)),
-        trend: totalOverdueRate >= 0 ? "UP" : "DOWN",
       },
+
       netRevenue: {
         value: Number(netRevenue.toFixed(2)),
       },
     },
-    revenueGrowth: {
-      labels: monthLabels,
-      values: chartValues,
-    },
-    filters: {
-      month: selectedMonth,
-      year: selectedYear,
-    },
   };
-
-}
+};
 
 export const getRevenueGrowth = async (query: {
   view?: "monthly" | "yearly";

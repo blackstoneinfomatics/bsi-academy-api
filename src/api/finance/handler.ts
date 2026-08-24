@@ -10,12 +10,7 @@ import { z } from "zod";
 import { SubscriptionInvoiceStatus } from "../../shared/enum";
 import { commonMessages, financeMessages } from "../../config/messages";
 
-export const getRevenueDashboardSummaryValidation = z.object({
-  query: z.object({
-    month: z.coerce.number().min(1).max(12).optional(),
-    year: z.coerce.number().min(2000).max(2100).optional(),
-  }),
-});
+
 
 export const getRevenueGrowthValidation = z.object({
   query: z.object({
@@ -23,16 +18,13 @@ export const getRevenueGrowthValidation = z.object({
   }),
 });
 
-export const getFinanceDashboardCountValidation = getRevenueDashboardSummaryValidation;
 export const getFinanceRevenueGraphValidation = getRevenueGrowthValidation;
 
 export const getSubscriptionInvoicesValidation = z.object({
   query: z.object({
     page: z.coerce.number().min(1).default(1),
     limit: z.coerce.number().min(1).max(100).default(10),
-
     search: z.string().optional(),
-
     status: z
       .enum([
         SubscriptionInvoiceStatus.PENDING,
@@ -46,17 +38,11 @@ export const getSubscriptionInvoicesValidation = z.object({
       .optional(),
 
     tenantName: z.string().optional(),
-
     planName: z.string().optional(),
-
     invoiceFromDate: z.coerce.date().optional(),
-
     invoiceToDate: z.coerce.date().optional(),
-
     dueFromDate: z.coerce.date().optional(),
-
     dueToDate: z.coerce.date().optional(),
-
     sortBy: z
       .enum([
         "invoiceDate",
@@ -65,8 +51,7 @@ export const getSubscriptionInvoicesValidation = z.object({
         "totalAmount",
         "createdAt",
       ])
-      .default("createdAt"),
-
+      .default("createdAt"),  
     sortOrder: z
       .enum(["asc", "desc"])
       .default("desc"),
@@ -105,11 +90,7 @@ export default {
 
   async getFinanceDashboardCount(request: Request, h: ResponseToolkit) {
     try {
-      const { query } = getFinanceDashboardCountValidation.parse({
-        query: request.query,
-      });
-
-      const result = await getRevenueDashboardSummary(query);
+      const result = await getRevenueDashboardSummary();
 
       return h
         .response({

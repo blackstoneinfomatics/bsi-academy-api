@@ -25,7 +25,7 @@ const register = async (server: Server): Promise<void> => {
     ,
     {
       method: "GET",
-      path: "/finance/dashboard/count",
+      path: "/finance/analytics/count",
       options: {
         handler: handler.getFinanceDashboardCount,
         description: "Get finance dashboard card counts and summary values for total revenue, collected, pending and refunded",
@@ -34,7 +34,7 @@ const register = async (server: Server): Promise<void> => {
     },
     {
       method: "GET",
-      path: "/finance/dashboard/graph",
+      path: "/finance/analytics/graph",
       options: {
         handler: handler.getFinanceRevenueGraph,
         description: "Get revenue graph data with month/year filtering",
