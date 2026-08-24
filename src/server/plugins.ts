@@ -40,11 +40,10 @@ import fileUplocadAPI from "../api/fileUpload/router";
 import  teanantAPI  from "../api/tenant/router";
 import subscriptionSAASAPI from "../api/subscription_SAAS/router";
 import plansAPI from "../api/plan/router";
-import reminderAPI from "../api/remainder/router";
 import subscriptionInvoiceAPI from "../api/subcriptionInvoice/router";
 import subscriptionTrialAPI from "../api/subscriptionTrial/router";
 import billingAPI from "../api/billing/router";
-
+import financeAPI from "../api/finance/router";
 export const appPlugins = [
   {
     plugin: systemLifeCycle,
@@ -169,9 +168,6 @@ export const appPlugins = [
     plugin:plansAPI,
   },
   {
-    plugin:reminderAPI,
-  },
-  {
     plugin:subscriptionInvoiceAPI,
   },
   {
@@ -182,5 +178,8 @@ export const appPlugins = [
   },
   {
     plugin:billingAPI,
+  },
+  {
+    plugin:financeAPI,
   }
 ];

@@ -206,6 +206,17 @@ export const planMessages: Record<string, string> = Object.freeze({
   DEFAULT_DOMAIN_REQUIRED: "Please provide the default running domain.",
 });
 
+export const financeMessages: Record<string, string> = Object.freeze({
+  DASHBOARD_COUNT_FETCHED: "Finance dashboard count fetched successfully",
+  REVENUE_GRAPH_FETCHED: "Finance revenue graph fetched successfully",
+  DASHBOARD_SUMMARY_FETCHED: "Revenue dashboard summary fetched successfully",
+  REVENUE_GROWTH_FETCHED: "Revenue growth fetched successfully",
+  TRANSACTIONS_FETCHED: "Finance transactions fetched successfully",
+  TRANSACTION_CARD_COUNT_FETCHED: "Finance transaction card count fetched successfully",
+  TODAY_ACTIVITIES_FETCHED: "Today's finance activities fetched successfully",
+  TODAY_ACTIVITIES_FETCH_FAILED: "Failed to fetch today's finance activities",
+});
+
 export const commonMessages: Record<string, any> = Object.freeze({
   SERVER_HEALTH: "Service Health Check",
   SERVER_HEALTH_NOTES: "Return the current status of the API",
