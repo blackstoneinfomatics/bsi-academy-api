@@ -724,3 +724,49 @@ export const tenantSubscriptionMessages = {
   GROWTH_ANALYTICS_FETCH_FAILED:
     "Failed to fetch tenant subscription growth analytics.",
 };
+
+export const refundMessages = {
+  // Actions
+  CREATE_REFUND: "Create Refund Transaction",
+  UPDATE_REFUND: "Update Refund Transaction",
+  GET_REFUND_TRANSACTIONS: "Get Refund Transactions",
+  GET_REFUND_BY_ID: "Get Refund Transaction By Id",
+  PROCESS_STRIPE_REFUND: "Process Stripe Refund",
+  PROCESS_MANUAL_REFUND: "Process Manual Refund",
+  DASHBOARD_CARD_COUNT_FETCH: "Get Refund Dashboard Card Count",
+
+  // Success Responses
+  CREATE_REFUND_SUCCESS: "Refund transaction created successfully.",
+  UPDATE_REFUND_SUCCESS: "Refund transaction updated successfully.",
+  GET_REFUND_TRANSACTIONS_SUCCESS:
+    "Refund transactions fetched successfully.",
+  GET_REFUND_BY_ID_SUCCESS:
+    "Refund transaction details fetched successfully.",
+  STRIPE_REFUND_SUCCESS: "Stripe refund processed successfully.",
+  MANUAL_REFUND_SUCCESS: "Manual refund processed successfully.",
+  DASHBOARD_CARD_COUNT_FETCH_SUCCESS:
+    "Refund dashboard card count fetched successfully.",
+
+  // Errors
+  REFUND_NOT_FOUND: "Refund transaction not found.",
+  REFUND_ALREADY_PROCESSED: "Refund has already been processed.",
+  REFUND_CREATION_FAILED: "Failed to create refund transaction.",
+  REFUND_UPDATE_FAILED: "Failed to update refund transaction.",
+  REFUND_FETCH_FAILED: "Failed to fetch refund transactions.",
+  STRIPE_REFUND_FAILED: "Stripe refund failed.",
+  MANUAL_REFUND_FAILED: "Manual refund failed.",
+
+  INVALID_REFUND_ID: "Invalid Refund Id",
+  INVALID_REFUND_STATUS: "Invalid refund status",
+  INVALID_REFUND_REQUEST: "Invalid refund request",
+
+  PAYMENT_NOT_FOUND: "Payment not found for this refund.",
+  INVOICE_NOT_FOUND: "Invoice not found for this refund.",
+  SUBSCRIPTION_NOT_FOUND: "Subscription not found for this refund.",
+  PLAN_NOT_FOUND: "Plan not found for this refund.",
+  TRANSACTION_NOT_FOUND: "Transaction not found for this refund.",
+
+  VALIDATION_FAILED: "Validation Failed",
+  UNAUTHORIZED: "Unauthorized",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};

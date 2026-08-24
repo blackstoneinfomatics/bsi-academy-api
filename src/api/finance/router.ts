@@ -34,7 +34,7 @@ const register = async (server: Server): Promise<void> => {
     },
     {
       method: "GET",
-      path: "/finance/dashboard/graph",
+      path: "/finance/analytics/graph",
       options: {
         handler: handler.getFinanceRevenueGraph,
         description: "Get revenue graph data with month/year filtering",

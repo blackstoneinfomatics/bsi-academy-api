@@ -28,21 +28,18 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
 
     invoiceId: {
       type: Schema.Types.ObjectId,
-      ref: "SubscriptionInvoice",
       required: true,
       index: true,
     },
 
     paymentId: {
       type: Schema.Types.ObjectId,
-      ref: "PaymentTransaction",
       required: true,
       unique: true, 
     },
 
     subscriptionId: {
       type: Schema.Types.ObjectId,
-      ref: "TenantSubscription",
       required: true,
       index: true,
     },
@@ -52,6 +49,21 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       enum: Object.values(PaymentGateway),
       required: true,
       index: true,
+    },
+
+    paymentMethod: {
+      type: String,
+      default: null,
+    },
+
+    refundMethod:{
+      type:String,
+      default:null,
+    },
+
+    requestedDate: {
+      type: Date,
+      required: true,
     },
 
     stripeRefundId: {
@@ -72,6 +84,11 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       default: "INR",
       uppercase: true,
       trim: true,
+    },
+
+    paymentDate: {
+      type: Date,
+      required: true,
     },
 
     settlementAmount: {
@@ -161,6 +178,8 @@ export const RefundBaseValidation = z.object({
   amount: z.number().min(0),
 
   currency: z.string().trim().length(3).default("INR"),
+
+  paymentDate: z.coerce.date(),
 
   settlementAmount: z.number().optional(),
 

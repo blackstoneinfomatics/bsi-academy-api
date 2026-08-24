@@ -111,6 +111,7 @@ export enum RefundApprovalStatus {
 
 export enum PaymentGateway {
   STRIPE = "STRIPE",
+  MANUAL = "MANUAL",
 }
 
 export enum SubscriptionTrialStatus {
