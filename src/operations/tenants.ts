@@ -2,6 +2,7 @@ import { ITenant, ITenantCreate, ITenantSettings, ITenantSettingsPayload } from 
 import { appStatus, syncJob, tenantsMessages } from "../config/messages";
 import TenantModel from "../models/tenants";
 import TenantSettingsModel from "../models/tenant_setting";
+import SubscriptionTrial from "../models/subcriptionTrial";
 import { isEmpty, isNil, isEqual } from "lodash";
 import { badRequest, Boom, conflict, notFound } from "@hapi/boom";
 import { GetAllRecordsParams } from "../shared/enum";
@@ -328,3 +329,291 @@ export const getActiveTenantRecord = async () => {
     
   };
 };
+
+export const calculatePercentageChange = (
+  currentCount: number,
+  previousCount: number
+) => {
+  if (previousCount === 0) {
+    return {
+      percentage: currentCount === 0 ? 0 : 100,
+      trend: currentCount === 0 ? "same" : "up",
+    };
+  }
+
+  const percentage =
+    ((currentCount - previousCount) /
+      previousCount) *
+    100;
+
+  return {
+    percentage: Number(
+      Math.abs(percentage).toFixed(2)
+    ),
+
+    trend:
+      currentCount > previousCount
+        ? "up"
+        : currentCount < previousCount
+          ? "down"
+          : "same",
+  };
+};
+
+
+export const getTenantAnalyticsCards =
+  async () => {
+
+    const now = new Date();
+
+     // Current Month
+
+    const currentMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1
+    );
+
+
+    // Previous Month
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1
+    );
+
+    const previousMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+    const expiryWindowStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const expiryWindowEnd = new Date(expiryWindowStart);
+    expiryWindowEnd.setDate(expiryWindowEnd.getDate() + 3);
+
+
+    // Fetch Analytics Counts
+
+    const [
+      currentTotalTenants,
+      previousTotalTenants,
+
+      currentActiveTenants,
+      previousActiveTenants,
+
+      currentTrialTenants,
+      previousTrialTenants,
+
+      currentInactiveTenants,
+      previousInactiveTenants,
+
+      currentExpiringTenants,
+      previousExpiringTenants,
+    ] = await Promise.all([
+
+      // Total Tenants - Current Month
+
+      TenantModel.countDocuments({
+        tenantCode: {
+          $exists: true,
+          $ne: "",
+        },
+        createdDate: {
+          $gte: currentMonthStart,
+          $lt: currentMonthEnd,
+        },
+      }),
+
+      // Total Tenants - Previous Month
+
+      TenantModel.countDocuments({
+        tenantCode: {
+          $exists: true,
+          $ne: "",
+        },
+        createdDate: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      }),
+
+
+      // Active Tenants - Current Month
+
+      TenantModel.countDocuments({
+        status: "Active",
+        createdDate: {
+          $gte: currentMonthStart,
+          $lt: currentMonthEnd,
+        },
+      }),
+
+       // Active Tenants - Previous Month
+
+      TenantModel.countDocuments({
+        status: "Active",
+        createdDate: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      }),
+
+
+      // Trial Tenants - Current Month
+
+      SubscriptionTrial.countDocuments({
+        status: "ACTIVE",
+        createdAt: {
+          $gte: currentMonthStart,
+          $lt: currentMonthEnd,
+        },
+      }),
+
+       // Trial Tenants - Previous Month
+
+      SubscriptionTrial.countDocuments({
+        status: "ACTIVE",
+        createdAt: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      }),
+
+
+      // Inactive Tenants - Current Month
+
+      TenantModel.countDocuments({
+        status: "Inactive",
+        createdAt: {
+          $gte: currentMonthStart,
+          $lt: currentMonthEnd,
+        },
+      }),
+
+      // Inactive Tenants - Previous Month
+
+      TenantModel.countDocuments({
+        status: "Inactive",
+        createdAt: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      }),
+
+
+      // Expiring Tenants - Current Month
+
+      SubscriptionTrial.countDocuments({
+        status: "ACTIVE",
+        isConverted: false,
+        trialEndDate: {
+          $gte: expiryWindowStart,
+          $lt: expiryWindowEnd,
+        },
+      }),
+
+      // Expiring Tenants - Previous Month
+
+      SubscriptionTrial.countDocuments({
+        status: "ACTIVE",
+        trialEndDate: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      }),
+    ]);
+
+    const totalTenantsChange =
+      calculatePercentageChange(
+        currentTotalTenants,
+        previousTotalTenants
+      );
+
+    const activeTenantsChange =
+      calculatePercentageChange(
+        currentActiveTenants,
+        previousActiveTenants
+      );
+
+    const trialTenantsChange =
+      calculatePercentageChange(
+        currentTrialTenants,
+        previousTrialTenants
+      );
+
+    const inactiveTenantsChange =
+      calculatePercentageChange(
+        currentInactiveTenants,
+        previousInactiveTenants
+      );
+
+    const expiringTenantsChange =
+      calculatePercentageChange(
+        currentExpiringTenants,
+        previousExpiringTenants
+      );
+
+    return {
+
+      totalTenants: {
+        currentCount: currentTotalTenants,
+        previousMonthCount:
+          previousTotalTenants,
+        percentage:
+          totalTenantsChange.percentage,
+        trend:
+          totalTenantsChange.trend,
+      },
+
+      activeTenants: {
+        currentCount: currentActiveTenants,
+        previousMonthCount:
+          previousActiveTenants,
+        percentage:
+          activeTenantsChange.percentage,
+        trend:
+          activeTenantsChange.trend,
+      },
+
+      trialTenants: {
+        currentCount: currentTrialTenants,
+        previousMonthCount:
+          previousTrialTenants,
+        percentage:
+          trialTenantsChange.percentage,
+        trend:
+          trialTenantsChange.trend,
+      },
+
+      inactiveTenants: {
+        currentCount: currentInactiveTenants,
+        previousMonthCount:
+          previousInactiveTenants,
+        percentage:
+          inactiveTenantsChange.percentage,
+        trend:
+          inactiveTenantsChange.trend,
+      },
+
+      expiringTenants: {
+        currentCount: currentExpiringTenants,
+        previousMonthCount:
+          previousExpiringTenants,
+        percentage:
+          expiringTenantsChange.percentage,
+        trend:
+          expiringTenantsChange.trend,
+      },
+    };
+  };

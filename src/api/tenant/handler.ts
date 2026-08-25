@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ResponseToolkit, Request } from "@hapi/hapi";
 import { z } from "zod";
 import { zodGetAllRecordsQuerySchema } from "../../shared/zod_schema_validation";
@@ -8,6 +9,7 @@ import {
   getActiveTenantRecord,
   getActiveTenantRecordByCode,
   getAllTenantSettingsRecords,
+  getTenantAnalyticsCards,
   updateTenantDetailsByTenantId,
   updateTenantSettings,
 } from "../../operations/tenants";
@@ -109,7 +111,7 @@ export default {
 
   //create new tenant
 
-  async createTenant(req: Request, h: ResponseToolkit) {
+  async createTenant(req: Request, _h: ResponseToolkit) {
     const { payload } = createTenantInputValidation.parse({
       payload: req.payload,
     }); 
@@ -246,6 +248,40 @@ export default {
   //     lastUpdatedDate: new Date()
   //   });
   // },
+
+  async getTenantAnalyticsCards(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const result =
+      await getTenantAnalyticsCards();
+
+    return h
+      .response({
+        success: true,
+        message:
+          "Tenant analytics cards fetched successfully.",
+        data: result,
+      })
+      .code(200);
+
+  } catch (error: any) {
+    console.error(
+      "Get Tenant Analytics Cards Error:",
+      error
+    );
+
+    return h
+      .response({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to fetch tenant analytics cards.",
+      })
+      .code(500);
+  }
+}
 
 
 };

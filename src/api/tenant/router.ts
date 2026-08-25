@@ -13,11 +13,24 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createTenant,
         description: tenantsMessages.CREATE,
         tags: ['api', 'tenants'],
-        auth: {
-          strategies: ['jwt']
-        },
+        // auth: {
+        //   strategies: ['jwt']
+        // },
       },
     },
+
+    {
+  method: "GET",
+  path: "/tenants/analytics/cards",
+  options: {
+    handler: handler.getTenantAnalyticsCards,
+    description: "Get tenant analytics card counts",
+    tags: ["api", "tenant"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
 
     {
       method: 'GET',
@@ -62,9 +75,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.getTenantDetailsByCode,
         description: tenantsMessages.BYID,
         tags: ['api', 'tenants'],
-        auth: {
-          strategies: ['jwt']
-        },
+        // auth: {
+        //   strategies: ['jwt']
+        // },
       },
     },
 
