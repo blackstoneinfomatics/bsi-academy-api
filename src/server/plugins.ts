@@ -46,6 +46,9 @@ import billingAPI from "../api/billing/router";
 import financeAPI from "../api/finance/router";
 import refundTransactionAPI from "../api/refund/router";
 
+import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
+
+
 export const appPlugins = [
   {
     plugin: systemLifeCycle,
@@ -187,4 +190,7 @@ export const appPlugins = [
   {
     plugin:refundTransactionAPI,
   },
+  {
+    plugin:customServiceInvoiceAPI,
+  }
 ];

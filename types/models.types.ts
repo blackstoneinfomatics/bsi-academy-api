@@ -2534,6 +2534,70 @@ export interface SubscriptionInvoice  {
   createdBy: string;
 }
 
+export interface IInvoiceItem {
+  service: string;
+
+  description?: string;
+
+  unitPrice: number;
+
+  taxRate: number;
+
+  taxType?: string;
+
+  taxAmount: number;
+
+  amount: number;
+
+  category?: string;
+}
+
+export interface ICustomServiceInvoice extends Document {
+  tenantId: string;
+
+  subscriptionId: Types.ObjectId;
+
+  planId: Types.ObjectId;
+
+  paymentLink?: string | null;
+
+  invoiceNumber: string;
+
+  invoiceDate: Date;
+
+  dueDate: Date;
+
+  currency: string;
+
+  paymentTerms: number;
+
+  items: IInvoiceItem[];
+
+  subTotal: number;
+
+  totalTax: number;
+
+  totalAmount: number;
+
+  customerNotes?: string;
+
+  attachments?: string[];
+
+  invoiceStatus: SubscriptionInvoiceStatus;
+
+  paymentStatus: PaymentStatus;
+
+  createdBy: string;
+
+  updatedBy?: string;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  deletedAt?: Date | null;
+}
+
 export interface IBilling extends Document {
   billingName: string;
   billingId: string;
@@ -2586,6 +2650,7 @@ tenantId: string;
 
   deletedAt?: Date | null;
 }
+
 export interface TenantSubscription  {
 
   tenantId: string;
@@ -2619,6 +2684,8 @@ export interface IPaymentTransaction extends Document {
   tenantId: string;
 
   invoiceId: Types.ObjectId;
+
+  invoiceModel?: "SubscriptionInvoice" | "CustomServiceInvoice";
 
   subscriptionId: Types.ObjectId;
 

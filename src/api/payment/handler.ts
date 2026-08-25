@@ -33,6 +33,16 @@ export const createPaymentSubscriptionInvoiceValidation = z.object({
   }),
 });
 
+
+export const payCustomServiceInvoiceValidation = z.object({
+  params: z.object({
+    invoiceId: objectId,
+  }),
+  payload: z.object({
+    paymentIntentResponse: z.any().optional(),
+  }),
+});
+
 const paymentService = new PaymentService();
 
 export const createPaymentIntent = async (
@@ -346,6 +356,8 @@ async function StudentPortalMail(studentPortal: any) {
   }
 }
 
+
+
 export const createStudentPaymentIntent = async (
   request: Request,
   h: ResponseToolkit,
@@ -452,6 +464,40 @@ export const createSubscriptionInvoicePayment = async (
       .code(error.statusCode || 500);
   }
 };
+
+export const payCustomServiceInvoice = async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = payCustomServiceInvoiceValidation.safeParse({
+        params: request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      if (parsed.data?.payload.paymentIntentResponse) {
+        const result = await paymentService.confirmCustomServiceInvoicePayment(
+          parsed.data.params.invoiceId,
+          parsed.data.payload.paymentIntentResponse,
+        );
+        return h.response(result).code(200);
+      }
+
+      const result = await paymentService.createCustomServiceInvoicePaymentIntent(
+        parsed.data!.params.invoiceId,
+      );
+      return h.response(result).code(200);
+    } catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
+        })
+        .code(error.statusCode || 500);
+    }
+  }
 
 // Helper function to get dates for specific weekdays between two dates
 const getDatesForWeekdays = (
@@ -560,3 +606,5 @@ function generateAFTCode(preName: string) {
   const num = Math.floor(10000 + Math.random() * 90000);
   return `${preName}${num}`;
 }
+
+

@@ -630,6 +630,36 @@ export const subscriptionInvoiceMessages = {
   BILLING_PERIOD_NOT_FOUND: "Billing Period not found.",
 };
 
+export const customServiceInvoiceMessages = {
+  // Actions
+  CREATE: "Create Custom Service Invoice",
+  GET_BY_ID: "Get Custom Service Invoice By Id",
+  CREATE_PAYMENT: "Create Custom Service Invoice Payment",
+  SEND: "Send Custom Service Invoice",
+
+  // Success Responses
+  CREATE_SUCCESS: "Custom Service Invoice created successfully.",
+  FETCH_SUCCESS: "Custom Service Invoice fetched successfully.",
+  CREATE_PAYMENT_INTENT_SUCCESS: "Payment Intent created successfully.",
+  CONFIRM_PAYMENT_SUCCESS: "Payment confirmed successfully.",
+  SEND_SUCCESS: "Custom Service Invoice sent successfully.",
+
+  // Errors
+  TENANT_NOT_FOUND: "Tenant not found.",
+  SUBSCRIPTION_NOT_FOUND: "Tenant Subscription not found.",
+  INVOICE_NOT_FOUND: "Custom Service Invoice not found.",
+  DUPLICATE_INVOICE: "Invoice number already exists.",
+  INVALID_DUE_DATE: "Due Date should be greater than or equal to Invoice Date.",
+  INVALID_ATTACHMENT_URL: "Invalid Attachment URL.",
+  INVOICE_ALREADY_PAID: "Invoice has already been paid.",
+  PAYMENT_NOT_FOUND: "Payment not found.",
+  EMAIL_TEMPLATE_NOT_FOUND: "Custom Service Invoice email template not found.",
+  TENANT_EMAIL_NOT_FOUND: "Tenant email not found.",
+  EMAIL_SEND_FAILED: "Failed to send Custom Service Invoice email.",
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+
 export const subscriptionTrialMessages = {
   // Actions
   CREATE: "Create Subscription Trial",

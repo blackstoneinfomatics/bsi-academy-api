@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { config } from "../config/env";
 import PaymentModel from "../models/paymenttransaction";
 import InvoiceModel from "../models/subscriptionInvoice";
+import CustomServiceInvoiceModel from "../models/finance_invoice";
 import SubscriptionModel from "../models/tenantsubscription";
 import {
   PaymentStatus,
@@ -12,7 +13,7 @@ import {
   SubscriptionStatus,
   BillingCycle,
 } from "../shared/enum";
-import { paymentMessages } from "../config/messages";
+import { paymentMessages, customServiceInvoiceMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 
 const stripe = new Stripe(config.stripeKey.stripesecretkey);
@@ -270,6 +271,221 @@ export class PaymentService {
     } catch (err) {
       console.error(err);
       throwError(paymentMessages.INTERNAL_SERVER_ERROR, 500);
+    }
+  }
+
+  // =============================
+  // CUSTOM SERVICE INVOICE PAYMENTS
+  // =============================
+
+  async createCustomServiceInvoicePaymentIntent(invoiceId: string) {
+    try {
+      const invoice = mongoose.isValidObjectId(invoiceId)
+        ? await CustomServiceInvoiceModel.findOne({
+            _id: invoiceId,
+            deletedAt: null,
+          })
+        : await CustomServiceInvoiceModel.findOne({
+            invoiceNumber: invoiceId,
+            deletedAt: null,
+          });
+
+      if (!invoice) {
+        throwError(customServiceInvoiceMessages.INVOICE_NOT_FOUND, 404);
+        return;
+      }
+
+      if (invoice.paymentStatus === PaymentStatus.PAID) {
+        throwError(customServiceInvoiceMessages.INVOICE_ALREADY_PAID, 409);
+      }
+
+      const subscription = await SubscriptionModel.findOne({
+        _id: invoice.subscriptionId,
+        deletedAt: null,
+      });
+
+      if (!subscription) {
+        throwError(customServiceInvoiceMessages.SUBSCRIPTION_NOT_FOUND, 404);
+      }
+
+      // Existing pending payment
+      const existing = await PaymentModel.findOne({
+        invoiceId: invoice._id,
+        paymentType: PaymentType.CUSTOM_SERVICE,
+        paymentStatus: PaymentStatus.PENDING,
+      });
+
+      if (existing?.stripePaymentIntentId) {
+        const pi = await stripe.paymentIntents.retrieve(
+          existing.stripePaymentIntentId,
+        );
+        return {
+          success: true,
+          message: customServiceInvoiceMessages.CREATE_PAYMENT_INTENT_SUCCESS,
+          data: {
+            clientSecret: pi.client_secret,
+          },
+        };
+      }
+
+      const paymentNumber = await this.generatePaymentNumber();
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: toStripeAmount(invoice.totalAmount, invoice.currency),
+        currency: invoice.currency.toLowerCase(),
+        metadata: {
+          invoiceId: invoice._id.toString(),
+          invoiceType: PaymentType.CUSTOM_SERVICE,
+        },
+      });
+
+      await PaymentModel.create({
+        paymentNumber,
+        tenantId: invoice.tenantId,
+        invoiceId: invoice._id,
+        invoiceModel: "CustomServiceInvoice",
+        subscriptionId: invoice.subscriptionId,
+        amount: invoice.totalAmount,
+        currency: invoice.currency,
+        paymentType: PaymentType.CUSTOM_SERVICE,
+        gateway: PaymentGateway.STRIPE,
+        paymentStatus: PaymentStatus.PENDING,
+        stripePaymentIntentId: paymentIntent.id,
+        paymentResponse: paymentIntent,
+        createdBy: "SuperAdmin",
+      });
+
+      return {
+        success: true,
+        message: customServiceInvoiceMessages.CREATE_PAYMENT_INTENT_SUCCESS,
+        data: {
+          clientSecret: paymentIntent.client_secret,
+        },
+      };
+    } catch (error: any) {
+      console.error("Create Custom Service Invoice Payment Intent Error:", error);
+
+      throwError(
+        error.message || customServiceInvoiceMessages.INTERNAL_SERVER_ERROR,
+        error.statusCode || 500,
+      );
+    }
+  }
+
+  async confirmCustomServiceInvoicePayment(
+    invoiceId: string,
+    paymentIntentResponse: any,
+  ) {
+    if (!paymentIntentResponse) {
+      throwError(customServiceInvoiceMessages.VALIDATION_FAILED, 400);
+    }
+
+    try {
+      const invoice = mongoose.isValidObjectId(invoiceId)
+        ? await CustomServiceInvoiceModel.findOne({
+            _id: invoiceId,
+            deletedAt: null,
+          })
+        : await CustomServiceInvoiceModel.findOne({
+            invoiceNumber: invoiceId,
+            deletedAt: null,
+          });
+
+      if (!invoice) {
+        throwError(customServiceInvoiceMessages.INVOICE_NOT_FOUND, 404);
+        return;
+      }
+
+      const payment = await PaymentModel.findOne({
+        invoiceId: invoice._id,
+        paymentType: PaymentType.CUSTOM_SERVICE,
+        paymentStatus: PaymentStatus.PENDING,
+      });
+
+      if (!payment) {
+        throwError(customServiceInvoiceMessages.PAYMENT_NOT_FOUND, 404);
+        return;
+      }
+
+      payment.paymentDate = new Date();
+      payment.transactionReference = paymentIntentResponse.id;
+      payment.paymentMethod =
+        paymentIntentResponse.payment_method_types?.[0] || "CARD";
+      payment.paymentResponse = paymentIntentResponse;
+      payment.updatedBy = "SuperAdmin";
+
+      if (paymentIntentResponse.status === "succeeded") {
+        if (invoice.invoiceStatus === SubscriptionInvoiceStatus.PAID) {
+          throwError(customServiceInvoiceMessages.INVOICE_ALREADY_PAID, 409);
+        }
+
+        const pi = await stripe.paymentIntents.retrieve(
+          paymentIntentResponse.id,
+        );
+
+        const chargeId = pi.latest_charge;
+
+        const balanceTransaction = await getBalanceTransaction(
+          chargeId as string,
+        );
+
+        payment.netAmount = convertFromStripeSettlement(
+          balanceTransaction.net,
+          balanceTransaction.currency,
+          payment.currency.toLocaleLowerCase(),
+          balanceTransaction.exchange_rate || 1,
+          payment.currency.toLocaleLowerCase(),
+        );
+        payment.processingFee = convertFromStripeSettlement(
+          balanceTransaction.fee,
+          balanceTransaction.currency,
+          payment.currency.toLocaleLowerCase(),
+          balanceTransaction.exchange_rate || 1,
+          payment.currency.toLocaleLowerCase(),
+        );
+        payment.refundableAmount = convertFromStripeSettlement(
+          balanceTransaction.net,
+          balanceTransaction.currency,
+          payment.currency.toLocaleLowerCase(),
+          balanceTransaction.exchange_rate || 1,
+          payment.currency.toLocaleLowerCase(),
+        );
+
+        payment.paymentStatus = PaymentStatus.SUCCESS;
+        await payment.save();
+
+        invoice.paymentStatus = PaymentStatus.PAID;
+        invoice.invoiceStatus = SubscriptionInvoiceStatus.PAID;
+        await invoice.save();
+
+        return {
+          success: true,
+          message: customServiceInvoiceMessages.CONFIRM_PAYMENT_SUCCESS,
+        };
+      }
+
+      payment.paymentStatus = PaymentStatus.FAILED;
+      payment.failureReason =
+        paymentIntentResponse?.last_payment_error?.message ||
+        paymentIntentResponse?.failure_message ||
+        "Payment failed";
+
+      await payment.save();
+
+      return {
+        success: false,
+        message: payment.failureReason,
+      };
+    } catch (err: any) {
+      console.error("Confirm Custom Service Invoice Payment Error:", err);
+
+      const statusCode = err.statusCode || err.status || 500;
+      const message =
+        err.type === "StripeInvalidRequestError"
+          ? err.message
+          : err.message || customServiceInvoiceMessages.INTERNAL_SERVER_ERROR;
+
+      throwError(message, statusCode);
     }
   }
 

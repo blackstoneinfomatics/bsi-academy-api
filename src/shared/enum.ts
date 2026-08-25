@@ -85,6 +85,7 @@ export enum PaymentType {
   SUBSCRIPTION = "SUBSCRIPTION",
   RENEWAL = "RENEWAL",
   REFUND = "REFUND",
+  CUSTOM_SERVICE = "CUSTOM_SERVICE",
 }
 
 export enum PaymentStatus {
