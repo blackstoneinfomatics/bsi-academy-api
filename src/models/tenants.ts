@@ -149,7 +149,7 @@ const tenantSchema = new Schema<ITenant>(
 export const zodTenantSchema = z.object({
   tenantCode: z.string().min(3),
   tenantName: z.string().min(3),
-  tenantLogo: z.string(),
+  tenantLogo: z.string().optional(),
   organizationName: z.string(),
   phoneNumber: z.string(),
   mobileNumber: z.string(),

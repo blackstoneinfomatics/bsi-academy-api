@@ -1236,6 +1236,7 @@ export interface IFeedback extends Document {
 }
 
 export interface ISupervisorFeedbackCreate {
+  tenantId?: string;
   sessionId?: string;
   student?: {
     studentId?: string;
@@ -2254,7 +2255,7 @@ export interface ITenant extends Document {
 
 export interface ITenantCreate {
   tenantName: string;
-  tenantLogo: string;
+  tenantLogo?: string;
   mobileNumber: string;
   organizationName: string;
   phoneNumber?: string;
@@ -2391,31 +2392,6 @@ export interface Subscription extends Document {
   createdBy: string;
   updatedDate?: Date;
   updatedBy?: string;
-}
-
-export interface IReminder {
-  reminderId: string;
-  tenantId: string;
-  sendReminder: "ALL_OVERDUE_TENANTS" | "SPECIFIC_TENANTS" | "CUSTOM_SELECTION";
-  tenantIds?: string[];
-  minimumOverdueDays: number;
-  subject: string;
-  templateId: string;
-  repeatReminder: boolean;
-  repeatEveryDays: number;
-  stopAfterPayment: boolean;
-  channels: {
-    email: boolean;
-    sms: boolean;
-    inApp: boolean;
-    whatsapp: boolean;
-  };
-  status: string;
-  lastReminderSentDate?: Date;
-  createdDate: Date;
-  createdBy: string;
-  updatedDate: Date;
-  lastUpdatedBy?: string;
 }
 
 export interface IReminderChannelResult {

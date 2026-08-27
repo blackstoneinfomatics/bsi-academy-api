@@ -89,6 +89,7 @@ const createTenantInputValidation = z.object({
     country: true,
     companyRegistrationCertificate: true,
     addressProof: true,
+    gstCertificate: true,
     plan: true,
     timeZone: true,
     currency: true,
@@ -111,10 +112,53 @@ export default {
 
   //create new tenant
 
-  async createTenant(req: Request, _h: ResponseToolkit) {
-    const { payload } = createTenantInputValidation.parse({
-      payload: req.payload,
-    }); 
+  async createTenant(req: Request, h: ResponseToolkit) {
+    const raw: any = req.payload || {};
+    console.log(
+  "PAYLOAD KEYS:",
+  Object.keys(raw)
+);
+
+console.log(
+  "TENANT LOGO:",
+  raw.tenantLogo
+);
+
+console.log(
+  "REG CERT:",
+  raw.companyRegistrationCertificate
+);
+
+console.log(
+  "GST CERT:",
+  raw.gstCertificate
+);
+
+console.log(
+  "ADDRESS PROOF:",
+  raw.addressProof
+);
+console.log("RAW PAYLOAD:", raw);
+const validationPayload = {
+  payload: {
+    ...raw,
+
+    tenantLogo:
+      raw.tenantLogo?.hapi?.filename || "",
+
+    companyRegistrationCertificate:
+      raw.companyRegistrationCertificate?.hapi?.filename || "",
+
+    gstCertificate:
+      raw.gstCertificate?.hapi?.filename || "",
+
+    addressProof:
+      raw.addressProof?.hapi?.filename || "",
+  },
+};
+
+console.log("VALIDATION PAYLOAD:", validationPayload);
+   const { payload } = createTenantInputValidation.parse(validationPayload); 
     const {
     tenantName,
     tenantLogo,

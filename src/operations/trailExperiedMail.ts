@@ -1,5 +1,6 @@
 import { sendEmailClient } from "../shared/email";
 import emailTemplates from "../models/emailTemplate";
+import UserModel from "../models/users";
 
 export async function TrialExpiredMail(tenantDetails: any) {
   try {
@@ -88,11 +89,24 @@ export async function TenantWelcomeMail(tenantDetails: any) {
     const trialEndDate = new Date(tenantDetails.createdDate);
     trialEndDate.setDate(trialEndDate.getDate() + 14);
 
+    // tenantId on tenantUsers is the owning Tenant's tenantCode (same
+    // convention as TenantSubscription.tenantId), not a Mongo _id.
+    const adminUser = await UserModel.findOne({
+      tenantId: tenantDetails.tenantCode,
+      role: "ADMIN",
+    }).lean();
+
+    console.log(
+      `[TenantWelcomeMail] admin user lookup tenantCode=${tenantDetails.tenantCode} found=${!!adminUser}`,
+    );
+
     const htmlPart = emailTemplate.templateContent
       .replace(/<tenantName>/g, tenantName)
       .replace(/<planName>/g, tenantDetails.plan || "Trial")
       .replace(/<trialEndDate>/g, trialEndDate.toDateString())
-      .replace(/<loginLink>/g, "https://yourdomain.com/login")
+      .replace(/<username>/g, adminUser?.userName || "Admin")
+      .replace(/<password>/g, adminUser?.password || "Admin#123")
+      .replace(/<loginLink>/g, "https://blackstoneinfomaticstech.com/admin-main/ui/login")
       .replace(/<supportEmail>/g, "support@yourdomain.com");
 
     await sendEmailClient(emailTo, subject, htmlPart);

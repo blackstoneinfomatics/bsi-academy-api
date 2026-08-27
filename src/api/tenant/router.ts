@@ -6,19 +6,27 @@ const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
   const routes: ServerRoute[] = [
 
-    {
-      method: 'POST',
-      path: '/tenant',
-      options: {
-        handler: handler.createTenant,
-        description: tenantsMessages.CREATE,
-        tags: ['api', 'tenants'],
-        // auth: {
-        //   strategies: ['jwt']
-        // },
-      },
+   {
+  method: 'POST',
+  path: '/tenant',
+  options: {
+    handler: handler.createTenant,
+    description: tenantsMessages.CREATE,
+    tags: ['api', 'tenants'],
+
+    payload: {
+      parse: true,
+      multipart: true,
+      output: 'stream',
+      allow: 'multipart/form-data',
+      maxBytes: 15 * 1024 * 1024,
     },
 
+    // auth: {
+    //   strategies: ['jwt'],
+    // },
+  },
+},
     {
   method: "GET",
   path: "/tenants/analytics/cards",
