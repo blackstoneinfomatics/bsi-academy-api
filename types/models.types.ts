@@ -1,5 +1,17 @@
 import { Types } from "mongoose";
-import CustomEnumerator, { AssignmentStatus, BillingCycle, BillingStatus, PaymentGateway, PaymentStatus, PaymentType, RefundApprovalStatus, RefundStatus, SubscriptionInvoiceStatus, SubscriptionStatus, SubscriptionTrialStatus } from "../src/shared/enum";
+import CustomEnumerator, {
+  AssignmentStatus,
+  BillingCycle,
+  BillingStatus,
+  PaymentGateway,
+  PaymentStatus,
+  PaymentType,
+  RefundApprovalStatus,
+  RefundStatus,
+  SubscriptionInvoiceStatus,
+  SubscriptionStatus,
+  SubscriptionTrialStatus,
+} from "../src/shared/enum";
 
 enum Status {
   ACTIVE = "Active",
@@ -2315,7 +2327,7 @@ export interface ITenantSettingsPayload {
 export interface IBillingPeriod {
   billingPeriodId: string;
   billingPeriod: string;
-  duration:number;
+  duration: number;
   price: number;
   discount: number;
   gstRate: number;
@@ -2422,10 +2434,7 @@ export interface IReminderHistory {
   createdBy: string;
 }
 
-
-
 export interface ISubscriptionInvoice extends Document {
-  
   invoiceNumber: string;
 
   tenantId: string;
@@ -2471,8 +2480,7 @@ export interface ISubscriptionInvoice extends Document {
   deletedAt?: Date | null;
 }
 
-export interface SubscriptionInvoice  {
-
+export interface SubscriptionInvoice {
   tenantId: string;
 
   invoiceNumber: string;
@@ -2591,11 +2599,10 @@ export interface IBilling extends Document {
 }
 
 export interface ITenantSubscription extends Document {
-
-tenantId: string;
+  tenantId: string;
 
   planId: Types.ObjectId;
-  
+
   planName: string;
 
   subscriptionCode: string;
@@ -2626,9 +2633,7 @@ tenantId: string;
 
   deletedAt?: Date | null;
 }
-
-export interface TenantSubscription  {
-
+export interface TenantSubscription {
   tenantId: string;
 
   planId: Types.ObjectId;
@@ -2707,7 +2712,6 @@ export interface IPaymentTransaction extends Document {
 }
 
 export interface ISubscriptionTrial extends Document {
-
   tenantId: string;
 
   trialStartDate: Date;
@@ -2732,7 +2736,6 @@ export interface ISubscriptionTrial extends Document {
 }
 
 export interface IRefundTransaction extends Document {
-
   refundNumber: string;
 
   refundStatus: RefundStatus;
@@ -2767,9 +2770,13 @@ export interface IRefundTransaction extends Document {
 
   exchangeRate?: number | null;
 
+  netAmount?: number;
+
   refundReason?: string;
 
   status: RefundApprovalStatus;
+
+  attachments?: string[];
 
   refundedAt?: Date | null;
 

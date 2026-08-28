@@ -679,7 +679,7 @@ export const getRevenueDashboardSummary = async () => {
   };
 
   const refundMatch: any = {
-    refundStatus: RefundStatus.PAID,
+    refundStatus: RefundStatus.SUCCESS,
     status: RefundApprovalStatus.APPROVED,
   };
 
@@ -852,7 +852,7 @@ export const getRevenueGrowth = async (query: {
     refundedAt: selectedView === "monthly"
       ? { $gte: currentMonthStart, $lte: currentMonthEnd }
       : { $gte: currentYearStart, $lte: currentYearEnd },
-    refundStatus: RefundStatus.PAID,
+    refundStatus: RefundStatus.SUCCESS,
     status: RefundApprovalStatus.APPROVED,
   };
 
@@ -860,7 +860,7 @@ export const getRevenueGrowth = async (query: {
     refundedAt: selectedView === "monthly"
       ? { $gte: previousMonthStart, $lte: previousMonthEnd }
       : { $gte: previousYearStart, $lte: previousYearEnd },
-    refundStatus: RefundStatus.PAID,
+    refundStatus: RefundStatus.SUCCESS,
     status: RefundApprovalStatus.APPROVED,
   };
 

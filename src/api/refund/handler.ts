@@ -7,10 +7,12 @@ import {
 } from "../../shared/enum";
 import { refundMessages } from "../../config/messages";
 import {
-    getRefundDashboardStatsService,
+  getRefundDashboardStatsService,
   getRefundTransactionsByIdService,
   getRefundTransactionsService,
+  updateRefundTransactionService,
 } from "../../operations/refundtransaction";
+import { throwError } from "../../helpers/throwError";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
@@ -19,6 +21,20 @@ export const getRefundTransactionByIdValidation = z.object({
     refundId: objectId,
   }),
 });
+
+export const updateRefundTransactionValidation = z.object({
+  gateway: z.enum([PaymentGateway.MANUAL, PaymentGateway.STRIPE]),
+  status: z.enum([
+    RefundApprovalStatus.APPROVED,
+    RefundApprovalStatus.PENDING,
+    RefundApprovalStatus.REJECTED,
+  ]),
+  refundStatus: z
+    .enum([RefundStatus.FAILED, RefundStatus.SUCCESS, RefundStatus.PENDING])
+    .optional(),
+  updatedBy: z.string().optional(),
+});
+
 export const getAllRefundQueryValidation = z.object({
   query: z.object({
     page: z.coerce.number().min(1).default(1),
@@ -38,7 +54,7 @@ export const getAllRefundQueryValidation = z.object({
       .optional(),
 
     refundStatus: z
-      .enum([RefundStatus.FAILED, RefundStatus.PAID, RefundStatus.PENDING])
+      .enum([RefundStatus.FAILED, RefundStatus.SUCCESS, RefundStatus.PENDING])
       .optional(),
 
     paymentMethod: z.string().optional(),
@@ -115,7 +131,6 @@ export default {
         })
         .code(200);
     } catch (err) {
-        
       return h
         .response({
           success: false,
@@ -123,6 +138,45 @@ export default {
           statusCode: 500,
         })
         .code(500);
+    }
+  },
+
+  updateRefundTransaction: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const { params } = getRefundTransactionByIdValidation.parse({
+        params: request.params,
+      });
+
+      const body = updateRefundTransactionValidation.safeParse(request.payload);
+
+      if (!body.success) {
+        throwError(body.error.errors[0].message, 400);
+
+      }
+
+      const result = await updateRefundTransactionService(params.refundId, {
+        gateway: body?.data?.gateway,
+        status: body?.data?.status,
+        refundStatus: body?.data?.refundStatus,
+        updatedBy: body?.data?.updatedBy,
+      });
+
+      return h
+        .response({
+          success: true,
+          message: "Refund updated successfully.",
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      console.error("Error in updateRefundTransaction:", error);
+      return h
+        .response({
+          success: false,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
+        })
+        .code(error.statusCode || 500);
     }
   },
 };

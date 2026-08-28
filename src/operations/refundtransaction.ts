@@ -1,13 +1,99 @@
 import mongoose from "mongoose";
 import {
   refundMessages,
-  subscriptionInvoiceMessages,
 } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 import RefundTransaction from "../models/refundTransaction";
-import subscriptionInvoice from "../models/subscriptionInvoice";
-import Tenants from "../models/tenants";
-import TenantSubscription from "../models/tenantsubscription";
+import {
+  PaymentGateway,
+  RefundApprovalStatus,
+  RefundStatus,
+} from "../shared/enum";
+import Stripe from "stripe";
+import { config } from "../config/env";
+import paymenttransaction from "../models/paymenttransaction";
+import refundTransaction from "../models/refundTransaction";
+
+const stripe = new Stripe(config.stripeKey.stripesecretkey);
+
+const ZERO_DECIMAL_CURRENCIES = [
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+];
+
+const THREE_DECIMAL_CURRENCIES = ["BHD", "JOD", "KWD", "OMR", "TND"];
+
+export function fromStripeAmount(amount: number, currency: string) {
+  currency = currency.toUpperCase();
+
+  if (ZERO_DECIMAL_CURRENCIES.includes(currency)) {
+    return amount;
+  }
+
+  if (THREE_DECIMAL_CURRENCIES.includes(currency)) {
+    return amount / 1000;
+  }
+
+  return amount / 100;
+}
+
+export function toStripeAmount(amount: number, currency: string) {
+  currency = currency.toUpperCase();
+
+  if (ZERO_DECIMAL_CURRENCIES.includes(currency)) {
+    return Math.round(amount);
+  }
+
+  if (THREE_DECIMAL_CURRENCIES.includes(currency)) {
+    return Math.round(amount * 1000);
+  }
+
+  return Math.round(amount * 100);
+}
+
+function roundTo2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function convertFromStripeSettlement(
+  amount: number,
+  stripeCurrency: string,
+  targetCurrency: string,
+  exchangeRate?: number,
+  originalCurrency?: string,
+) {
+  const normalized = fromStripeAmount(amount, stripeCurrency);
+
+  if (stripeCurrency.toLowerCase() === targetCurrency.toLowerCase()) {
+    return roundTo2(normalized);
+  }
+
+  if (!exchangeRate || !originalCurrency) {
+    throw new Error("Missing exchange rate or original currency");
+  }
+
+  const originalAmount = normalized / exchangeRate;
+
+  if (targetCurrency.toLowerCase() === originalCurrency.toLowerCase()) {
+    return roundTo2(originalAmount);
+  }
+
+  throw new Error("External FX conversion required");
+}
 
 export const getRefundTransactionsService = async (query: any) => {
   const {
@@ -286,7 +372,7 @@ export const getRefundTransactionsByIdService = async (refundId: string) => {
             tenantId: "$tenant._id",
             tenantName: "$tenant.tenantName",
             email: "$tenant.emailId",
-            domain: "$tenant.domain",
+            domain: "$tenant.domainName",
             tenantCode: "$tenant.tenantCode",
             phoneNumber: "$tenant.phoneNumber",
           },
@@ -340,25 +426,16 @@ export const getRefundTransactionsByIdService = async (refundId: string) => {
 export const getRefundDashboardStatsService = async () => {
   const now = new Date();
 
-  const startOfCurrentMonth = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1
-  );
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const startOfNextMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    1
-  );
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
   const startOfPreviousMonth = new Date(
     now.getFullYear(),
     now.getMonth() - 1,
-    1
+    1,
   );
 
-  // 🔥 aggregation
   const result = await RefundTransaction.aggregate([
     {
       $match: {
@@ -430,7 +507,6 @@ export const getRefundDashboardStatsService = async () => {
   const current = result[0].currentMonth[0] || {};
   const previous = result[0].previousMonth[0] || {};
 
-  // 🔥 safe getter
   const getVal = (obj: any, key: string) => obj?.[key] || 0;
 
   const calculatePercentage = (currentVal: number, prevVal: number) => {
@@ -447,14 +523,12 @@ export const getRefundDashboardStatsService = async () => {
     return "NO_CHANGE";
   };
 
-  // 🔥 format amount (K, L)
   const formatAmount = (amount: number) => {
     if (amount >= 100000) return `${(amount / 100000).toFixed(0)}L`;
     if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
     return `${amount}`;
   };
 
-  // 🔥 values
   const totalRefundsCurrent = getVal(current, "totalCount");
   const totalRefundsPrev = getVal(previous, "totalCount");
 
@@ -467,16 +541,12 @@ export const getRefundDashboardStatsService = async () => {
   const pendingCurrent = getVal(current, "pendingCount");
   const pendingPrev = getVal(previous, "pendingCount");
 
-  // 🔥 calculations
   const totalRefundsChange = calculatePercentage(
     totalRefundsCurrent,
-    totalRefundsPrev
+    totalRefundsPrev,
   );
 
-  const amountChange = calculatePercentage(
-    totalAmountCurrent,
-    totalAmountPrev
-  );
+  const amountChange = calculatePercentage(totalAmountCurrent, totalAmountPrev);
 
   const failedChange = calculatePercentage(failedCurrent, failedPrev);
   const pendingChange = calculatePercentage(pendingCurrent, pendingPrev);
@@ -506,5 +576,201 @@ export const getRefundDashboardStatsService = async () => {
       percentageChange: Number(pendingChange.toFixed(2)),
       trend: getTrend(pendingChange),
     },
+  };
+};
+
+export const updateRefundTransactionService = async (
+  refundId: string,
+  updateData: {
+    gateway?: PaymentGateway;
+    status?: RefundApprovalStatus;
+    refundStatus?: RefundStatus;
+    updatedBy?: string;
+  },
+) => {
+  try {
+    const refund = await getRefundTransactionsByIdService(refundId);
+
+    if (!refund) {
+      throwError(refundMessages.REFUND_NOT_FOUND, 404);
+    }
+
+    console.log("Refund Details:", refund);
+
+    const payment = await paymenttransaction.findOne({
+      _id: refund?.payment.paymentId,
+    });
+    console.log("Payment Details:", payment);
+    if (!payment) {
+      throwError(refundMessages.PAYMENT_NOT_FOUND, 404);
+    }
+
+    if (refund.refundStatus === RefundStatus.SUCCESS) {
+      throwError(refundMessages.REFUND_ALREADY_PROCESSED, 400);
+    }
+
+    if (updateData.status === RefundApprovalStatus.REJECTED) {
+      const updatedRefund = await refundTransaction.findOneAndUpdate(
+        { _id: refundId, deletedAt: null },
+        {
+          $set: {
+            status: RefundApprovalStatus.REJECTED,
+            refundStatus: RefundStatus.FAILED,
+            failureReason: refundMessages.REFUND_REJECTED_BY_ADMIN,
+            updatedBy: "Super-Admin",
+          },
+        },
+        { new: true }, 
+      );
+
+      if (!updatedRefund) {
+        throwError(refundMessages.REFUND_NOT_FOUND, 404);
+      }
+
+      return formatResponse(updatedRefund);
+    }
+
+    if (
+      updateData.gateway === PaymentGateway.MANUAL &&
+      updateData.status === RefundApprovalStatus.APPROVED
+    ) {
+      const updatedRefund = await refundTransaction.findOneAndUpdate(
+        {
+          _id: refundId,
+          deletedAt: null,
+          refundStatus: { $ne: RefundStatus.SUCCESS }, // prevent duplicate
+        },
+        {
+          $set: {
+            status: RefundApprovalStatus.APPROVED,
+            refundStatus: RefundStatus.SUCCESS,
+            gateway: PaymentGateway.MANUAL,
+            refundedAt: new Date(),
+            updatedBy: "Super-Admin",
+          },
+        },
+        { new: true },
+      );
+
+      if (!updatedRefund) {
+        throwError(refundMessages.REFUND_NOT_FOUND, 404);
+      }
+
+      return formatResponse(updatedRefund);
+    }
+
+    if (
+      updateData.gateway === PaymentGateway.STRIPE &&
+      updateData.status === RefundApprovalStatus.APPROVED
+    ) {
+      try {
+        const stripeResponse = await stripe.refunds.create({
+          payment_intent: payment?.stripePaymentIntentId,
+          amount: toStripeAmount(refund.amount, refund.currency),
+        });
+
+        if (stripeResponse.status === "failed") {
+          await refundTransaction.findOneAndUpdate(
+            { _id: refundId },
+            {
+              $set: {
+                gateway: PaymentGateway.STRIPE,
+                refundStatus: RefundStatus.FAILED,
+                failureReason:
+                  stripeResponse.failure_reason || "Stripe refund failed",
+                refundResponse: stripeResponse,
+                updatedBy: "Super-Admin",
+              },
+            },
+          );
+
+          throwError("Stripe refund failed", 400);
+        }
+
+        const refundDetails = await stripe.refunds.retrieve(stripeResponse.id, {
+          expand: ["balance_transaction"],
+        });
+
+        console.log("Refund Details:", refundDetails);
+
+        if (!refundDetails.balance_transaction) {
+          throwError(refundMessages.STRIPE_REFUND_FAILED, 500);
+          return;
+        }
+
+        const bt: any = refundDetails.balance_transaction;
+
+        const netAmount = convertFromStripeSettlement(
+          Math.abs(bt.net),
+          bt.currency,
+          refund.currency,
+          bt.exchange_rate,
+          refund.currency,
+        );
+
+        const settlementAmount = fromStripeAmount(
+          Math.abs(bt.amount),
+          bt.currency,
+        );
+
+        const updatedRefund = await refundTransaction.findOneAndUpdate(
+          {
+            _id: refundId,
+            deletedAt: null,
+            refundStatus: { $ne: RefundStatus.SUCCESS },
+          },
+          {
+            $set: {
+              status: RefundApprovalStatus.APPROVED,
+              refundStatus: RefundStatus.SUCCESS,
+              gateway: PaymentGateway.STRIPE,
+              stripeRefundId: stripeResponse.id,
+              refundMethod: refund.paymentMethod,
+              netAmount: netAmount,
+              settlementAmount: settlementAmount,
+              settlementCurrency: bt.currency.toUpperCase(),
+              exchangeRate: bt.exchange_rate || 1,
+              refundedAt: new Date(),
+              refundResponse: stripeResponse,
+              updatedBy: "Super-Admin",
+            },
+          },
+          { new: true },
+        );
+
+        if (!updatedRefund) {
+          throwError(refundMessages.REFUND_NOT_FOUND, 404);
+        }
+
+        return formatResponse(updatedRefund);
+      } catch (error: any) {
+        await refundTransaction.findOneAndUpdate(
+          { _id: refundId, deletedAt: null },
+          {
+            $set: {
+              gateway: PaymentGateway.STRIPE,
+              refundStatus: RefundStatus.FAILED,
+              failureReason: error.message,
+              refundResponse: error,
+              updatedBy: "Super-Admin",
+            },
+          },
+        );
+
+        throwError(refundMessages.STRIPE_REFUND_FAILED, 500);
+      }
+    }
+  } catch (error: any) {
+    console.error("Error in updateRefundTransactionService:", error);
+    throw error;
+  }
+};
+const formatResponse = (refund: any) => {
+  return {
+    refundId: refund._id,
+    status: refund.status,
+    refundStatus: refund.refundStatus,
+    gateway: refund.gateway,
+    refundedAt: refund.refundedAt,
   };
 };

@@ -785,6 +785,9 @@ export const refundMessages = {
   REFUND_FETCH_FAILED: "Failed to fetch refund transactions.",
   STRIPE_REFUND_FAILED: "Stripe refund failed.",
   MANUAL_REFUND_FAILED: "Manual refund failed.",
+  REFUND_REJECTED_BY_ADMIN: "Refund request has been rejected by admin.",
+  REFUND_ALREADY_REJECTED: "Refund request has already been rejected.",
+  REFUND_ALREADY_SUCCESSFUL: "Refund request has already been approved.",
 
   INVALID_REFUND_ID: "Invalid Refund Id",
   INVALID_REFUND_STATUS: "Invalid refund status",

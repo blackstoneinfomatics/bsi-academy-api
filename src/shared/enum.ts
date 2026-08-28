@@ -100,7 +100,7 @@ export enum PaymentStatus {
 
 export enum RefundStatus {
   PENDING = "PENDING",
-  PAID = "PAID",
+  SUCCESS = "SUCCESS",
   FAILED = "FAILED",
 }
 

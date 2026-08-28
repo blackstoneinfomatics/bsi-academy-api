@@ -106,6 +106,12 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       default: null,
     },
 
+     netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     refundReason: {
       type: String,
       trim: true,
@@ -134,6 +140,13 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       default: null,
       select: false,
     },
+
+    attachments: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
 
     createdBy: {
       type: String,
@@ -171,7 +184,7 @@ export const RefundBaseValidation = z.object({
 
   refundNumber: z.string().trim().min(1, "Refund number is required"),
 
-  gateway: z.enum(["STRIPE", "MANUAL"]),
+  gateway: z.enum([PaymentGateway.MANUAL, PaymentGateway.STRIPE]),
 
   stripeRefundId: z.string().optional(),
 
@@ -190,18 +203,28 @@ export const RefundBaseValidation = z.object({
   refundReason: z.string().trim().max(500).optional(),
 
   status: z
-    .enum(["PENDING", "APPROVED", "REJECTED"])
-    .default("PENDING"),
+    .enum([
+      RefundApprovalStatus.APPROVED,
+      RefundApprovalStatus.PENDING,
+      RefundApprovalStatus.REJECTED,
+    ])
+    .default(RefundApprovalStatus.PENDING),
 
   refundStatus: z
-    .enum(["PENDING", "PAID", "FAILED"])
-    .default("PENDING"),
+    .enum([
+      RefundStatus.FAILED,
+      RefundStatus.SUCCESS,
+      RefundStatus.PENDING,
+    ])
+    .default(RefundStatus.PENDING),
 
   refundedAt: z.coerce.date().optional(),
 
   failureReason: z.string().optional(),
 
   refundResponse: z.any().optional(),
+
+  attachments: z.array(z.string()).optional(),
 
   createdBy: z.string().trim().min(1, "Created by is required"),
 

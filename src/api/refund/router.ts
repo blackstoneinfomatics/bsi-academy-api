@@ -45,6 +45,19 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+    {
+      method: "PUT",
+      path: "/refund-transactions/{refundId}",
+      options: {
+        handler: handler.updateRefundTransaction,
+        description: refundMessages.UPDATE_REFUND,
+        tags: ["api", "refund-transaction"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
 
   ];
   server.route(routes);
