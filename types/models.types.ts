@@ -2784,6 +2784,8 @@ export interface IRefundTransaction extends Document {
 
   refundResponse?: any;
 
+  description?:string;
+
   createdBy: string;
 
   updatedBy?: string | null;

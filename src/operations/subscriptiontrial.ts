@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
 import SubscriptionTrial from "../models/subcriptionTrial";
-import { SubscriptionTrialStatus } from "../shared/enum";
+import { Status, SubscriptionTrialStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
 import { throwError } from "../helpers/throwError";
-import { subscriptionInvoiceMessages, subscriptionTrialMessages } from "../config/messages";
+import {
+  subscriptionInvoiceMessages,
+  subscriptionTrialMessages,
+} from "../config/messages";
 import Tenants from "../models/tenants";
 
 export const getSubscriptionTrials = async (query: any) => {
@@ -146,7 +149,7 @@ export const getSubscriptionTrials = async (query: any) => {
             $project: {
               trialId: "$_id",
               tenantName: "$tenant.tenantName",
-              tenantId:"$tenant.tenantCode",
+              tenantId: "$tenant.tenantCode",
               trialStartDate: 1,
               trialEndDate: 1,
               status: "$derivedStatus",
@@ -190,10 +193,14 @@ export const getSubscriptionTrialById = async (trialId: string) => {
       throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
       return;
     }
-    
-    const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null ,status: "Active"}).lean();
-   
-    if(!tenant) {
+
+    const tenant = await Tenants.findOne({
+      tenantCode: trial.tenantId,
+      deletedAt: null,
+      status: "Active",
+    }).lean();
+
+    if (!tenant) {
       throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
       return;
     }
@@ -248,7 +255,6 @@ export const getSubscriptionTrialById = async (trialId: string) => {
       convertedAt: trial.convertedAt,
     };
   } catch (error: any) {
-  
     console.error("❌ Error in getSubscriptionTrialById:", error);
 
     throw new Error("Internal Server Error");
@@ -381,10 +387,14 @@ export const updateSubscriptionTrial = async (
       throwError(subscriptionTrialMessages.TRIAL_NOT_FOUND, 404);
       return;
     }
-    
-    const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null , status: "Active", }).lean();
 
-    if(!tenant) {
+    const tenant = await Tenants.findOne({
+      tenantCode: trial.tenantId,
+      deletedAt: null,
+      status: "Active",
+    }).lean();
+
+    if (!tenant) {
       throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
       return;
     }
@@ -442,6 +452,26 @@ export const updateSubscriptionTrial = async (
 
         case SubscriptionTrialStatus.COMPLETED:
           emailType = "COMPLETED";
+
+          const updatedTenant = await Tenants.findOneAndUpdate(
+            {
+              tenantCode: trial.tenantId,
+              deletedAt: null,
+              status: Status.TRIAL,
+            },
+            {
+              $set: {
+                status: Status.COMPLETED,
+                updatedAt: new Date(),
+              },
+            },
+            { new: true },
+          );
+
+          if (!updatedTenant) {
+            throwError("Tenant not found", 404);
+          }
+
           break;
       }
     }
@@ -481,7 +511,28 @@ export const updateSubscriptionTrial = async (
       updatedAt: trial.updatedAt,
     };
   } catch (error: any) {
-     throw error;
+    throw error;
+  }
+};
+
+export const updateTrailConvertedByTenantId = (tenantId: string) => {
+  try {
+    if (!tenantId) {
+      throwError(subscriptionTrialMessages.TENANT_NOT_FOUND, 404);
+      return;
+    }
+    SubscriptionTrial.findOneAndUpdate(
+      {
+        tenantId: tenantId,
+      },
+      {
+        convertedAt: new Date(),
+        isConverted: true,
+        status: SubscriptionTrialStatus.CONVERTED,
+      },
+    );
+  } catch (error: any) {
+    console.log("error in trails update");
   }
 };
 
@@ -504,7 +555,11 @@ export const processTrialReminders = async () => {
       status: SubscriptionTrialStatus.ACTIVE,
     }).lean();
     for (const trial of trials) {
-      const tenant = await Tenants.findOne({ tenantCode: trial.tenantId , deletedAt: null , status: "Active", }).lean();
+      const tenant = await Tenants.findOne({
+        tenantCode: trial.tenantId,
+        deletedAt: null,
+        status: "Active",
+      }).lean();
       if (!tenant) {
         console.error(`Tenant not found for trial ID: ${trial._id}`);
         continue;
@@ -518,6 +573,57 @@ export const processTrialReminders = async () => {
     }
   } catch (error) {
     console.error("❌ Error in processTrialReminders:", error);
+  }
+};
+
+export const processTrialExpiry = async () => {
+  try {
+    const now = new Date();
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    const expiredTrials = await SubscriptionTrial.find({
+      trialEndDate: { $lt: tomorrow },
+      status: SubscriptionTrialStatus.ACTIVE,
+    }).select("tenantId");
+
+    if (!expiredTrials.length) {
+      console.log("No trials to expire");
+      return;
+    }
+
+    const tenantIds = expiredTrials.map((t) => t.tenantId);
+
+    await SubscriptionTrial.updateMany(
+      {
+        trialEndDate: { $lt: tomorrow },
+        status: SubscriptionTrialStatus.ACTIVE,
+      },
+      {
+        $set: { status: SubscriptionTrialStatus.COMPLETED },
+      },
+    );
+
+    await Tenants.updateMany(
+      {
+        tenantCode: { $in: tenantIds },
+        deletedAt: null,
+        status: Status.TRIAL,
+      },
+      {
+        $set: {
+          status: Status.COMPLETED,
+        },
+      },
+    );
+
+    console.log(
+      `✅ Expired ${expiredTrials.length} trials and updated tenants`,
+    );
+  } catch (error) {
+    console.error("❌ Error in processTrialExpiry:", error);
   }
 };
 

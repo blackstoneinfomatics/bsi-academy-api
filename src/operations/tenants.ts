@@ -1,18 +1,31 @@
-import { ITenant, ITenantCreate, ITenantSettings, ITenantSettingsPayload } from "../../types/models.types";
+import {
+  ITenant,
+  ITenantCreate,
+  ITenantSettings,
+  ITenantSettingsPayload,
+} from "../../types/models.types";
 import { appStatus, syncJob, tenantsMessages } from "../config/messages";
 import TenantModel from "../models/tenants";
 import TenantSettingsModel from "../models/tenant_setting";
 import SubscriptionTrial from "../models/subcriptionTrial";
 import { isEmpty, isNil, isEqual } from "lodash";
 import { badRequest, Boom, conflict, notFound } from "@hapi/boom";
-import { GetAllRecordsParams } from "../shared/enum";
+import {
+  GetAllRecordsParams,
+  PaymentStatus,
+  Status,
+  SubscriptionStatus,
+} from "../shared/enum";
 import AppLogger from "../helpers/logging";
 import { Types } from "mongoose";
 import { config } from "../config/env";
-import axios from 'axios';
+import axios from "axios";
 import { generateTenant } from "./rollcounter";
 import { TenantWelcomeMail } from "./trailExperiedMail";
-
+import { throwError } from "../helpers/throwError";
+import plan from "../models/plan-model";
+import TenantSubscription from "../models/tenantsubscription";
+import tenantsubscription from "../models/tenantsubscription";
 
 export interface TenantDetails {
   organizationName: string;
@@ -30,7 +43,6 @@ export interface TenantDetails {
   lastUpdatedBy: string;
 }
 
-
 /**
  * Creates a new student.
  *
@@ -39,9 +51,9 @@ export interface TenantDetails {
  */
 
 export const createTenant = async (
-    payload: ITenantCreate
-): Promise<ITenant | { error: any }> => { 
-  const tenantCode = await generateTenant('TEN', 6);
+  payload: ITenantCreate,
+): Promise<ITenant | { error: any }> => {
+  const tenantCode = await generateTenant("TEN", 6);
   const newTenant = new TenantModel({
     ...payload,
     tenantCode,
@@ -52,7 +64,7 @@ export const createTenant = async (
   await TenantWelcomeMail(savedTenant);
 
   return savedTenant.toObject();
-}
+};
 
 /**
  * Retrieves a tenant record by its tenantCode.
@@ -61,7 +73,7 @@ export const createTenant = async (
  * @returns {Promise<ITenant | null>} - A promise that resolves to the tenant record or null if not found.
  */
 export const getActiveTenantRecordByCode = async (
-  tenantCode: string
+  tenantCode: string,
 ): Promise<ITenant | null> => {
   return TenantModel.findOne({
     tenantCode,
@@ -71,22 +83,21 @@ export const getActiveTenantRecordByCode = async (
 
 /**
  * Updates the tenant details by its ID, ensuring no duplicate organization name or tenant job code exists.
- * 
+ *
  * @param {string} tenantId - The ID of the tenant to update.
  * @param {TenantDetails} payload - The details of the tenant to update. It includes organizationName and tenantJobCode.
- * 
- * @returns {Promise<ITenant | null | { message: string }>} 
+ *
+ * @returns {Promise<ITenant | null | { message: string }>}
  * - Returns the updated tenant document if the update is successful.
  * - Returns a conflict message if the organization name or tenant job code already exists.
- * 
+ *
  * @throws {Error} - Throws an error if the update operation fails.
- * 
+ *
  */
 export const updateTenantDetailsByTenantId = async (
   tenantId: string,
-  payload: TenantDetails
+  payload: TenantDetails,
 ): Promise<ITenant | null | { message: string }> => {
-
   const { organizationName, tenantJobCode } = payload;
 
   // Check Duplicate for OrganizationName (excluding the current tenant)
@@ -97,43 +108,46 @@ export const updateTenantDetailsByTenantId = async (
   }).exec();
 
   if (organizationNameDuplicate) {
-    return conflict('Organization Name already exists');
+    return conflict("Organization Name already exists");
   }
 
   // Check Duplicate for TenantJobCode (excluding the current tenant)
   const tenantJobCodeDuplicate = await TenantModel.findOne({
     tenantJobCode, // Corrected to check tenantJobCode, not organizationName
     status: appStatus.ACTIVE,
-    _id: { $ne: new Types.ObjectId(tenantId) } // Exclude current tenant
+    _id: { $ne: new Types.ObjectId(tenantId) }, // Exclude current tenant
   }).exec();
 
   if (tenantJobCodeDuplicate) {
-    return conflict('Organization Code already exists');
+    return conflict("Organization Code already exists");
   }
 
   // Update the tenant details
   return TenantModel.findOneAndUpdate(
     { _id: new Types.ObjectId(tenantId) },
     { $set: payload },
-    { new: true } // Return the updated document
+    { new: true }, // Return the updated document
   ).lean();
 };
 
-
 export const generateRefreshToken = async (keyValue: any) => {
   const { clientId, clientSecret, code } = keyValue;
-  const tokenResponse = await axios.post(config.atsConfig.zoho_job_access_token_import, new URLSearchParams({
-    grant_type: syncJob.AUTHORIZATION_CODE,
-    client_id: clientId,
-    client_secret: clientSecret,
-    code: code
-  }).toString(), {
-    headers: {
-      'Content-Type': syncJob.CONTENT_TYPE[2]
-    }
-  });
+  const tokenResponse = await axios.post(
+    config.atsConfig.zoho_job_access_token_import,
+    new URLSearchParams({
+      grant_type: syncJob.AUTHORIZATION_CODE,
+      client_id: clientId,
+      client_secret: clientSecret,
+      code: code,
+    }).toString(),
+    {
+      headers: {
+        "Content-Type": syncJob.CONTENT_TYPE[2],
+      },
+    },
+  );
   return tokenResponse;
-}
+};
 
 /**
  * Retrieves a tenant record by its tenantCode.
@@ -142,14 +156,13 @@ export const generateRefreshToken = async (keyValue: any) => {
  * @returns {Promise<ITenant | null>} - A promise that resolves to the tenant record or null if not found.
  */
 export const getActiveTenantRecordByJobCode = async (
-  tenantCode: string
+  tenantCode: string,
 ): Promise<ITenant | null> => {
   return TenantModel.findOne({
     tenantJobCode: tenantCode,
     status: appStatus.ACTIVE,
   }).lean();
 };
-
 
 /**
  * Creates a new tenant settings.
@@ -158,7 +171,7 @@ export const getActiveTenantRecordByJobCode = async (
  * @returns {Promise<ITenantSettings>} - A promise that resolves to the created tenant settings document.
  */
 export const createTenantSettings = async (
-  payload: ITenantSettingsPayload
+  payload: ITenantSettingsPayload,
 ): Promise<ITenantSettings | Boom> => {
   const { keyName, tenantId, keyValue } = payload;
 
@@ -174,9 +187,9 @@ export const createTenantSettings = async (
 
   let refreshToken: any;
   if (keyName === tenantsMessages.KEYNAMES[0]) {
-    const refreshTokenData = await generateRefreshToken(keyValue)
+    const refreshTokenData = await generateRefreshToken(keyValue);
     if (refreshTokenData.data.error) {
-      return badRequest(refreshTokenData.data.error)
+      return badRequest(refreshTokenData.data.error);
     }
     refreshToken = refreshTokenData.data.refresh_token;
   }
@@ -184,7 +197,7 @@ export const createTenantSettings = async (
   // Create a new payload with refreshToken
   let newPayload = {
     ...payload,
-    keyValue: keyValue
+    keyValue: keyValue,
   };
 
   if (keyName !== tenantsMessages.KEYNAMES[6]) {
@@ -196,7 +209,6 @@ export const createTenantSettings = async (
       },
     };
   }
-
 
   // Create a new instance of the TenantSettingsModel with the provided data
   const newTenantSettings = new TenantSettingsModel(newPayload);
@@ -217,7 +229,7 @@ export const createTenantSettings = async (
  *  - `tenantSettings`: An array of tanant settings records for the given tenant.
  */
 export const getAllTenantSettingsRecords = async (
-  params: GetAllRecordsParams
+  params: GetAllRecordsParams,
 ): Promise<{ totalCount: number; tenantSettings: ITenantSettings[] }> => {
   const { tenantId, modules, keyNames, sortBy } = params;
 
@@ -244,7 +256,9 @@ export const getAllTenantSettingsRecords = async (
   ]);
 
   // Log the successful retrieval of tenant settings.
-  AppLogger.info(tenantsMessages.GET_ALL_LIST_SUCCESS, { totalCount: totalCount });
+  AppLogger.info(tenantsMessages.GET_ALL_LIST_SUCCESS, {
+    totalCount: totalCount,
+  });
 
   return { totalCount, tenantSettings };
 };
@@ -258,44 +272,48 @@ export const getAllTenantSettingsRecords = async (
  */
 export const updateTenantSettings = async (
   tenantSettingsId: string,
-  payload: Partial<ITenantSettingsPayload>
+  payload: Partial<ITenantSettingsPayload>,
 ): Promise<ITenantSettings | Boom> => {
-
   const { keyName, tenantId, keyValue } = payload;
 
   const recordExists = await TenantSettingsModel.findOne({
     _id: new Types.ObjectId(tenantSettingsId),
     tenantId,
     status: appStatus.ACTIVE,
-    keyName
+    keyName,
   }).exec();
 
   if (isNil(recordExists) && isEmpty(recordExists)) {
     return notFound(tenantsMessages.TENANT_SETTINGS_NOT_FOUND);
   }
 
-
   let newPayload: Partial<ITenantSettingsPayload> = { ...payload };
-  if (keyName === tenantsMessages.KEYNAMES[0] && (!isEqual(recordExists?.keyValue.code, keyValue.code) || !isEqual(recordExists?.keyValue.clientId, keyValue.clientId) || !isEqual(recordExists?.keyValue.clientSecret, keyValue.clientSecret))) {
+  if (
+    keyName === tenantsMessages.KEYNAMES[0] &&
+    (!isEqual(recordExists?.keyValue.code, keyValue.code) ||
+      !isEqual(recordExists?.keyValue.clientId, keyValue.clientId) ||
+      !isEqual(recordExists?.keyValue.clientSecret, keyValue.clientSecret))
+  ) {
     // Generate refreshToken since keyName matches
     const refreshTokenData = await generateRefreshToken(keyValue); // Always generates the token
     if (refreshTokenData.data.error) {
-      return badRequest(refreshTokenData.data.error)
+      return badRequest(refreshTokenData.data.error);
     }
     // Create a new payload with refreshToken
     newPayload.keyValue = {
       ...keyValue,
-      refreshToken: refreshTokenData.data.refresh_token
+      refreshToken: refreshTokenData.data.refresh_token,
       // Include the generated refreshToken
     };
   }
 
-
   const result = await TenantSettingsModel.findByIdAndUpdate(
     { _id: new Types.ObjectId(tenantSettingsId) },
     { $set: newPayload },
-    { new: true } // Return the updated document
-  ).lean().exec();
+    { new: true }, // Return the updated document
+  )
+    .lean()
+    .exec();
 
   if (isNil(result) && isEmpty(result)) {
     return notFound(tenantsMessages.UPDATE_FAILED);
@@ -304,7 +322,6 @@ export const updateTenantSettings = async (
   return result as ITenantSettings;
 };
 
-
 /**
  * Retrieves a tenant record by its tenantCode.
  *
@@ -312,11 +329,13 @@ export const updateTenantSettings = async (
  * @returns {Promise<ITenantSettings | null>} - A promise that resolves to the tenantSetting record or null if not found.
  */
 export const getTenantSettingsById = async (
-  tenantSettingId: string
+  tenantSettingId: string,
 ): Promise<ITenantSettings | null> => {
-  return TenantSettingsModel.findById({ _id: new Types.ObjectId(tenantSettingId), status: appStatus.ACTIVE }).exec()
+  return TenantSettingsModel.findById({
+    _id: new Types.ObjectId(tenantSettingId),
+    status: appStatus.ACTIVE,
+  }).exec();
 };
-
 
 export const getActiveTenantRecord = async () => {
   const tenants = await TenantModel.find({
@@ -324,15 +343,14 @@ export const getActiveTenantRecord = async () => {
   }).lean();
 
   return {
-    total: tenants.length,  
+    total: tenants.length,
     tenants,
-    
   };
 };
 
 export const calculatePercentageChange = (
   currentCount: number,
-  previousCount: number
+  previousCount: number,
 ) => {
   if (previousCount === 0) {
     return {
@@ -341,15 +359,10 @@ export const calculatePercentageChange = (
     };
   }
 
-  const percentage =
-    ((currentCount - previousCount) /
-      previousCount) *
-    100;
+  const percentage = ((currentCount - previousCount) / previousCount) * 100;
 
   return {
-    percentage: Number(
-      Math.abs(percentage).toFixed(2)
-    ),
+    percentage: Number(Math.abs(percentage).toFixed(2)),
 
     trend:
       currentCount > previousCount
@@ -360,260 +373,327 @@ export const calculatePercentageChange = (
   };
 };
 
+export const getTenantAnalyticsCards = async () => {
+  const now = new Date();
 
-export const getTenantAnalyticsCards =
-  async () => {
+  // Current Month
 
-    const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-     // Current Month
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    const currentMonthStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1
+  // Previous Month
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const expiryWindowStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const expiryWindowEnd = new Date(expiryWindowStart);
+  expiryWindowEnd.setDate(expiryWindowEnd.getDate() + 3);
+
+  // Fetch Analytics Counts
+
+  const [
+    currentTotalTenants,
+    previousTotalTenants,
+
+    currentActiveTenants,
+    previousActiveTenants,
+
+    currentTrialTenants,
+    previousTrialTenants,
+
+    currentInactiveTenants,
+    previousInactiveTenants,
+
+    currentExpiringTenants,
+    previousExpiringTenants,
+  ] = await Promise.all([
+    // Total Tenants - Current Month
+
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+      createdDate: {
+        $gte: currentMonthStart,
+        $lt: currentMonthEnd,
+      },
+    }),
+
+    // Total Tenants - Previous Month
+
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+      createdDate: {
+        $gte: previousMonthStart,
+        $lt: previousMonthEnd,
+      },
+    }),
+
+    // Active Tenants - Current Month
+
+    TenantModel.countDocuments({
+      status: "Active",
+      createdDate: {
+        $gte: currentMonthStart,
+        $lt: currentMonthEnd,
+      },
+    }),
+
+    // Active Tenants - Previous Month
+
+    TenantModel.countDocuments({
+      status: "Active",
+      createdDate: {
+        $gte: previousMonthStart,
+        $lt: previousMonthEnd,
+      },
+    }),
+
+    // Trial Tenants - Current Month
+
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: currentMonthEnd,
+      },
+    }),
+
+    // Trial Tenants - Previous Month
+
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: previousMonthEnd,
+      },
+    }),
+
+    // Inactive Tenants - Current Month
+
+    TenantModel.countDocuments({
+      status: "Inactive",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: currentMonthEnd,
+      },
+    }),
+
+    // Inactive Tenants - Previous Month
+
+    TenantModel.countDocuments({
+      status: "Inactive",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: previousMonthEnd,
+      },
+    }),
+
+    // Expiring Tenants - Current Month
+
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      isConverted: false,
+      trialEndDate: {
+        $gte: expiryWindowStart,
+        $lt: expiryWindowEnd,
+      },
+    }),
+
+    // Expiring Tenants - Previous Month
+
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      trialEndDate: {
+        $gte: previousMonthStart,
+        $lt: previousMonthEnd,
+      },
+    }),
+  ]);
+
+  const totalTenantsChange = calculatePercentageChange(
+    currentTotalTenants,
+    previousTotalTenants,
+  );
+
+  const activeTenantsChange = calculatePercentageChange(
+    currentActiveTenants,
+    previousActiveTenants,
+  );
+
+  const trialTenantsChange = calculatePercentageChange(
+    currentTrialTenants,
+    previousTrialTenants,
+  );
+
+  const inactiveTenantsChange = calculatePercentageChange(
+    currentInactiveTenants,
+    previousInactiveTenants,
+  );
+
+  const expiringTenantsChange = calculatePercentageChange(
+    currentExpiringTenants,
+    previousExpiringTenants,
+  );
+
+  return {
+    totalTenants: {
+      currentCount: currentTotalTenants,
+      previousMonthCount: previousTotalTenants,
+      percentage: totalTenantsChange.percentage,
+      trend: totalTenantsChange.trend,
+    },
+
+    activeTenants: {
+      currentCount: currentActiveTenants,
+      previousMonthCount: previousActiveTenants,
+      percentage: activeTenantsChange.percentage,
+      trend: activeTenantsChange.trend,
+    },
+
+    trialTenants: {
+      currentCount: currentTrialTenants,
+      previousMonthCount: previousTrialTenants,
+      percentage: trialTenantsChange.percentage,
+      trend: trialTenantsChange.trend,
+    },
+
+    inactiveTenants: {
+      currentCount: currentInactiveTenants,
+      previousMonthCount: previousInactiveTenants,
+      percentage: inactiveTenantsChange.percentage,
+      trend: inactiveTenantsChange.trend,
+    },
+
+    expiringTenants: {
+      currentCount: currentExpiringTenants,
+      previousMonthCount: previousExpiringTenants,
+      percentage: expiringTenantsChange.percentage,
+      trend: expiringTenantsChange.trend,
+    },
+  };
+};
+
+export const updateTenantPlanService = async (
+  tenantId: string,
+  payload: {
+    planId?: string;
+    planName?: string;
+    updatedBy?: string;
+  },
+) => {
+  try {
+    const { planId, planName, updatedBy } = payload;
+
+    const tenant = await TenantModel.findOne({
+      tenantCode: tenantId,
+      deletedAt: null,
+      status: { $in: [Status.ACTIVE, Status.COMPLETED] },
+    });
+
+    if (!tenant) {
+      throwError(tenantsMessages.TENANT_NOT_FOUND, 404);
+      return;
+    }
+
+    const Plan = await plan.findOne({
+      _id: planId,
+      deletedAt: null,
+    });
+
+    if (!Plan) {
+      throwError(tenantsMessages.PLAN_NOT_FOUND, 404);
+    }
+
+    const existingSub = await TenantSubscription.findOne({
+      tenantId,
+      deletedAt: null,
+    }).sort({ createdAt: -1 });
+
+    if (!existingSub) {
+      const year = new Date().getFullYear();
+      const count = await TenantSubscription.countDocuments();
+      const subscriptionCode = `Sub-${year}-${String(count + 1).padStart(6, "0")}`;
+
+      const newSub = await TenantSubscription.create({
+        tenantId,
+        planId,
+        planName,
+        subscriptionCode: subscriptionCode,
+        status: SubscriptionStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING,
+        autoRenew: false,
+        createdBy: updatedBy || "Super-Admin",
+      });
+
+      tenant.status = Status.ACTIVE;
+      tenant.plan = planName;
+      tenant.lastUpdatedBy = "Super-Admin";
+      tenant.lastUpdatedDate = new Date();
+      await tenant.save();
+
+      return newSub;
+    }
+
+    if (existingSub.status === SubscriptionStatus.ACTIVE) {
+      throwError(
+        `Active plan exists until ${existingSub.endDate?.toISOString()}`,
+        400,
+      );
+    }
+
+    const newSub = await TenantSubscription.findOneAndUpdate(
+      { _id: existingSub._id, deletedAt: null },
+      {
+        $set: {
+          planId: planId,
+          planName: planName,
+          duration: 0,
+          autoRenew: false,
+          startDate: null,
+          endDate: null,
+          nextRenewalDate: null,
+          status: SubscriptionStatus.PENDING,
+          paymentStatus: PaymentStatus.PENDING,
+          updatedBy: updatedBy || "Super-Admin",
+        },
+      },
+      { new: true },
     );
 
-    const currentMonthEnd = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      1
-    );
-
-
-    // Previous Month
-    const previousMonthStart = new Date(
-      now.getFullYear(),
-      now.getMonth() - 1,
-      1
-    );
-
-    const previousMonthEnd = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1
-    );
-
-    const expiryWindowStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
-    const expiryWindowEnd = new Date(expiryWindowStart);
-    expiryWindowEnd.setDate(expiryWindowEnd.getDate() + 3);
-
-
-    // Fetch Analytics Counts
-
-    const [
-      currentTotalTenants,
-      previousTotalTenants,
-
-      currentActiveTenants,
-      previousActiveTenants,
-
-      currentTrialTenants,
-      previousTrialTenants,
-
-      currentInactiveTenants,
-      previousInactiveTenants,
-
-      currentExpiringTenants,
-      previousExpiringTenants,
-    ] = await Promise.all([
-
-      // Total Tenants - Current Month
-
-      TenantModel.countDocuments({
-        tenantCode: {
-          $exists: true,
-          $ne: "",
-        },
-        createdDate: {
-          $gte: currentMonthStart,
-          $lt: currentMonthEnd,
-        },
-      }),
-
-      // Total Tenants - Previous Month
-
-      TenantModel.countDocuments({
-        tenantCode: {
-          $exists: true,
-          $ne: "",
-        },
-        createdDate: {
-          $gte: previousMonthStart,
-          $lt: previousMonthEnd,
-        },
-      }),
-
-
-      // Active Tenants - Current Month
-
-      TenantModel.countDocuments({
-        status: "Active",
-        createdDate: {
-          $gte: currentMonthStart,
-          $lt: currentMonthEnd,
-        },
-      }),
-
-       // Active Tenants - Previous Month
-
-      TenantModel.countDocuments({
-        status: "Active",
-        createdDate: {
-          $gte: previousMonthStart,
-          $lt: previousMonthEnd,
-        },
-      }),
-
-
-      // Trial Tenants - Current Month
-
-      SubscriptionTrial.countDocuments({
-        status: "ACTIVE",
-        createdAt: {
-          $gte: currentMonthStart,
-          $lt: currentMonthEnd,
-        },
-      }),
-
-       // Trial Tenants - Previous Month
-
-      SubscriptionTrial.countDocuments({
-        status: "ACTIVE",
-        createdAt: {
-          $gte: previousMonthStart,
-          $lt: previousMonthEnd,
-        },
-      }),
-
-
-      // Inactive Tenants - Current Month
-
-      TenantModel.countDocuments({
-        status: "Inactive",
-        createdAt: {
-          $gte: currentMonthStart,
-          $lt: currentMonthEnd,
-        },
-      }),
-
-      // Inactive Tenants - Previous Month
-
-      TenantModel.countDocuments({
-        status: "Inactive",
-        createdAt: {
-          $gte: previousMonthStart,
-          $lt: previousMonthEnd,
-        },
-      }),
-
-
-      // Expiring Tenants - Current Month
-
-      SubscriptionTrial.countDocuments({
-        status: "ACTIVE",
-        isConverted: false,
-        trialEndDate: {
-          $gte: expiryWindowStart,
-          $lt: expiryWindowEnd,
-        },
-      }),
-
-      // Expiring Tenants - Previous Month
-
-      SubscriptionTrial.countDocuments({
-        status: "ACTIVE",
-        trialEndDate: {
-          $gte: previousMonthStart,
-          $lt: previousMonthEnd,
-        },
-      }),
-    ]);
-
-    const totalTenantsChange =
-      calculatePercentageChange(
-        currentTotalTenants,
-        previousTotalTenants
-      );
-
-    const activeTenantsChange =
-      calculatePercentageChange(
-        currentActiveTenants,
-        previousActiveTenants
-      );
-
-    const trialTenantsChange =
-      calculatePercentageChange(
-        currentTrialTenants,
-        previousTrialTenants
-      );
-
-    const inactiveTenantsChange =
-      calculatePercentageChange(
-        currentInactiveTenants,
-        previousInactiveTenants
-      );
-
-    const expiringTenantsChange =
-      calculatePercentageChange(
-        currentExpiringTenants,
-        previousExpiringTenants
-      );
+    tenant.plan = planName;
+    tenant.status= Status.ACTIVE;
+    tenant.lastUpdatedBy = "Super-Admin";
+    tenant.lastUpdatedDate = new Date();
+    
+    await tenant.save();
 
     return {
-
-      totalTenants: {
-        currentCount: currentTotalTenants,
-        previousMonthCount:
-          previousTotalTenants,
-        percentage:
-          totalTenantsChange.percentage,
-        trend:
-          totalTenantsChange.trend,
-      },
-
-      activeTenants: {
-        currentCount: currentActiveTenants,
-        previousMonthCount:
-          previousActiveTenants,
-        percentage:
-          activeTenantsChange.percentage,
-        trend:
-          activeTenantsChange.trend,
-      },
-
-      trialTenants: {
-        currentCount: currentTrialTenants,
-        previousMonthCount:
-          previousTrialTenants,
-        percentage:
-          trialTenantsChange.percentage,
-        trend:
-          trialTenantsChange.trend,
-      },
-
-      inactiveTenants: {
-        currentCount: currentInactiveTenants,
-        previousMonthCount:
-          previousInactiveTenants,
-        percentage:
-          inactiveTenantsChange.percentage,
-        trend:
-          inactiveTenantsChange.trend,
-      },
-
-      expiringTenants: {
-        currentCount: currentExpiringTenants,
-        previousMonthCount:
-          previousExpiringTenants,
-        percentage:
-          expiringTenantsChange.percentage,
-        trend:
-          expiringTenantsChange.trend,
+      data: {
+        tenantId: tenantId,
+        subscription: {
+          planId: planId,
+          planName: planName,
+          status: newSub?.status,
+        },
       },
     };
-  };
+  } catch (error: any) {
+    console.error("Error in updateTenantPlanService:", error);
+
+    throwError(
+      error.message || "Internal Server Error",
+      error.statusCode || 500,
+    );
+  }
+};

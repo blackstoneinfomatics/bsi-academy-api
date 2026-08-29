@@ -410,6 +410,7 @@ export const getRefundTransactionsByIdService = async (refundId: string) => {
           failureReason: 1,
           refundReason: 1,
           attachments: 1,
+          description:1,
 
           createdBy: 1,
           createdAt: 1,

@@ -6,7 +6,9 @@ export enum Status {
   IN_ACTIVE = "Inactive",
   DELETED ="Deleted",
   ARCHIVED = "Archived",
-  NEW = "New"
+  NEW = "New",
+  TRIAL = "Trial",
+  COMPLETED = "Completed",
 }
 
 export enum AssignmentStatus {

@@ -27,6 +27,19 @@ const register = async (server: Server): Promise<void> => {
     // },
   },
 },
+
+{
+   method:"PUT",
+   path:"/tenant/subscription-plan/{tenantId}",
+   options:{
+      handler:handler.updateTenantPlan,
+      description:tenantsMessages.UPDATE_PLAN,
+       tags: ["api", "tenant"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+   }
+},
     {
   method: "GET",
   path: "/tenants/analytics/cards",

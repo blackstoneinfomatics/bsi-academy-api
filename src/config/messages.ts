@@ -371,6 +371,7 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   LIST: "Retrieve all the tenant settings list",
   CREATE: "Create a new tenant settings",
   UPDATE: "Update a existing tenant settings",
+  UPDATE_PLAN :"Update Tenant Plan",
   TENANT_SETTINGS_NOT_FOUND: "Tenant settings not found",
   TENANT_SETTINGS_ALREADY_EXIST: "Tenant settings is already exists",
   KEY_ALREADY_EXIST: "Key is already exists",
@@ -391,6 +392,23 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   GET_ALL_LIST_SUCCESS: "getAllTenantSettingsRecords - Success",
   UPDATE_FAILED: "Failed to update the tenant settings",
   BYID: "Get Tenant details by Tenant Code",
+  TENANT_NOT_FOUND: "Tenant not found",
+
+  PLAN_NOT_FOUND: "Plan not found",
+
+  SUBSCRIPTION_NOT_FOUND: "Tenant subscription not found",
+
+  ACTIVE_PLAN_EXISTS: "Active plan exists. Cannot change until expiry",
+
+  PLAN_UPDATED_SUCCESS: "Tenant plan updated successfully",
+
+  PLAN_CREATED_SUCCESS: "Tenant subscription created successfully",
+
+  INVALID_TENANT_ID: "Invalid tenant id",
+
+  INVALID_PLAN_ID: "Invalid plan id",
+
+  INTERNAL_SERVER_ERROR: "Internal server error"
 });
 
 export const dashboardMessages: Record<string, any> = Object.freeze({
@@ -680,6 +698,7 @@ export const subscriptionTrialMessages = {
 
   // Errors
   TRIAL_NOT_FOUND: "Subscription Trial not found.",
+    TENANT_NOT_FOUND: "Tenant not found.",
   INVALID_DATE_FORMAT: "Invalid date format. Please provide a valid date.",
   VALIDATION_FAILED: "Validation failed. Please check the input data.",
   STATUS_UNCHANGED: "Status is unchanged. Please provide a different status.",

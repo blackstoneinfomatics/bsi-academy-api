@@ -11,9 +11,11 @@ import {
   getAllTenantSettingsRecords,
   getTenantAnalyticsCards,
   updateTenantDetailsByTenantId,
+  updateTenantPlanService,
   updateTenantSettings,
 } from "../../operations/tenants";
 import { zodTenantSchema } from "../../models/tenants";
+import { throwError } from "../../helpers/throwError";
 
 // Input Validation for Create a tenant settings
 const createInputValidation = z.object({
@@ -37,6 +39,21 @@ const getTenantSettingsListInputValidation = z.object({
     // keyNames: true,
     sortBy: true,
   }),
+});
+const objectId = z
+  .string()
+  .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+ const tenantPlanParamsValidation = z.object({
+  params: z.object({
+    tenantId: z.string(),
+  }),
+});
+
+ const tenantPlanBodyValidation = z.object({
+  planId: objectId,
+  planName: z.string().trim().min(1, "Plan name is required"),
+  updatedBy: z.string().optional(),
 });
 
 // Input Validation for Update a tenant settings
@@ -217,6 +234,8 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     });
   },
 
+  
+
 
   // Create a new tenant settings
   async createTenantSettings(req: Request, h: ResponseToolkit) {
@@ -325,7 +344,44 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
       })
       .code(500);
   }
+},
+   
+async updateTenantPlan(request: Request, h: ResponseToolkit) {
+  try {
+    const { params } = tenantPlanParamsValidation.parse({
+      params: request.params,
+    });
+
+    const body = tenantPlanBodyValidation.safeParse(request.payload);
+
+    if (!body.success) {
+      throwError(body.error.errors[0].message, 400);
+    }
+
+    const result = await updateTenantPlanService(params.tenantId, {
+      planId: body?.data?.planId,
+      planName: body?.data?.planName,
+      updatedBy: body?.data?.updatedBy,
+    });
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant plan updated successfully.",
+        data: result
+      })
+      .code(200);
+
+  } catch (error: any) {
+    console.error("Error in updateTenantPlan:", error);
+
+    return h
+      .response({
+        success: false,
+        message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
 }
-
-
 };

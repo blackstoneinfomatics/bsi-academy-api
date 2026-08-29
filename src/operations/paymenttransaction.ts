@@ -15,6 +15,7 @@ import {
 } from "../shared/enum";
 import { paymentMessages, customServiceInvoiceMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
+import { updateSubscriptionTrial, updateTrailConvertedByTenantId } from "./subscriptiontrial";
 
 const stripe = new Stripe(config.stripeKey.stripesecretkey);
 
@@ -238,7 +239,6 @@ export class PaymentService {
         invoice.status = SubscriptionInvoiceStatus.PAID;
         await invoice.save();
 
-        // Update Subscription
         const startDate = new Date();
         const endDate = this.calculateEndDate(startDate, subscription.duration);
 
@@ -247,6 +247,8 @@ export class PaymentService {
         subscription.startDate = startDate;
         subscription.endDate = endDate;
         subscription.nextRenewalDate = endDate;
+
+        updateTrailConvertedByTenantId(invoice.tenantId);
 
         await subscription.save();
 

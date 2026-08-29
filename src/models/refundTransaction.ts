@@ -148,6 +148,11 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       },
     ],
 
+    description:{
+      type:String,
+      trim: true,
+    },
+
     createdBy: {
       type: String,
       required: true,
@@ -225,6 +230,8 @@ export const RefundBaseValidation = z.object({
   refundResponse: z.any().optional(),
 
   attachments: z.array(z.string()).optional(),
+
+  description: z.string().trim(),
 
   createdBy: z.string().trim().min(1, "Created by is required"),
 
