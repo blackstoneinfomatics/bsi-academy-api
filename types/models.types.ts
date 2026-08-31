@@ -2796,3 +2796,22 @@ export interface IRefundTransaction extends Document {
 
   updatedAt: Date;
 }
+
+
+export interface IFeatures extends Document {
+selectmodule:String;
+selectcategory:String;
+navigationMenuInformation :{
+  navigationName : String;
+  menuicon : String;
+  discription : String;
+  display :String;
+  featureStatus:String;
+}
+  status:Status;
+  createdBy: string;
+  updatedBy?: string | null;
+  deletedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
