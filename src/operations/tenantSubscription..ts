@@ -864,3 +864,37 @@ export const getTenantSubscriptionGrowthAnalytics = async (
 
   return { view, data };
 };
+
+export const getTenantSubscriptionByTenantId  = async (
+  tenantId: string
+) => {
+  const subscription = await tenantsubscription
+    .findOne({
+      tenantId: tenantId,
+      deletedAt: null,
+    })
+    .populate({
+      path: "planId",
+      select: "planName billingPeriods features planId",
+    })
+    .lean();
+
+  if (!subscription) {
+    return null;
+  }
+
+  const plan = subscription.planId as any;
+
+  return {
+    tenantId: subscription.tenantId,
+    billingCycle: subscription.duration,
+    status: subscription.status,
+    nextRenewalDate: subscription.nextRenewalDate,
+    planName: subscription.planName || plan?.planName,
+    price:
+      plan?.billingPeriods?.find(
+        (billingPeriod: any) => billingPeriod.duration === subscription.duration
+      )?.price || 0,
+    features: plan?.features || {},
+  };
+};

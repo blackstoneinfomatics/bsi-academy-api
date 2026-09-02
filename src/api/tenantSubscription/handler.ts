@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   getActiveTenantSubscriptionRecord,
   getTenantSubscriptionDashboard,
+  getTenantSubscriptionByTenantId,
   getTenantSubscriptionGrowthAnalytics,
   getTenantSubscriptionanalyticsCard,
   getTenantSubscriptionActivities,
@@ -187,5 +188,40 @@ async getTenantSubscriptionGrowthAnalytics(req: Request, h: ResponseToolkit) {
         .code(error?.statusCode || 500);
     }
   },
+
+async getTenantSubscriptionByTenantId(req: Request, h: ResponseToolkit) {
+  try {
+    const result = await getTenantSubscriptionByTenantId(
+      String(req.params.tenantId)
+    );
+
+    if (!result) {
+      return h
+        .response({
+          success: false,
+          message: "Tenant subscription not found",
+        })
+        .code(404);
+    }
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant subscription fetched successfully",
+        data: result,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error("Get Tenant Subscription By Tenant ID Error:", error);
+
+    return h
+      .response({
+        success: false,
+        message:
+          error?.message || "Failed to fetch tenant subscription",
+      })
+      .code(500);
+  }
+}
 
 };
