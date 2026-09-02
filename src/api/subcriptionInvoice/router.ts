@@ -57,6 +57,18 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+    {
+      method: "GET",
+      path: "/subscription-invoices/tenant/{tenantId}",
+      options: {
+        handler: handler.getSubscriptionInvoiceByTenantId,
+        description: "Get subscription invoices by tenant ID",
+        tags: ["api", "subscription-invoice"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
   ];
   server.route(routes);

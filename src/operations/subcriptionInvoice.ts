@@ -4,12 +4,11 @@ import plan from "../models/plan-model";
 import emailTemplate from "../models/emailTemplate";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import TenantSubscription from "../models/tenantsubscription";
-import { PaymentStatus, SubscriptionInvoiceStatus } from "../shared/enum";
+import { SubscriptionInvoiceStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
-import paymenttransaction from "../models/paymenttransaction";
 import { throwError } from "../helpers/throwError";
 import { subscriptionInvoiceMessages } from "../config/messages";
-import { duration } from "moment";
+import paymenttransaction from "../models/paymenttransaction";
 
 type InvoiceEmailType = "CREATED" | "REMINDER";
 
@@ -689,6 +688,53 @@ export const sendSubscriptionInvoiceEmail = async (
     console.error("Subscription invoice email failed:", error);
     throw error;
   }
+};
+
+export const getSubscriptionInvoiceByTenantId = async (
+  tenantId: string
+) => {
+  const invoices = await SubscriptionInvoiceModel.find({
+    tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!invoices.length) {
+    return [];
+  }
+
+  const subscription = await TenantSubscription.findOne({
+    tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!subscription) {
+    return [];
+  }
+
+  const result = await Promise.all(
+    invoices.map(async (invoice: any) => {
+      const paymentRecord = await paymenttransaction
+        .findOne({
+          subscriptionId: invoice.subscriptionId,
+          tenantId,
+          deletedAt: null,
+        })
+        .lean();
+
+      return {
+        invoiceId: invoice.invoiceNumber,
+        plan: subscription.planName || "",
+        amount: paymentRecord?.amount || 0,
+        planCycle: subscription.duration || 0,
+        paymentMethod: paymentRecord?.paymentMethod || "",
+        paymentDate: paymentRecord?.paymentDate || null,
+        planStatus: subscription.status || "",
+        paymentStatus: paymentRecord?.paymentStatus || "",
+      };
+    }),
+  );
+
+  return result;
 };
 
 

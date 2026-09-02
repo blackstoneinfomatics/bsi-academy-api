@@ -5,6 +5,7 @@ import { SubscriptionInvoiceStatus } from "../../shared/enum";
 import {
   createSubscriptionInvoice,
   getSubscriptionInvoiceDashboardCount,
+  getSubscriptionInvoiceByTenantId,
   getSubscriptionInvoiceById,
   getSubscriptionInvoices,
 } from "../../operations/subcriptionInvoice";
@@ -201,5 +202,37 @@ export default {
     }
   },
 
+  async getSubscriptionInvoiceByTenantId(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const result = await getSubscriptionInvoiceByTenantId(
+      String(req.params.tenantId)
+    );
+
+    return h
+      .response({
+        success: true,
+        message: "Subscription invoices fetched successfully",
+        data: result,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error(
+      "Get Subscription Invoice By Tenant ID Error:",
+      error
+    );
+
+    return h
+      .response({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to fetch subscription invoices",
+      })
+      .code(500);
+  }
+}
   
 };
