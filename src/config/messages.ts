@@ -822,3 +822,24 @@ export const refundMessages = {
   UNAUTHORIZED: "Unauthorized",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
 };
+
+export const revenueMessages = {
+    DASHBOARD_CARD_COUNT_FETCH: "Get Refund Dashboard Card Count",
+    LATEST_TENANT_REVENUE_FETCH: "Get Latest Tenant Revenue",
+    NEW_TENANT_REVENUE_FETCH: "Get New Tenant Revenue",
+    MONTHLY_TENANT_REVENUE_FETCH: "Get Monthly Tenant Revenue",
+    
+
+
+    NEW_TENANT_REVENUE_FETCH_SUCCESS: "New tenant revenue fetched successfully.",
+     LATEST_TENANT_REVENUE_FETCH_SUCCESS: "Latest tenant revenue fetched successfully.",
+     DASHBOARD_CARD_COUNT_FETCH_SUCCESS:
+    "Refund dashboard card count fetched successfully.",
+    MONTHLY_TENANT_REVENUE_FETCH_SUCCESS:
+    "Monthly tenant revenue fetched successfully.",
+    NODATA_FOUND: "No data found for the requested revenue report.",
+    REVENUE_FETCH_FAILED: "Failed to fetch revenue data.",
+    DASHBOARD_CARD_COUNT_FETCH_FAILED:
+    "Failed to fetch dashboard card count for revenue.",
+    INTERNAL_SERVER_ERROR: "Internal Server Error",
+}

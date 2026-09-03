@@ -45,7 +45,7 @@ import subscriptionTrialAPI from "../api/subscriptionTrial/router";
 import billingAPI from "../api/billing/router";
 import financeAPI from "../api/finance/router";
 import refundTransactionAPI from "../api/refund/router";
-
+import revenueAPI from "../api/revenue/router";
 import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
 
 
@@ -189,6 +189,9 @@ export const appPlugins = [
   },
   {
     plugin:refundTransactionAPI,
+  },
+  {
+    plugin:revenueAPI,
   },
   {
     plugin:customServiceInvoiceAPI,

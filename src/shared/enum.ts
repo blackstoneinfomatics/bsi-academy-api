@@ -134,6 +134,12 @@ export enum BillingStatus {
   CANCELLED = "CANCELLED",
 }
 
+export enum FilterOptions {
+  WEEKLY = "week",
+  MONTHLY = "month",
+  YEARLY = "year",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;
