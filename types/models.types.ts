@@ -2799,6 +2799,7 @@ export interface IRefundTransaction extends Document {
 
 
 export interface IFeatures extends Document {
+tenantId : String;
 selectmodule:String;
 selectcategory:String;
 navigationMenuInformation :{

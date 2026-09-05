@@ -823,14 +823,12 @@ export const refundMessages = {
   INTERNAL_SERVER_ERROR: "Internal Server Error",
 };
 
+
 export const revenueMessages = {
     DASHBOARD_CARD_COUNT_FETCH: "Get Refund Dashboard Card Count",
     LATEST_TENANT_REVENUE_FETCH: "Get Latest Tenant Revenue",
     NEW_TENANT_REVENUE_FETCH: "Get New Tenant Revenue",
     MONTHLY_TENANT_REVENUE_FETCH: "Get Monthly Tenant Revenue",
-    
-
-
     NEW_TENANT_REVENUE_FETCH_SUCCESS: "New tenant revenue fetched successfully.",
      LATEST_TENANT_REVENUE_FETCH_SUCCESS: "Latest tenant revenue fetched successfully.",
      DASHBOARD_CARD_COUNT_FETCH_SUCCESS:
@@ -843,3 +841,22 @@ export const revenueMessages = {
     "Failed to fetch dashboard card count for revenue.",
     INTERNAL_SERVER_ERROR: "Internal Server Error",
 }
+
+export const featureMessages = {
+  // Actions
+  CREATE_FEATURE: "Create Feature",
+  GET_FEATURES: "Get Features",
+  GET_FEATURE_BY_ID: "Get Feature By Id",
+
+  // Success Responses
+  CREATE_FEATURE_SUCCESS: "Feature created successfully.",
+  GET_FEATURES_SUCCESS: "Features fetched successfully.",
+  GET_FEATURE_BY_ID_SUCCESS: "Feature details fetched successfully.",
+
+  // Errors
+  FEATURE_NOT_FOUND: "Feature not found.",
+  INVALID_FEATURE_ID: "Invalid Feature Id",
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+

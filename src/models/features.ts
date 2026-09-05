@@ -1,14 +1,18 @@
 import mongoose, { Schema } from "mongoose";
-import { IFeatures, ITenant } from "../../types/models.types";
-import CustomEnumerator, { Status } from "../shared/enum";
+import { IFeatures } from "../../types/models.types";
 import { z } from "zod";
-import { commonMessages } from "../config/messages";
+import { Status } from "../shared/enum";
 
 const featureSchema = new Schema<IFeatures>(
   {
+    
     selectmodule: {
       type: String,
       required: true,
+    },
+    tenantId :{  
+     type: String,
+     required : true,
     },
     selectcategory: {
       type: String,
@@ -17,7 +21,23 @@ const featureSchema = new Schema<IFeatures>(
     navigationMenuInformation :{
     navigationName: {
       type: String,
-      required: false,
+      required: true,
+    },
+    menuicon:{
+      type:String,
+      reuired :true
+    },
+    discription:{
+      type:String,
+      reuired :true
+    },
+    display :{
+      type:String,
+      reuired :true
+    },
+    featureStatus:{
+      type:String,
+      reuired :true
     },
 
 },
@@ -50,39 +70,31 @@ const featureSchema = new Schema<IFeatures>(
   }
 );
 
-export const zodTenantSchema = z.object({
-  tenantCode: z.string().min(3),
-  tenantName: z.string().min(3),
-  tenantLogo: z.string().optional(),
-  organizationName: z.string(),
-  phoneNumber: z.string(),
-  mobileNumber: z.string(),
-  emailId: z.string().email(),
-  gstNo: z.string(),
-  panNo: z.string(),
-  website: z.string(),
-  domainName: z.string().optional(),
-  tenantJobCode: z.string(),
-  faxNo: z.string(),
-  state: z.string(),
-  city: z.string(),
-  street: z.string(),
-  postalCode: z.string(),
-  country: z.string(),
-  companyRegistrationCertificate: z.string().optional(),
-  gstCertificate: z.string().optional(),
-  addressProof: z.string().optional(),
-  plan: z.string().optional(),
-  timeZone: z.string().optional(),
-  currency: z.string().optional(),
-  status: z.string().optional(),
-  createdDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: commonMessages.INVALID_DATE_FORMAT,
-  }).transform((val) => new Date(val)).optional(),
-  createdBy: z.string(),
-  lastUpdatedDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: commonMessages.INVALID_DATE_FORMAT,
-  }).transform((val) => new Date(val)).optional(),
-  lastUpdatedBy: z.string(),
+export const zodFeatureSchema = z.object({
+  tenantId: z.string().min(1, "Tenant ID is required"),
+
+  selectmodule: z.string().min(1, "Module is required"),
+
+  selectcategory: z.string().min(1, "Category is required"),
+
+  navigationMenuInformation: z.object({
+    navigationName: z.string().min(1, "Navigation name is required"),
+    menuicon: z.string().min(1, "Menu icon is required"),
+    discription: z.string().min(1, "Description is required"),
+    display: z.string().min(1, "Display is required"),
+    featureStatus: z.string().min(1, "Feature status is required"),
+  }),
+
+  status: z.string().min(1, "Status is required"),
+
+  createdBy: z.string().min(1, "Created by is required"),
+
+  updatedBy: z.string().nullable().optional(),
+
+  deletedAt: z.date().nullable().optional(),
+
+  createdAt: z.date().optional(),
+
+  updatedAt: z.date().optional(),
 });
 export default mongoose.model<IFeatures>("Features", featureSchema);

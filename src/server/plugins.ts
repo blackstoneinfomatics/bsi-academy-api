@@ -47,6 +47,7 @@ import financeAPI from "../api/finance/router";
 import refundTransactionAPI from "../api/refund/router";
 import revenueAPI from "../api/revenue/router";
 import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
+import featuresAPI from "../api/features/router";
 
 
 export const appPlugins = [
@@ -195,5 +196,8 @@ export const appPlugins = [
   },
   {
     plugin:customServiceInvoiceAPI,
+  },
+  {
+    plugin:featuresAPI,
   }
 ];
