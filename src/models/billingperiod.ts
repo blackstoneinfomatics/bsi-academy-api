@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 import { IBillingPeriod } from "../../types/models.types";
 import { z } from "zod";
 
@@ -69,5 +69,65 @@ export const BillingPeriodSchema = new Schema<IBillingPeriod>(
     totalAmount: z.number().nonnegative().default(0),
   });
 
-  export default mongoose.model<IBillingPeriod>("BillingPeriodSchema", BillingPeriodSchema);
-  
+// Standalone collection: every billing period a plan gets (at creation or via
+// addPlanBillingPeriod) is also persisted here as its own document, tagged
+// with the owning planId so records from different plans don't collide.
+export interface IBillingPeriodRecord extends IBillingPeriod, Document {
+  planId: string;
+}
+
+const BillingPeriodRecordSchema = new Schema<IBillingPeriodRecord>(
+  {
+    planId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    billingPeriodId: {
+      type: String,
+      required: true,
+    },
+    billingPeriod: {
+      type: String,
+      required: true,
+    },
+    duration: {
+      type: Number,
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    discount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    gstRate: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    taxAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+  },
+  {
+    collection: "billingPeriods",
+    timestamps: true,
+  }
+);
+
+export const BillingPeriodModel = mongoose.model<IBillingPeriodRecord>(
+  "BillingPeriodRecord",
+  BillingPeriodRecordSchema
+);

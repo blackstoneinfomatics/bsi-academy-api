@@ -7,6 +7,7 @@ import PlanModel, {
   AddBillingPeriodPayload,
   UpdateBillingPeriodPayload,
 } from "../models/plan-model";
+import { BillingPeriodModel } from "../models/billingperiod";
 import TenantModel from "../models/tenants";
 import TenantSubscriptionModel from "../models/tenantsubscription";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
@@ -102,7 +103,18 @@ export const createPlan = async (
   const newPlan =
     new PlanModel(payload);
 
-  return await newPlan.save();
+  const savedPlan = await newPlan.save();
+
+  if (payload.billingPeriods?.length) {
+    await BillingPeriodModel.insertMany(
+      payload.billingPeriods.map((billingPeriod) => ({
+        ...billingPeriod,
+        planId: savedPlan.planId,
+      }))
+    );
+  }
+
+  return savedPlan;
 };
 
 
@@ -252,6 +264,25 @@ const generateBillingPeriodId = (
   return `BP-${String(lastNumber + 1).padStart(3, "0")}`;
 };
 
+// A billing period only carries its own gstRate when it overrides the
+// plan-level rate; otherwise taxAmount/totalAmount are derived from price,
+// discount, and the plan's gstAndTax, mirroring the computation createPlan's
+// handler already applies to a plan's initial billing periods.
+const computeBillingPeriodAmounts = (
+  price: number,
+  discount: number,
+  gstRate: number | undefined,
+  planGstRate: number
+) => {
+  const discountAmount = (price * discount) / 100;
+  const discountedBase = Math.max(0, price - discountAmount);
+  const effectiveGstRate = gstRate ?? planGstRate;
+  const taxAmount = Number(((discountedBase * effectiveGstRate) / 100).toFixed(2));
+  const totalAmount = Number((discountedBase + taxAmount).toFixed(2));
+
+  return { gstRate: effectiveGstRate, taxAmount, totalAmount };
+};
+
 // ADD BILLING PERIOD
 export const addPlanBillingPeriod = async (
   planId: string,
@@ -273,11 +304,30 @@ export const addPlanBillingPeriod = async (
     return "DUPLICATE" as const;
   }
 
-  return await PlanModel.findOneAndUpdate(
+  const { gstRate, taxAmount, totalAmount } = computeBillingPeriodAmounts(
+    payload.price,
+    payload.discount,
+    payload.gstRate,
+    plan.gstAndTax
+  );
+
+  const normalizedPayload = { ...payload, gstRate, taxAmount, totalAmount };
+
+  const updatedPlan = await PlanModel.findOneAndUpdate(
     { planId },
-    { $push: { billingPeriods: { ...payload, billingPeriodId } } },
+    { $push: { billingPeriods: { ...normalizedPayload, billingPeriodId } } },
     { new: true, runValidators: true }
   ).lean();
+
+  if (updatedPlan) {
+    await BillingPeriodModel.create({
+      ...normalizedPayload,
+      billingPeriodId,
+      planId,
+    });
+  }
+
+  return updatedPlan;
 };
 
 
@@ -293,7 +343,14 @@ export const updatePlanBillingPeriod = async (
     return null;
   }
 
-  return await PlanModel.findOneAndUpdate(
+  const { gstRate, taxAmount, totalAmount } = computeBillingPeriodAmounts(
+    payload.price,
+    payload.discount,
+    payload.gstRate,
+    plan.gstAndTax
+  );
+
+  const updatedPlan = await PlanModel.findOneAndUpdate(
     {
       planId,
       "billingPeriods.billingPeriodId": billingPeriodId,
@@ -302,9 +359,9 @@ export const updatePlanBillingPeriod = async (
       $set: {
         "billingPeriods.$.price": payload.price,
         "billingPeriods.$.discount": payload.discount,
-        "billingPeriods.$.gstRate": payload.gstRate,
-        "billingPeriods.$.taxAmount": payload.taxAmount,
-        "billingPeriods.$.totalAmount": payload.totalAmount,
+        "billingPeriods.$.gstRate": gstRate,
+        "billingPeriods.$.taxAmount": taxAmount,
+        "billingPeriods.$.totalAmount": totalAmount,
       },
     },
     {
@@ -312,6 +369,23 @@ export const updatePlanBillingPeriod = async (
       runValidators: true,
     }
   ).lean();
+
+  if (updatedPlan) {
+    await BillingPeriodModel.updateOne(
+      { planId, billingPeriodId },
+      {
+        $set: {
+          price: payload.price,
+          discount: payload.discount,
+          gstRate,
+          taxAmount,
+          totalAmount,
+        },
+      }
+    );
+  }
+
+  return updatedPlan;
 };
 
 
