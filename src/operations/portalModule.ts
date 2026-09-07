@@ -3,14 +3,12 @@ import PortalModule, {
   CreateChildModuleInput,
   CreateFeatureInput,
   CreateParentModuleInput,
-  IChildModule,
-  IFeature,
-  IPortalModule,
   UpdateAccessInput,
   UpdateChildModuleInput,
   UpdateFeatureInput,
   UpdateParentModuleInput,
 } from "../models/portalModule";
+import { IChildModule, IFeature, IParentModule, IPortalModule } from "../../types/models.types";
 // ---------------------------------------------------------------------------
 // ID generation
 // ---------------------------------------------------------------------------
@@ -72,16 +70,20 @@ export const createParentModule = async (
     throw new Error("Parent module already exists");
   }
 
-  const parentModule = await PortalModule.create({
+  const parentModulePayload: IParentModule = {
     portal: payload.portal,
     parentModuleId: generateId("PM"),
     parentModuleName: payload.parentModuleName,
     description: payload.description ?? null,
     status: payload.status,
     isEnabled: payload.isEnabled,
-    children: [],
     createdBy: payload.createdBy,
     updatedBy: null,
+  };
+
+  const parentModule = await PortalModule.create({
+    ...parentModulePayload,
+    children: [],
     deletedAt: null,
   });
 

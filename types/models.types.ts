@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import { Document, Types } from "mongoose";
 import CustomEnumerator, {
   AssignmentStatus,
   BillingCycle,
@@ -8,6 +8,7 @@ import CustomEnumerator, {
   PaymentType,
   RefundApprovalStatus,
   RefundStatus,
+  Status as ModuleStatus,
   SubscriptionInvoiceStatus,
   SubscriptionStatus,
   SubscriptionTrialStatus,
@@ -2815,4 +2816,43 @@ navigationMenuInformation :{
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface IParentModule {
+  portal: string;
+  parentModuleId: string;
+  parentModuleName: string;
+  description?: string | null;
+  status: ModuleStatus;
+  isEnabled: boolean;
+  createdBy: string;
+  updatedBy?: string | null;
+}
+
+export interface IFeature {
+  featureId: string;
+  featureName: string;
+  description?: string | null;
+  status: ModuleStatus;
+  isEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IChildModule {
+  childModuleId: string;
+  childModuleName: string;
+  description?: string | null;
+  status: ModuleStatus;
+  isEnabled: boolean;
+  features: IFeature[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPortalModule extends IParentModule, Document {
+  children: IChildModule[];
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date | null;
 }

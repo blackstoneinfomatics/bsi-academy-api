@@ -1,43 +1,9 @@
 import mongoose, { Schema, Document } from "mongoose";
 import { z } from "zod";
 import { Status } from "../shared/enum";
-export type ModuleStatus = "Active" | "Inactive";
+import { IChildModule, IFeature, IPortalModule } from "../../types/models.types";
 
-export interface IFeature {
-  featureId: string;
-  featureName: string;
-  description?: string | null;
-  status: ModuleStatus;
-  isEnabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
-export interface IChildModule {
-  childModuleId: string;
-  childModuleName: string;
-  description?: string | null;
-  status: ModuleStatus;
-  isEnabled: boolean;
-  features: IFeature[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IPortalModule extends Document {
-  portal: string;
-  parentModuleId: string;
-  parentModuleName: string;
-  description?: string | null;
-  status: ModuleStatus;
-  isEnabled: boolean;
-  children: IChildModule[];
-  createdBy: string;
-  updatedBy?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date | null;
-}
 
 const featureSchema = new Schema<IFeature>(
   {
@@ -55,7 +21,7 @@ const featureSchema = new Schema<IFeature>(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive"],
+      enum: Object.values(Status),
       required: true,
     },
     isEnabled: {
@@ -86,7 +52,7 @@ const childModuleSchema = new Schema<IChildModule>(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive"],
+      enum: Object.values(Status),
       required: true,
     },
     isEnabled: {
@@ -128,7 +94,7 @@ const portalModuleSchema = new Schema<IPortalModule>(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive"],
+      enum: Object.values(Status),
       required: true,
     },
     isEnabled: {
@@ -171,7 +137,7 @@ export const createParentModuleValidation = z.object({
   portal: z.string().min(1, "Portal is required"),
   parentModuleName: z.string().min(1, "Parent module name is required"),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
   createdBy: z.string().min(1, "Created by is required"),
 });
@@ -179,7 +145,7 @@ export const createParentModuleValidation = z.object({
 export const updateParentModuleValidation = z.object({
   parentModuleName: z.string().min(1, "Parent module name is required").optional(),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),
   updatedBy: z.string().min(1, "Updated by is required"),
 });
@@ -191,7 +157,7 @@ export const updateParentModuleValidation = z.object({
 export const createChildModuleValidation = z.object({
   childModuleName: z.string().min(1, "Child module name is required"),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
   createdBy: z.string().min(1, "Created by is required"),
 });
@@ -199,7 +165,7 @@ export const createChildModuleValidation = z.object({
 export const updateChildModuleValidation = z.object({
   childModuleName: z.string().min(1, "Child module name is required").optional(),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),
   updatedBy: z.string().min(1, "Updated by is required"),
 });
@@ -211,7 +177,7 @@ export const updateChildModuleValidation = z.object({
 export const createFeatureValidation = z.object({
   featureName: z.string().min(1, "Feature name is required"),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
   createdBy: z.string().min(1, "Created by is required"),
 });
@@ -219,7 +185,7 @@ export const createFeatureValidation = z.object({
 export const updateFeatureValidation = z.object({
   featureName: z.string().min(1, "Feature name is required").optional(),
   description: z.string().optional(),
-  status: Status,
+  status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),
   updatedBy: z.string().min(1, "Updated by is required"),
 });
