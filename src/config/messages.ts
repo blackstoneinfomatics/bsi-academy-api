@@ -816,8 +816,7 @@ export const refundMessages = {
   INVOICE_NOT_FOUND: "Invoice not found for this refund.",
   SUBSCRIPTION_NOT_FOUND: "Subscription not found for this refund.",
   PLAN_NOT_FOUND: "Plan not found for this refund.",
-  TRANSACTION_NOT_FOUND: "Transaction not found for this refund.",
-
+  TRANSACTION_NOT_FOUND: "Transaction not found for this refund.",  
   VALIDATION_FAILED: "Validation Failed",
   UNAUTHORIZED: "Unauthorized",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
@@ -843,19 +842,34 @@ export const revenueMessages = {
 }
 
 export const featureMessages = {
-  // Actions
   CREATE_FEATURE: "Create Feature",
   GET_FEATURES: "Get Features",
   GET_FEATURE_BY_ID: "Get Feature By Id",
-
-  // Success Responses
   CREATE_FEATURE_SUCCESS: "Feature created successfully.",
   GET_FEATURES_SUCCESS: "Features fetched successfully.",
   GET_FEATURE_BY_ID_SUCCESS: "Feature details fetched successfully.",
-
-  // Errors
   FEATURE_NOT_FOUND: "Feature not found.",
   INVALID_FEATURE_ID: "Invalid Feature Id",
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+
+export const portalModuleMessages = {
+  CREATE_PARENT_MODULE_SUCCESS: "Parent module created successfully",
+  GET_PARENT_MODULES_SUCCESS: "Parent modules fetched successfully",
+  UPDATE_PARENT_MODULE_SUCCESS: "Parent module updated successfully",
+  UPDATE_PARENT_MODULE_ACCESS_SUCCESS: "Parent module access updated successfully",
+
+  CREATE_CHILD_MODULE_SUCCESS: "Child module created successfully",
+  GET_CHILD_MODULES_SUCCESS: "Child modules fetched successfully",
+  UPDATE_CHILD_MODULE_SUCCESS: "Child module updated successfully",
+  UPDATE_CHILD_MODULE_ACCESS_SUCCESS: "Child module access updated successfully",
+
+  CREATE_FEATURE_SUCCESS: "Feature created successfully",
+  GET_FEATURES_SUCCESS: "Features fetched successfully",
+  UPDATE_FEATURE_SUCCESS: "Feature updated successfully",
+  UPDATE_FEATURE_ACCESS_SUCCESS: "Feature access updated successfully",
+
   VALIDATION_FAILED: "Validation Failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
 };

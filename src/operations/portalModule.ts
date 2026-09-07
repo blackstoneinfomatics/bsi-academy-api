@@ -11,7 +11,6 @@ import PortalModule, {
   UpdateFeatureInput,
   UpdateParentModuleInput,
 } from "../models/portalModule";
-import { throwError } from "../utils/error";
 // ---------------------------------------------------------------------------
 // ID generation
 // ---------------------------------------------------------------------------
@@ -31,7 +30,7 @@ const findActiveParent = async (parentModuleId: string): Promise<IPortalModule> 
   const parent = await PortalModule.findOne({ parentModuleId, deletedAt: null });
 
   if (!parent) {
-    throwError("Parent module not found", 404);
+    throw new Error("Parent module not found");
   }
 
   return parent as IPortalModule;
@@ -41,7 +40,7 @@ const findChildOrThrow = (parent: IPortalModule, childModuleId: string): IChildM
   const child = parent.children.find((item) => item.childModuleId === childModuleId);
 
   if (!child) {
-    throwError("Child module not found", 404);
+    throw new Error("Child module not found");
   }
 
   return child as IChildModule;
@@ -51,15 +50,14 @@ const findFeatureOrThrow = (child: IChildModule, featureId: string): IFeature =>
   const feature = child.features.find((item) => item.featureId === featureId);
 
   if (!feature) {
-    throwError("Feature not found", 404);
+    throw new Error("Feature not found");
   }
 
   return feature as IFeature;
 };
 
-// ---------------------------------------------------------------------------
 // Parent module
-// ---------------------------------------------------------------------------
+
 
 export const createParentModule = async (
   payload: CreateParentModuleInput
@@ -71,7 +69,7 @@ export const createParentModule = async (
   });
 
   if (duplicate) {
-    throwError("Parent module already exists", 409);
+    throw new Error("Parent module already exists");
   }
 
   const parentModule = await PortalModule.create({
@@ -133,9 +131,7 @@ export const updateParentModuleAccess = async (
   return parent;
 };
 
-// ---------------------------------------------------------------------------
 // Child module
-// ---------------------------------------------------------------------------
 
 export const createChildModule = async (
   parentModuleId: string,
@@ -148,7 +144,7 @@ export const createChildModule = async (
   );
 
   if (duplicate) {
-    throwError("Child module already exists", 409);
+    throw new Error("Child module already exists");
   }
 
   const now = new Date();
@@ -224,9 +220,7 @@ export const updateChildModuleAccess = async (
   return parent;
 };
 
-// ---------------------------------------------------------------------------
 // Feature
-// ---------------------------------------------------------------------------
 
 export const createFeature = async (
   parentModuleId: string,
@@ -241,7 +235,7 @@ export const createFeature = async (
   );
 
   if (duplicate) {
-    throwError("Feature already exists", 409);
+    throw new Error("Feature already exists");
   }
 
   const now = new Date();

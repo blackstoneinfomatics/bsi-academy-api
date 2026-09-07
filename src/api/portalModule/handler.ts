@@ -1,414 +1,433 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
-import { createChildModuleValidation, createFeatureValidation, createParentModuleValidation, updateAccessValidation, updateChildModuleValidation, updateFeatureValidation, updateParentModuleValidation } from "../../models/portalModule";
+import {
+  createChildModuleValidation,
+  createFeatureValidation,
+  createParentModuleValidation,
+  updateAccessValidation,
+  updateChildModuleValidation,
+  updateFeatureValidation,
+  updateParentModuleValidation,
+} from "../../models/portalModule";
+import { portalModuleMessages } from "../../config/messages";
+import {
+  createChildModule,
+  createFeature,
+  createParentModule,
+  getChildModules,
+  getFeatures,
+  getParentModules,
+  updateChildModule,
+  updateChildModuleAccess,
+  updateFeature,
+  updateFeatureAccess,
+  updateParentModule,
+  updateParentModuleAccess,
+} from "../../operations/portalModule";
 
+export default {
 
+  // Parent module
+  
 
-// ---------------------------------------------------------------------------
-// Parent module
-// ---------------------------------------------------------------------------
+  createParentModule: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = createParentModuleValidation.safeParse(request.payload);
 
-export const createParentModule = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = createParentModuleValidation.safeParse(request.payload);
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-    if (!parsed.success) {
+      const result = await createParentModule(parsed.data);
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.CREATE_PARENT_MODULE_SUCCESS,
+          data: result,
+        })
+        .code(201);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const result = await operation.createParentModule(parsed.data);
+  getParentModules: async (_request: Request, h: ResponseToolkit) => {
+    try {
+      const result = await getParentModules();
 
-    return h
-      .response({
-        success: true,
-        message: "Parent module created successfully",
-        data: result,
-      })
-      .code(201);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
-
-export const getParentModules = async (_request: Request, h: ResponseToolkit) => {
-  try {
-    const result = await operation.getParentModules();
-
-    return h
-      .response({
-        success: true,
-        message: "Parent modules fetched successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
-
-export const updateParentModule = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateParentModuleValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.GET_PARENT_MODULES_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId } = request.params;
-    const result = await operation.updateParentModule(parentModuleId, parsed.data);
+  updateParentModule: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateParentModuleValidation.safeParse(request.payload);
 
-    return h
-      .response({
-        success: true,
-        message: "Parent module updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-export const updateParentModuleAccess = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateAccessValidation.safeParse(request.payload);
+      const { parentModuleId } = request.params;
+      const result = await updateParentModule(parentModuleId, parsed.data);
 
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_PARENT_MODULE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId } = request.params;
-    const result = await operation.updateParentModuleAccess(parentModuleId, parsed.data);
+  updateParentModuleAccess: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateAccessValidation.safeParse(request.payload);
 
-    return h
-      .response({
-        success: true,
-        message: "Parent module access updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-// ---------------------------------------------------------------------------
-// Child module
-// ---------------------------------------------------------------------------
+      const { parentModuleId } = request.params;
+      const result = await updateParentModuleAccess(parentModuleId, parsed.data);
 
-export const createChildModule = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = createChildModuleValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_PARENT_MODULE_ACCESS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId } = request.params;
-    const result = await operation.createChildModule(parentModuleId, parsed.data);
 
-    return h
-      .response({
-        success: true,
-        message: "Child module created successfully",
-        data: result,
-      })
-      .code(201);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+  // Child module
+  
+  createChildModule: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = createChildModuleValidation.safeParse(request.payload);
 
-export const getChildModules = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const { parentModuleId } = request.params;
-    const result = await operation.getChildModules(parentModuleId);
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-    return h
-      .response({
-        success: true,
-        message: "Child modules fetched successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+      const { parentModuleId } = request.params;
+      const result = await createChildModule(parentModuleId, parsed.data);
 
-export const updateChildModule = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateChildModuleValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.CREATE_CHILD_MODULE_SUCCESS,
+          data: result,
+        })
+        .code(201);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId, childModuleId } = request.params;
-    const result = await operation.updateChildModule(parentModuleId, childModuleId, parsed.data);
+  getChildModules: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const { parentModuleId } = request.params;
+      const result = await getChildModules(parentModuleId);
 
-    return h
-      .response({
-        success: true,
-        message: "Child module updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
-
-export const updateChildModuleAccess = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateAccessValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.GET_CHILD_MODULES_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId, childModuleId } = request.params;
-    const result = await operation.updateChildModuleAccess(
-      parentModuleId,
-      childModuleId,
-      parsed.data
-    );
+  updateChildModule: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateChildModuleValidation.safeParse(request.payload);
 
-    return h
-      .response({
-        success: true,
-        message: "Child module access updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-// ---------------------------------------------------------------------------
-// Feature
-// ---------------------------------------------------------------------------
+      const { parentModuleId, childModuleId } = request.params;
+      const result = await updateChildModule(parentModuleId, childModuleId, parsed.data);
 
-export const createFeature = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = createFeatureValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_CHILD_MODULE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId, childModuleId } = request.params;
-    const result = await operation.createFeature(parentModuleId, childModuleId, parsed.data);
+  updateChildModuleAccess: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateAccessValidation.safeParse(request.payload);
 
-    return h
-      .response({
-        success: true,
-        message: "Feature created successfully",
-        data: result,
-      })
-      .code(201);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
 
-export const getFeatures = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const { parentModuleId, childModuleId } = request.params;
-    const result = await operation.getFeatures(parentModuleId, childModuleId);
+      const { parentModuleId, childModuleId } = request.params;
+      const result = await updateChildModuleAccess(
+        parentModuleId,
+        childModuleId,
+        parsed.data
+      );
 
-    return h
-      .response({
-        success: true,
-        message: "Features fetched successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
-
-export const updateFeature = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateFeatureValidation.safeParse(request.payload);
-
-    if (!parsed.success) {
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_CHILD_MODULE_ACCESS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId, childModuleId, featureId } = request.params;
-    const result = await operation.updateFeature(
-      parentModuleId,
-      childModuleId,
-      featureId,
-      parsed.data
-    );
+  // Feature
 
-    return h
-      .response({
-        success: true,
-        message: "Feature updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
-};
 
-export const updateFeatureAccess = async (request: Request, h: ResponseToolkit) => {
-  try {
-    const parsed = updateAccessValidation.safeParse(request.payload);
+  createFeature: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = createFeatureValidation.safeParse(request.payload);
 
-    if (!parsed.success) {
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
+
+      const { parentModuleId, childModuleId } = request.params;
+      const result = await createFeature(parentModuleId, childModuleId, parsed.data);
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.CREATE_FEATURE_SUCCESS,
+          data: result,
+        })
+        .code(201);
+    } catch (err: any) {
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0].message,
-          errorCode: 400,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
         })
-        .code(400);
+        .code(err.statusCode || 500);
     }
+  },
 
-    const { parentModuleId, childModuleId, featureId } = request.params;
-    const result = await operation.updateFeatureAccess(
-      parentModuleId,
-      childModuleId,
-      featureId,
-      parsed.data
-    );
+  getFeatures: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const { parentModuleId, childModuleId } = request.params;
+      const result = await getFeatures(parentModuleId, childModuleId);
 
-    return h
-      .response({
-        success: true,
-        message: "Feature access updated successfully",
-        data: result,
-      })
-      .code(200);
-  } catch (err: any) {
-    return h
-      .response({
-        success: false,
-        message: err.message || "Internal Server Error",
-        errorCode: err.statusCode || 500,
-      })
-      .code(err.statusCode || 500);
-  }
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.GET_FEATURES_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  updateFeature: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateFeatureValidation.safeParse(request.payload);
+
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
+
+      const { parentModuleId, childModuleId, featureId } = request.params;
+      const result = await updateFeature(
+        parentModuleId,
+        childModuleId,
+        featureId,
+        parsed.data
+      );
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_FEATURE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  updateFeatureAccess: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = updateAccessValidation.safeParse(request.payload);
+
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
+
+      const { parentModuleId, childModuleId, featureId } = request.params;
+      const result = await updateFeatureAccess(
+        parentModuleId,
+        childModuleId,
+        featureId,
+        parsed.data
+      );
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.UPDATE_FEATURE_ACCESS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 };
-
-
