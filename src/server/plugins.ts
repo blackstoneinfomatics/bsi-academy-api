@@ -48,6 +48,7 @@ import refundTransactionAPI from "../api/refund/router";
 import revenueAPI from "../api/revenue/router";
 import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
 import featuresAPI from "../api/features/router";
+import portalModuleAPI from "../api/portalModule/router";
 
 
 export const appPlugins = [
@@ -199,5 +200,8 @@ export const appPlugins = [
   },
   {
     plugin:featuresAPI,
+  },
+  {
+    plugin: portalModuleAPI,
   }
 ];

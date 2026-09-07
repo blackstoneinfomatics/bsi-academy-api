@@ -25,7 +25,6 @@ import { TenantWelcomeMail } from "./trailExperiedMail";
 import { throwError } from "../helpers/throwError";
 import plan from "../models/plan-model";
 import TenantSubscription from "../models/tenantsubscription";
-import tenantsubscription from "../models/tenantsubscription";
 
 export interface TenantDetails {
   organizationName: string;
