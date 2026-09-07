@@ -147,7 +147,7 @@ const PlanSchema = new Schema<Plans>(
       default: false,
     },
 
-    domain: {
+    domainName: {
   type: String,
   required: false,
   default: "",

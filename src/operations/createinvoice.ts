@@ -96,7 +96,8 @@ export const createCustomServiceInvoice = async (
   });
 
   await newInvoice.save();
-  newInvoice.paymentLink = getPaymentLink(newInvoice._id);
+  const invoiceId = String(newInvoice._id);
+  newInvoice.paymentLink = getPaymentLink(invoiceId);
   await newInvoice.save();
   await newInvoice.populate({
     path: "planId",
@@ -115,7 +116,7 @@ export const createCustomServiceInvoice = async (
   };
 
   try {
-    const mailResult = await sendCustomServiceInvoice(newInvoice._id.toString(), {
+    const mailResult = await sendCustomServiceInvoice(invoiceId, {
       paymentLink: newInvoice.paymentLink ?? undefined,
     });
     email = { sent: true, recipient: mailResult?.recipient ?? null, error: null };

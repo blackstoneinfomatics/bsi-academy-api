@@ -100,7 +100,8 @@ export const createSubscriptionInvoice = async (
 
     await newInvoice.save();
 
-    await sendSubscriptionInvoiceEmail(newInvoice._id.toString(), "CREATED");
+    const invoiceId = (newInvoice as any)._id?.toString?.() ?? newInvoice.id;
+    await sendSubscriptionInvoiceEmail(invoiceId, "CREATED");
 
     return newInvoice;
   } catch (error: any) {
@@ -584,7 +585,7 @@ export const processSubscriptionInvoiceReminders = async () => {
 
     for (const invoice of invoices) {
       try {
-        await sendSubscriptionInvoiceEmail(invoice._id.toString(), "REMINDER");
+        await sendSubscriptionInvoiceEmail(String(invoice._id), "REMINDER");
         await SubscriptionInvoiceModel.updateOne(
           { _id: invoice._id },
           { $inc: { paymentTerms: 1 } },
@@ -644,7 +645,7 @@ export const sendSubscriptionInvoiceEmail = async (
       .replace(/{{PLAN_NAME}}/g, invoice?.subscriptionPlan?.planName)
       .replace(/{{BILLING_CYCLE}}/g, invoice?.subscriptionPlan?.duration.toString())
       .replace(/{{PLAN_PRICE}}/g, invoice?.subtotal.toString())
-      .replace(/{{INVOICE_ID}}/g, invoice?.invoiceId.toString())
+      .replace(/{{INVOICE_ID}}/g, String(invoice?.invoiceId ?? ""))
       .replace(
         /{{INVOICE_DATE}}/g,
         new Date(invoice?.invoiceDate).toDateString(),

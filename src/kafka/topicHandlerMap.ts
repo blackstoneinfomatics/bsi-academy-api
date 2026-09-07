@@ -26,12 +26,14 @@ export const topicHandler: Record<string, (data: any) => Promise<void>> = {
   "invoice-paid": async (data: any) => {
     console.log("invioce data ", data);
     const latestRevenue = await getTotalAmountByCourse("yearly");
-      const admin = await users.find({role: "ADMIN" , status: "ACTIVE" }).exec();
+    const admin = (await users
+      .find({ role: "ADMIN", status: "ACTIVE" })
+      .exec()) as Array<{ _id?: { toString: () => string } }>;
     console.log("💰 Latest Revenue:", latestRevenue);
     emitEventToClient(
       "revenueUpdated",
       latestRevenue,
-      admin[0]?._id.toString()
+      admin[0]?._id?.toString?.()
     );
   },
 

@@ -10,7 +10,7 @@ import leavesummary from "../models/leavesummary";
 export const createLeaveRequest = async (
   payload: Partial<ILeaveRequestCreate>
 ): Promise<
-  ILeaveRequest & {
+  Partial<ILeaveRequest> & {
     totalCounts: {
       sickLeave: number;
       casualLeave: number;
@@ -19,13 +19,25 @@ export const createLeaveRequest = async (
   } | { error: any }
 > => {
   try {
-    const employee = await User.findOne({ _id: new Types.ObjectId(payload.employeeId) }).exec();
+    const employee = (await User.findOne({ _id: new Types.ObjectId(payload.employeeId) }).exec()) as
+      | {
+          _id: Types.ObjectId;
+          userName: string;
+          role?: string | string[];
+        }
+      | null;
     if (!employee) return { error: "Employee not found with the given ID." };
 
-    const admin = await User.findOne({
+    const admin = (await User.findOne({
       userName: payload.createdBy,
       role: { $in: ["ADMIN"] },
-    }).exec();
+    }).exec()) as
+      | {
+          _id: Types.ObjectId;
+          userName: string;
+          role?: string | string[];
+        }
+      | null;
     if (!admin) return { error: "Admin not found with the given createdBy." };
 
     const approvedDays = Number(payload.approvedDays) || 0;
@@ -135,11 +147,25 @@ export const createLeaveRequest = async (
       }
     );
 
-    return {
-      ...(updatedLeaveRequest?.toObject() ?? {}),
+    const leaveRequestObject =
+      updatedLeaveRequest && typeof (updatedLeaveRequest as any).toObject === "function"
+        ? (updatedLeaveRequest as any).toObject()
+        : (updatedLeaveRequest ?? {});
+
+    const response: Partial<ILeaveRequest> & {
+      employeeId: string;
+      totalCounts: {
+        sickLeave: number;
+        casualLeave: number;
+        paidLeave: number;
+      };
+    } = {
+      ...leaveRequestObject,
       employeeId: employee._id.toString(),
       totalCounts: counts,
     };
+
+    return response;
   } catch (error) {
     return { error: error instanceof Error ? error.message : error };
   }

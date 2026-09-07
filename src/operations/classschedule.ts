@@ -154,7 +154,7 @@ export const updateStudentClassSchedule = async (
     for (const classDate of classDates) {
       if (payload.sessionClassType === "GROUPCLASS") {
         const duplicate = await ClassScheduleModel.findOne({
-          "student.id": alfurqanStudent?._id.toString(),
+          "student.id": alfurqanStudent?._id,
           startDate: classDate,
           endDate: classDate,
           classDay: day,
@@ -173,7 +173,7 @@ export const updateStudentClassSchedule = async (
 
       const newClassSchedule = new ClassScheduleModel({
         student: {
-          id: alfurqanStudent?._id.toString(),
+          id: alfurqanStudent?._id,
           studentId: alfurqanStudent?.student.studentId,
           studentFirstName: alfurqanStudent?.username,
           studentLastName: alfurqanStudent?.username,
@@ -195,7 +195,7 @@ export const updateStudentClassSchedule = async (
         sessionsEndtime: payload.sessionsEndtime || "",
         sessionStatus: "NotCompleted",
         course: {
-          courseId: courseDetails?._id.toString(),
+          courseId: courseDetails?._id ? String(courseDetails._id) : undefined,
           courseName: courseDetails?.courseName,
         },
         package: payload.package,
@@ -393,7 +393,7 @@ export const requestReschedule = async (payload: any) => {
         senderName: requestName,
         senderEmail: requestEmail,
         isRead: false,
-        receiverId: [academicCoach?._id.toString()],
+        receiverId: [String(academicCoach?._id)],
         receiverName: [academicCoach?.userName],
         receiverEmail: [academicCoach?.email],
         notificationType: `REQUEST_RESCHEDULE_${payload.requestedBy.toUpperCase()}`,
@@ -1547,10 +1547,10 @@ export const getStudentList = async (
       const classType = cls.sessionClassType;
       const groupClassId = cls.classLink;
       if (student?.id && !uniqueStudentsMap.has(student.id)) {
-        const alstudent = await AlStudenModel.findOne({
+        const alstudent: any = await AlStudenModel.findOne({
           _id: cls.student.id,
         }).exec();
-        let evaluation;
+        let evaluation: any;
         if (alstudent) {
           evaluation = await Evaluation.findOne({
             "student.studentId": alstudent.student.studentId,
@@ -1920,6 +1920,7 @@ export const updateEarningsCalculation = async () => {
     console.log("current time", formattedTime);
 
     for (const scheduleClass of getClasses) {
+      const scheduleClassId = String(scheduleClass._id);
       const dateStr = dayjs(scheduleClass.startDate).format("YYYY-MM-DD");
 
       // Full class start datetime
@@ -1937,7 +1938,7 @@ export const updateEarningsCalculation = async () => {
       // Check if class start time is before now
       if (now.isAfter(classEndDateTime)) {
         await ClassScheduleModel.findOneAndUpdate(
-          { _id: new Types.ObjectId(scheduleClass._id) },
+          { _id: new Types.ObjectId(scheduleClassId) },
           {
             $set: {
               sessionStatus: "Completed",
@@ -1949,7 +1950,7 @@ export const updateEarningsCalculation = async () => {
         console.log("✅ Session status: Completed");
       } else {
         await ClassScheduleModel.findOneAndUpdate(
-          { _id: new Types.ObjectId(scheduleClass._id) },
+          { _id: new Types.ObjectId(scheduleClassId) },
           {
             $set: {
               sessionStatus: "NotCompleted",

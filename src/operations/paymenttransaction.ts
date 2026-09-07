@@ -297,12 +297,14 @@ export class PaymentService {
         return;
       }
 
-      if (invoice.paymentStatus === PaymentStatus.PAID) {
+      const invoiceData = invoice as any;
+
+      if (invoiceData.paymentStatus === PaymentStatus.PAID) {
         throwError(customServiceInvoiceMessages.INVOICE_ALREADY_PAID, 409);
       }
 
       const subscription = await SubscriptionModel.findOne({
-        _id: invoice.subscriptionId,
+        _id: invoiceData.subscriptionId,
         deletedAt: null,
       });
 
@@ -336,7 +338,7 @@ export class PaymentService {
         amount: toStripeAmount(invoice.totalAmount, invoice.currency),
         currency: invoice.currency.toLowerCase(),
         metadata: {
-          invoiceId: invoice._id.toString(),
+          invoiceId: String(invoice._id),
           invoiceType: PaymentType.CUSTOM_SERVICE,
         },
       });

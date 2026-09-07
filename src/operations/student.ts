@@ -57,7 +57,7 @@ export const createStudent = async (
       console.log("academicCoach>>>>", academicCoach);
       newUser.studentId = rollNo;
     newUser.academicCoach = {
-        academicCoachId: academicCoach?._id.toString() || " ", // Provide a default value if undefined
+        academicCoachId: academicCoach?._id ? String(academicCoach._id) : " ", // Provide a default value if undefined
         name: academicCoach?.userName || " ",                       // Provide a default value if undefined
         role: academicCoach?.role[0] || " ", // Provide a default value if undefined
         email: academicCoach?.email || " " // Provide a default value if undefined
@@ -67,11 +67,11 @@ export const createStudent = async (
     
     await sendNotification({
       messages: `${savedUser.firstName}! has been joined in our academic team !.`,
-      senderId: savedUser._id.toString(),
+      senderId: String(savedUser._id),
       senderName: savedUser.firstName,
       senderEmail: savedUser.email,
       isRead : false,
-      receiverId: [savedUser.academicCoach.academicCoachId.toString(),admin[0]?._id.toString()],
+      receiverId: [savedUser.academicCoach.academicCoachId.toString(), String(admin[0]?._id)],
       receiverName: [savedUser.academicCoach.name,"Admin"],
       receiverEmail: [savedUser.academicCoach.email,"rahul.blackstoneinfomatics@gmail.com"],
     
@@ -163,7 +163,7 @@ export const createStudent = async (
 };
 
 
-async function zoomMeetingInvite(savedUser: import("mongoose").Document<unknown, {}, IStudents> & IStudents & { _id: import("mongoose").Types.ObjectId; }) {
+async function zoomMeetingInvite(savedUser: IStudents) {
     const token = await getZoomAccessToken();
     const response = await axios.post(
       'https://api.zoom.us/v2/users/me/meetings',

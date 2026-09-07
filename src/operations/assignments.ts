@@ -70,17 +70,27 @@ export const createAssignment = async (
       }
 
       console.log("🔍 Finding student by ID:", item.studentId);
-      const studentDetails = await alstudents.findById(item.studentId).exec();
-      if (!studentDetails) {
+      const studentDetails = (await alstudents
+        .findById(item.studentId)
+        .exec()) as
+        | {
+            _id?: Types.ObjectId | string | null;
+            username?: string;
+            sessionClassType?: string;
+            level?: string;
+            student?: { course?: string };
+          }
+        | null;
+      if (!studentDetails || !studentDetails._id) {
         console.warn("⚠️ Invalid studentId:", item.studentId);
         continue;
       }
 
-      const studentId = studentDetails._id.toString();
+      const studentId = String(studentDetails._id);
       const studentName = studentDetails.username || "";
       const sessionClassType = studentDetails.sessionClassType || "";
       const level = studentDetails.level || "";
-      const course = studentDetails.student.course || "";
+      const course = studentDetails.student?.course || "";
       console.log("✅ Student found:", {
         studentId,
         studentName,
@@ -265,13 +275,23 @@ export const createAssignmentforGroup = async (
       }
 
       console.log("🔍 Finding student by ID:", item.studentId);
-      const studentDetails = await alstudents.findById(item.studentId).exec();
-      if (!studentDetails) {
+      const studentDetails = (await alstudents
+        .findById(item.studentId)
+        .exec()) as
+        | {
+            _id?: Types.ObjectId | string | null;
+            username?: string;
+            sessionClassType?: string;
+            level?: string;
+            student?: { course?: string };
+          }
+        | null;
+      if (!studentDetails || !studentDetails._id) {
         console.warn("⚠️ Invalid studentId:", item.studentId);
         continue;
       }
 
-      const studentId = studentDetails._id.toString();
+      const studentId = String(studentDetails._id);
       const studentName = studentDetails.username || "";
       const sessionClassType = studentDetails.sessionClassType || "";
       const level = studentDetails.level || "";

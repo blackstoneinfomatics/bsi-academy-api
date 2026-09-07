@@ -199,10 +199,11 @@ export const getcreateAllTeacherFeedback = async (
 
   // Add classSchedule count to each student
   const studentsWithLevelCount = await Promise.all(
-    students.map(async (student) => {
+    students.map(async (student: any) => {
+      const studentId = student?._id ? student._id.toString() : student?.studentId;
       const levelCount = await feedback
         .countDocuments({
-          "student.studentId": student._id.toString(),
+          "student.studentId": studentId,
         })
         .exec();
       return {
