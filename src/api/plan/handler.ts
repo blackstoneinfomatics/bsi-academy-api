@@ -19,10 +19,30 @@ import {
 } from "../../operations/plan";
 import planModel, {
   createPlanValidation,
-  addBillingPeriodValidation,
-  updateBillingPeriodValidation,
 } from "../../models/plan-model";
 import { planMessages } from "../../config/messages";
+import { billingPeriodSchema } from "../../models/billingperiod";
+
+
+export const addBillingPeriodValidation = billingPeriodSchema.omit({
+  billingPeriodId: true,
+});
+
+export type AddBillingPeriodPayload = z.infer<
+  typeof addBillingPeriodValidation
+>;
+
+export const updateBillingPeriodValidation = billingPeriodSchema.pick({
+  price: true,
+  discount: true,
+  gstRate: true,
+  taxAmount: true,
+  totalAmount: true,
+});
+
+export type UpdateBillingPeriodPayload = z.infer<
+  typeof updateBillingPeriodValidation
+>;
 
 const getPlanAnalyticsValidation = z.object({
   query: z.object({

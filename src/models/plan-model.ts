@@ -1,58 +1,11 @@
 import mongoose, { Schema } from "mongoose";
-import { IBillingPeriod, Plans } from "../../types/models.types";
+import { Plans } from "../../types/models.types";
 import CustomEnumerator from "../shared/enum";
 import { z } from "zod";
 import { commonMessages } from "../config/messages";
+import { BillingPeriodSchema, billingPeriodSchema } from "./billingperiod";
 
-const BillingPeriodSchema = new Schema<IBillingPeriod>(
-  {
-    billingPeriodId: {
-      type: String,
-      required: true,
-    },
 
-    billingPeriod: {
-      type: String,
-      required: true,
-    },
-
-    duration: {
-      type: Number,
-      required: true,
-    },
-
-    price: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-
-    discount: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-
-    gstRate: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-
-    taxAmount: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-
-    totalAmount: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-  },
-  { _id: false }
-);
 
 const PlanSchema = new Schema<Plans>(
   {
@@ -152,6 +105,7 @@ const PlanSchema = new Schema<Plans>(
   required: false,
   default: "",
 },  
+    
 
     backup: {
       type: Boolean,
@@ -161,8 +115,6 @@ const PlanSchema = new Schema<Plans>(
 
     status: {
       type: String,
-      // "Draft" is Plan-specific (the multi-step create wizard's initial state)
-      // and intentionally kept out of the shared Status enum used by other modules.
       enum: [...Object.values(CustomEnumerator.Status), "Draft"],
       required: true,
     },
@@ -195,39 +147,6 @@ const PlanSchema = new Schema<Plans>(
   },
 );
 
-export const billingPeriodSchema = z.object({
-  billingPeriodId: z.string().min(1, "billingPeriodId is required"),
-  billingPeriod: z.string().min(1, "billingPeriod is required"),
-  duration: z.number().min(1, "duration is required"),
-  // Pricing is added later via the price/discount update step, so it's not
-  // mandatory when a billing period is first added.
-  price: z.number().nonnegative().default(0),
-  discount: z.number().min(0).max(100).default(0),
-  gstRate: z.number().nonnegative().default(0),
-  taxAmount: z.number().nonnegative().default(0),
-  totalAmount: z.number().nonnegative().default(0),
-});
-
-export type BillingPeriodPayload = z.infer<typeof billingPeriodSchema>;
-export const addBillingPeriodValidation = billingPeriodSchema.omit({
-  billingPeriodId: true,
-});
-
-export type AddBillingPeriodPayload = z.infer<
-  typeof addBillingPeriodValidation
->;
-
-export const updateBillingPeriodValidation = billingPeriodSchema.pick({
-  price: true,
-  discount: true,
-  gstRate: true,
-  taxAmount: true,
-  totalAmount: true,
-});
-
-export type UpdateBillingPeriodPayload = z.infer<
-  typeof updateBillingPeriodValidation
->;
 
 export const createPlanValidation = z.object({
   planId: z.string().optional(),
@@ -269,5 +188,19 @@ export const createPlanValidation = z.object({
     .transform((val) => new Date(val))
     .optional(),
 });
+
+const addBillingPeriodSchema = billingPeriodSchema.omit({
+  billingPeriodId: true,
+});
+const updateBillingPeriodSchema = billingPeriodSchema.pick({
+  price: true,
+  discount: true,
+  gstRate: true,
+  taxAmount: true,
+  totalAmount: true,
+});
+
+export type AddBillingPeriodPayload = z.infer<typeof addBillingPeriodSchema>;
+export type UpdateBillingPeriodPayload = z.infer<typeof updateBillingPeriodSchema>;
 
 export default mongoose.model<Plans>("plan", PlanSchema);
