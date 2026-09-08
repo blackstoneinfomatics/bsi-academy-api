@@ -2799,24 +2799,7 @@ export interface IRefundTransaction extends Document {
 }
 
 
-export interface IFeatures extends Document {
-tenantId : String;
-selectmodule:String;
-selectcategory:String;
-navigationMenuInformation :{
-  navigationName : String;
-  menuicon : String;
-  discription : String;
-  display :String;
-  featureStatus:String;
-}
-  status:Status;
-  createdBy: string;
-  updatedBy?: string | null;
-  deletedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+
 
 export interface IParentModule {
   portal: string;

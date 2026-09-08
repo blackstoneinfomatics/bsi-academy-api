@@ -1,13 +1,11 @@
 import crypto from "crypto";
 import PortalModule, {
-  CreateChildModuleInput,
-  CreateFeatureInput,
   CreateParentModuleInput,
   UpdateAccessInput,
-  UpdateChildModuleInput,
-  UpdateFeatureInput,
   UpdateParentModuleInput,
 } from "../models/portalModule";
+import { CreateChildModuleInput, UpdateChildModuleInput } from "../models/childportal";
+import { CreateFeatureInput, UpdateFeatureInput } from "../models/featuremodule";
 import { IChildModule, IFeature, IParentModule, IPortalModule } from "../../types/models.types";
 // ---------------------------------------------------------------------------
 // ID generation
@@ -319,4 +317,98 @@ export const updateFeatureAccess = async (
   await parent.save();
 
   return parent;
+};
+
+const getFeatureTrend = (current: number, previous: number) => {
+  if (previous === 0) {
+    return {
+      percentageChange: current > 0 ? 100.0 : 0.0,
+      trend: current > 0 ? "UP" : "NO_CHANGE",
+    };
+  }
+
+  const percentage = ((current - previous) / previous) * 100;
+
+  return {
+    percentageChange: Number(percentage.toFixed(2)),
+    trend: percentage > 0 ? "UP" : percentage < 0 ? "DOWN" : "NO_CHANGE",
+  };
+};
+
+const countFeatures = async (match: Record<string, unknown>): Promise<number> => {
+  const result = await PortalModule.aggregate([
+    { $match: { deletedAt: null } },
+    { $unwind: "$children" },
+    { $unwind: "$children.features" },
+    { $match: match },
+    { $count: "count" },
+  ]);
+
+  return result[0]?.count ?? 0;
+};
+
+export const getFeatureCard = async () => {
+  const now = new Date();
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const [
+    currentTotal,
+    previousTotal,
+    currentAdded,
+    previousAdded,
+    currentActive,
+    previousActive,
+    currentInactive,
+    previousInactive,
+  ] = await Promise.all([
+    countFeatures({ "children.features.createdAt": { $lt: startOfNextMonth } }),
+    countFeatures({ "children.features.createdAt": { $lt: startOfCurrentMonth } }),
+    countFeatures({
+      "children.features.createdAt": { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
+    }),
+    countFeatures({
+      "children.features.createdAt": { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
+    }),
+    countFeatures({
+      "children.features.isEnabled": true,
+      "children.features.createdAt": { $lt: startOfNextMonth },
+    }),
+    countFeatures({
+      "children.features.isEnabled": true,
+      "children.features.createdAt": { $lt: startOfCurrentMonth },
+    }),
+    countFeatures({
+      "children.features.isEnabled": false,
+      "children.features.createdAt": { $lt: startOfNextMonth },
+    }),
+    countFeatures({
+      "children.features.isEnabled": false,
+      "children.features.createdAt": { $lt: startOfCurrentMonth },
+    }),
+  ]);
+
+  return {
+    totalFeatures: {
+      count: currentTotal,
+      previousMonthCount: previousTotal,
+      ...getFeatureTrend(currentTotal, previousTotal),
+    },
+    addedFeatures: {
+      count: currentAdded,
+      previousMonthCount: previousAdded,
+      ...getFeatureTrend(currentAdded, previousAdded),
+    },
+    activeFeatures: {
+      count: currentActive,
+      previousMonthCount: previousActive,
+      ...getFeatureTrend(currentActive, previousActive),
+    },
+    inactiveFeatures: {
+      count: currentInactive,
+      previousMonthCount: previousInactive,
+      ...getFeatureTrend(currentInactive, previousInactive),
+    },
+  };
 };

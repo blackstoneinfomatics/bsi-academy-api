@@ -8,7 +8,7 @@ import "../models/plan-model";
 import PaymentTransactionModel from "../models/paymenttransaction";
 import EmailTemplate from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
-import { PaymentType } from "../shared/enum";
+import { PaymentStatus, PaymentType } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
 import { customServiceInvoiceMessages } from "../config/messages";
 
@@ -444,6 +444,92 @@ export const getCustomServiceInvoiceRecord = async (query: GetPlansQuery = {}) =
       totalPages: Math.ceil(totalRecords / normalizedLimit),
       hasNextPage: normalizedPage * normalizedLimit < totalRecords,
       hasPreviousPage: normalizedPage > 1,
+    },
+  };
+};
+
+const getInvoiceTrend = (current: number, previous: number) => {
+  if (previous === 0) {
+    return {
+      percentageChange: current > 0 ? 100.0 : 0.0,
+      trend: current > 0 ? "UP" : "NO_CHANGE",
+    };
+  }
+
+  const percentage = ((current - previous) / previous) * 100;
+
+  return {
+    percentageChange: Number(percentage.toFixed(2)),
+    trend: percentage > 0 ? "UP" : percentage < 0 ? "DOWN" : "NO_CHANGE",
+  };
+};
+
+export const getCustomServiceInvoiceRecordCards = async () => {
+  const now = new Date();
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  // Total Invoices
+  const currentTotal = await CustomServiceInvoiceModel.countDocuments({
+    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
+  });
+  const previousTotal = await CustomServiceInvoiceModel.countDocuments({
+    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
+  });
+
+  // Paid Invoices
+  const currentPaid = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PAID,
+    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
+  });
+  const previousPaid = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PAID,
+    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
+  });
+
+  // Pending Invoices
+  const currentPending = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PENDING,
+    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
+  });
+  const previousPending = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PENDING,
+    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
+  });
+
+  // Overdue Invoices (payment still pending, past the due date)
+  const currentOverdue = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PENDING,
+    dueDate: { $lt: now },
+    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
+  });
+  const previousOverdue = await CustomServiceInvoiceModel.countDocuments({
+    paymentStatus: PaymentStatus.PENDING,
+    dueDate: { $lt: startOfCurrentMonth },
+    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
+  });
+
+  return {
+    totalInvoices: {
+      count: currentTotal,
+      previousMonthCount: previousTotal,
+      ...getInvoiceTrend(currentTotal, previousTotal),
+    },
+    paidInvoices: {
+      count: currentPaid,
+      previousMonthCount: previousPaid,
+      ...getInvoiceTrend(currentPaid, previousPaid),
+    },
+    pendingInvoices: {
+      count: currentPending,
+      previousMonthCount: previousPending,
+      ...getInvoiceTrend(currentPending, previousPending),
+    },
+    overdueInvoices: {
+      count: currentOverdue,
+      previousMonthCount: previousOverdue,
+      ...getInvoiceTrend(currentOverdue, previousOverdue),
     },
   };
 };

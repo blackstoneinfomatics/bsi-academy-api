@@ -1,12 +1,8 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import {
-  createChildModuleValidation,
-  createFeatureValidation,
   createParentModuleValidation,
-  updateAccessValidation,
-  updateChildModuleValidation,
-  updateFeatureValidation,
   updateParentModuleValidation,
+  updateAccessValidation,
 } from "../../models/portalModule";
 import { portalModuleMessages } from "../../config/messages";
 import {
@@ -14,6 +10,7 @@ import {
   createFeature,
   createParentModule,
   getChildModules,
+  getFeatureCard,
   getFeatures,
   getParentModules,
   updateChildModule,
@@ -23,12 +20,13 @@ import {
   updateParentModule,
   updateParentModuleAccess,
 } from "../../operations/portalModule";
+import { createChildModuleValidation, updateChildModuleValidation } from "../../models/childportal";
+import { createFeatureValidation, updateFeatureValidation } from "../../models/featuremodule";
 
 export default {
 
   // Parent module
   
-
   createParentModule: async (request: Request, h: ResponseToolkit) => {
     try {
       const parsed = createParentModuleValidation.safeParse(request.payload);
@@ -430,4 +428,28 @@ export default {
         .code(err.statusCode || 500);
     }
   },
+
+  getFeatureCard: async (_request: Request, h: ResponseToolkit) => {
+    try {
+      const result = await getFeatureCard();
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.GET_FEATURE_CARD_SUCCESS,
+          data: result,
+        }).code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+
+
 };

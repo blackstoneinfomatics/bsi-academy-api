@@ -654,6 +654,7 @@ export const customServiceInvoiceMessages = {
   GET_BY_ID: "Get Custom Service Invoice By Id",
   CREATE_PAYMENT: "Create Custom Service Invoice Payment",
   SEND: "Send Custom Service Invoice",
+  GET_ALL :"Get Custom Service Invoices",
 
   // Success Responses
   CREATE_SUCCESS: "Custom Service Invoice created successfully.",
@@ -872,5 +873,9 @@ export const portalModuleMessages = {
 
   VALIDATION_FAILED: "Validation Failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
+
+  GET_FEATURE_CARD_SUCCESS: "Feature card fetched successfully",
+  FEATURE_CARD_NOT_FOUND: "Feature card not found",
+  INVALID_FEATURE_CARD_ID: "Invalid Feature Card Id",
 };
 

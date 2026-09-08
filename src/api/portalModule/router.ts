@@ -117,6 +117,16 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "module"],
       },
     },
+
+    {
+      method: "GET",
+      path:"/features/card",
+      options: {
+        handler: handler.getFeatureCard,
+        description: "Get feature card",
+        tags: ["api", "feature"],
+      }
+    }
   ];
 
   server.route(routes);
