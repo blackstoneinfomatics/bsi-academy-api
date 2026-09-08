@@ -466,70 +466,141 @@ const getInvoiceTrend = (current: number, previous: number) => {
 
 export const getCustomServiceInvoiceRecordCards = async () => {
   const now = new Date();
-  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  // Total Invoices
-  const currentTotal = await CustomServiceInvoiceModel.countDocuments({
-    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
-  });
-  const previousTotal = await CustomServiceInvoiceModel.countDocuments({
-    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
-  });
+  const startOfCurrentMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
 
-  // Paid Invoices
-  const currentPaid = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PAID,
-    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
-  });
-  const previousPaid = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PAID,
-    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
-  });
+  const startOfNextMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  );
 
-  // Pending Invoices
-  const currentPending = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PENDING,
-    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
-  });
-  const previousPending = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PENDING,
-    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
-  });
+  const startOfPreviousMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  );
 
-  // Overdue Invoices (payment still pending, past the due date)
-  const currentOverdue = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PENDING,
-    dueDate: { $lt: now },
-    createdAt: { $gte: startOfCurrentMonth, $lt: startOfNextMonth },
-  });
-  const previousOverdue = await CustomServiceInvoiceModel.countDocuments({
-    paymentStatus: PaymentStatus.PENDING,
-    dueDate: { $lt: startOfCurrentMonth },
-    createdAt: { $gte: startOfPreviousMonth, $lt: startOfCurrentMonth },
-  });
+
+  const currentTotal =
+    await CustomServiceInvoiceModel.countDocuments({
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+  const previousTotal =
+    await CustomServiceInvoiceModel.countDocuments({
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+
+
+  const currentPaid =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PAID,
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+  const previousPaid =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PAID,
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+ 
+  const currentPending =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PENDING,
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+  const previousPending =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PENDING,
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
+  const currentOverdue =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PENDING,
+      dueDate: {
+        $lt: now,
+      },
+      createdAt: {
+        $gte: startOfCurrentMonth,
+        $lt: startOfNextMonth,
+      },
+    });
+
+  const previousOverdue =
+    await CustomServiceInvoiceModel.countDocuments({
+      paymentStatus: PaymentStatus.PENDING,
+      dueDate: {
+        $lt: startOfCurrentMonth,
+      },
+      createdAt: {
+        $gte: startOfPreviousMonth,
+        $lt: startOfCurrentMonth,
+      },
+    });
+
 
   return {
     totalInvoices: {
       count: currentTotal,
       previousMonthCount: previousTotal,
-      ...getInvoiceTrend(currentTotal, previousTotal),
+      ...getInvoiceTrend(
+        currentTotal,
+        previousTotal,
+      ),
     },
+
     paidInvoices: {
       count: currentPaid,
       previousMonthCount: previousPaid,
-      ...getInvoiceTrend(currentPaid, previousPaid),
+      ...getInvoiceTrend(
+        currentPaid,
+        previousPaid,
+      ),
     },
+
     pendingInvoices: {
       count: currentPending,
       previousMonthCount: previousPending,
-      ...getInvoiceTrend(currentPending, previousPending),
+      ...getInvoiceTrend(
+        currentPending,
+        previousPending,
+      ),
     },
+
     overdueInvoices: {
       count: currentOverdue,
       previousMonthCount: previousOverdue,
-      ...getInvoiceTrend(currentOverdue, previousOverdue),
+      ...getInvoiceTrend(
+        currentOverdue,
+        previousOverdue,
+      ),
     },
   };
 };
