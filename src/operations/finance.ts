@@ -667,14 +667,55 @@ export const getFinanceTodayActivities = async () => {
   }
 };
 
+const calculatePercentageChange = (
+  current: number,
+  previous: number,
+) => {
+  if (previous === 0) {
+    return current > 0 ? 100 : 0;
+  }
+
+  return ((current - previous) / previous) * 100;
+};
+
 export const getRevenueDashboardSummary = async () => {
+  const now = new Date();
+
+
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
+
+  const nextMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  );
+
+  const previousMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  );
+
+  const previousPeriodEnd = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    now.getDate() + 1,
+  );
+
   const invoiceMatch: any = {
     deletedAt: null,
   };
 
   const paymentMatch: any = {
     paymentStatus: {
-      $in: [PaymentStatus.SUCCESS, PaymentStatus.PAID],
+      $in: [
+        PaymentStatus.SUCCESS,
+        PaymentStatus.PAID,
+      ],
     },
   };
 
@@ -683,15 +724,70 @@ export const getRevenueDashboardSummary = async () => {
     status: RefundApprovalStatus.APPROVED,
   };
 
+
+  const currentInvoiceMatch = {
+    ...invoiceMatch,
+    createdAt: {
+      $gte: currentMonthStart,
+      $lt: nextMonthStart,
+    },
+  };
+
+  const currentPaymentMatch = {
+    ...paymentMatch,
+    createdAt: {
+      $gte: currentMonthStart,
+      $lt: nextMonthStart,
+    },
+  };
+
+  const currentRefundMatch = {
+    ...refundMatch,
+    createdAt: {
+      $gte: currentMonthStart,
+      $lt: nextMonthStart,
+    },
+  };
+
+
+  const previousInvoiceMatch = {
+    ...invoiceMatch,
+    createdAt: {
+      $gte: previousMonthStart,
+      $lt: previousPeriodEnd,
+    },
+  };
+
+  const previousPaymentMatch = {
+    ...paymentMatch,
+    createdAt: {
+      $gte: previousMonthStart,
+      $lt: previousPeriodEnd,
+    },
+  };
+
+  const previousRefundMatch = {
+    ...refundMatch,
+    createdAt: {
+      $gte: previousMonthStart,
+      $lt: previousPeriodEnd,
+    },
+  };
+
+
   const [
-    revenueAgg,
-    collectedAgg,
-    refundAgg,
+    currentRevenueAgg,
+    currentCollectedAgg,
+    currentRefundAgg,
+
+    previousRevenueAgg,
+    previousCollectedAgg,
+    previousRefundAgg,
   ] = await Promise.all([
-    // TOTAL REVENUE
+    // CURRENT REVENUE
     SubscriptionInvoiceModel.aggregate([
       {
-        $match: invoiceMatch,
+        $match: currentInvoiceMatch,
       },
       {
         $group: {
@@ -703,10 +799,10 @@ export const getRevenueDashboardSummary = async () => {
       },
     ]),
 
-    // TOTAL COLLECTED
+    // CURRENT COLLECTED
     PaymentTransactionModel.aggregate([
       {
-        $match: paymentMatch,
+        $match: currentPaymentMatch,
       },
       {
         $group: {
@@ -718,10 +814,55 @@ export const getRevenueDashboardSummary = async () => {
       },
     ]),
 
-    // TOTAL REFUNDED
+    // CURRENT REFUNDED
     RefundTransactionModel.aggregate([
       {
-        $match: refundMatch,
+        $match: currentRefundMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]),
+
+    // PREVIOUS REVENUE
+    SubscriptionInvoiceModel.aggregate([
+      {
+        $match: previousInvoiceMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$totalAmount",
+          },
+        },
+      },
+    ]),
+
+    // PREVIOUS COLLECTED
+    PaymentTransactionModel.aggregate([
+      {
+        $match: previousPaymentMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]),
+
+    // PREVIOUS REFUNDED
+    RefundTransactionModel.aggregate([
+      {
+        $match: previousRefundMatch,
       },
       {
         $group: {
@@ -734,62 +875,183 @@ export const getRevenueDashboardSummary = async () => {
     ]),
   ]);
 
-  const totalRevenue = revenueAgg[0]?.total || 0;
 
-  const totalCollected = collectedAgg[0]?.total || 0;
+  const totalRevenue =
+    currentRevenueAgg[0]?.total || 0;
 
-  const totalRefunded = refundAgg[0]?.total || 0;
+  const totalCollected =
+    currentCollectedAgg[0]?.total || 0;
+
+  const totalRefunded =
+    currentRefundAgg[0]?.total || 0;
+
+
+
+  const previousRevenue =
+    previousRevenueAgg[0]?.total || 0;
+
+  const previousCollected =
+    previousCollectedAgg[0]?.total || 0;
+
+  const previousRefunded =
+    previousRefundAgg[0]?.total || 0;
+
 
   const totalPending = Math.max(
     0,
     totalRevenue - totalCollected,
   );
 
+  const previousPending = Math.max(
+    0,
+    previousRevenue - previousCollected,
+  );
+
+
   const totalCollectionRate =
     totalRevenue > 0
       ? (totalCollected / totalRevenue) * 100
       : 0;
+
+  const previousCollectionRate =
+    previousRevenue > 0
+      ? (previousCollected / previousRevenue) * 100
+      : 0;
+
 
   const totalOverdueRate =
     totalRevenue > 0
       ? (totalPending / totalRevenue) * 100
       : 0;
 
+  const previousOverdueRate =
+    previousRevenue > 0
+      ? (previousPending / previousRevenue) * 100
+      : 0;
+
+
+
   const netRevenue = Math.max(
     0,
     totalCollected - totalRefunded,
   );
 
+  const previousNetRevenue = Math.max(
+    0,
+    previousCollected - previousRefunded,
+  );
+
+
+  const revenueComparison =
+    calculatePercentageChange(
+      totalRevenue,
+      previousRevenue,
+    );
+
+  const collectedComparison =
+    calculatePercentageChange(
+      totalCollected,
+      previousCollected,
+    );
+
+  const pendingComparison =
+    calculatePercentageChange(
+      totalPending,
+      previousPending,
+    );
+
+  const refundedComparison =
+    calculatePercentageChange(
+      totalRefunded,
+      previousRefunded,
+    );
+
+  const netRevenueComparison =
+    calculatePercentageChange(
+      netRevenue,
+      previousNetRevenue,
+    );
+
+  // Rate comparisons
+
+  const collectionRateComparison =
+    calculatePercentageChange(
+      totalCollectionRate,
+      previousCollectionRate,
+    );
+
+  const overdueRateComparison =
+    calculatePercentageChange(
+      totalOverdueRate,
+      previousOverdueRate,
+    );
+
+
   return {
     cards: {
       totalRevenue: {
-        value: Number(totalRevenue.toFixed(2)),
+        value: Number(
+          totalRevenue.toFixed(2),
+        ),
+        comparison: Number(
+          revenueComparison.toFixed(2),
+        ),
       },
 
       collected: {
-        value: Number(totalCollected.toFixed(2)),
+        value: Number(
+          totalCollected.toFixed(2),
+        ),
+        comparison: Number(
+          collectedComparison.toFixed(2),
+        ),
       },
 
       pending: {
-        value: Number(totalPending.toFixed(2)),
+        value: Number(
+          totalPending.toFixed(2),
+        ),
+        comparison: Number(
+          pendingComparison.toFixed(2),
+        ),
       },
 
       refunded: {
-        value: Number(totalRefunded.toFixed(2)),
+        value: Number(
+          totalRefunded.toFixed(2),
+        ),
+        comparison: Number(
+          refundedComparison.toFixed(2),
+        ),
       },
     },
 
     summary: {
       totalCollectionRate: {
-        value: Number(totalCollectionRate.toFixed(2)),
+        value: Number(
+          totalCollectionRate.toFixed(2),
+        ),
+        comparison: Number(
+          collectionRateComparison.toFixed(2),
+        ),
       },
 
       totalOverdueRate: {
-        value: Number(totalOverdueRate.toFixed(2)),
+        value: Number(
+          totalOverdueRate.toFixed(2),
+        ),
+        comparison: Number(
+          overdueRateComparison.toFixed(2),
+        ),
       },
 
       netRevenue: {
-        value: Number(netRevenue.toFixed(2)),
+        value: Number(
+          netRevenue.toFixed(2),
+        ),
+        comparison: Number(
+          netRevenueComparison.toFixed(2),
+        ),
       },
     },
   };
