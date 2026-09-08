@@ -65,7 +65,7 @@ export const getActiveTenantSubscriptionRecord = async (
       $lookup: {
         from: "tenants",
         localField: "tenantId",
-        foreignField: "_id",
+        foreignField: "tenantCode",
         as: "tenant",
       },
     },
@@ -73,6 +73,11 @@ export const getActiveTenantSubscriptionRecord = async (
       $unwind: {
         path: "$tenant",
         preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        tenantName: "$tenant.tenantName",
       },
     },
     {
@@ -149,7 +154,7 @@ export const getActiveTenantSubscriptionRecord = async (
   );
   const tenants = result[0]?.items || [];
   const totalRecords = result[0]?.totalCount?.[0]?.count || 0;
-
+ 
   return {
     total: totalRecords,
     tenants,
@@ -445,7 +450,7 @@ export const getTenantSubscriptionActivities = async () => {
         $lookup: {
           from: "tenants",
           localField: "tenantId",
-          foreignField: "_id",
+          foreignField: "tenantCode",
           as: "tenant",
         },
       },
@@ -512,7 +517,7 @@ export const getTenantSubscriptionActivities = async () => {
               $lookup: {
                 from: "tenants",
                 localField: "tenantId",
-                foreignField: "_id",
+                foreignField: "tenantCode",
                 as: "tenant",
               },
             },
@@ -582,7 +587,7 @@ export const getTenantSubscriptionActivities = async () => {
               $lookup: {
                 from: "tenants",
                 localField: "tenantId",
-                foreignField: "_id",
+                foreignField: "tenantCode",
                 as: "tenant",
               },
             },
