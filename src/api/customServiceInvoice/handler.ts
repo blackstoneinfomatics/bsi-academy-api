@@ -4,7 +4,7 @@ import { CustomServiceInvoiceValidation } from "../../models/finance_invoice";
 
 
 import { customServiceInvoiceMessages } from "../../config/messages";
-import { createCustomServiceInvoice, getCustomServiceInvoiceById } from "../../operations/createinvoice";
+import { createCustomServiceInvoice, getCustomServiceInvoiceById, getCustomServiceInvoiceRecord } from "../../operations/createinvoice";
 
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
@@ -27,7 +27,6 @@ export const sendCustomServiceInvoiceValidation = z.object({
     paymentLink: z.string().url("Valid payment link is required").optional(),
   }).default({}),
 });
-
 
 
 export default {
@@ -104,7 +103,24 @@ export default {
     }
   },
 
- 
+ getCustomServiceInvoices: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const result = await getCustomServiceInvoiceRecord();
 
- 
+      return h
+        .response({
+          success: true,
+          message: customServiceInvoiceMessages.FETCH_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 };

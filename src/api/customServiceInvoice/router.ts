@@ -16,6 +16,20 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+  {
+      method: "GET",
+      path: "/custom-service-invoices",
+      options: {
+        handler: handler.getCustomServiceInvoices,
+        description: customServiceInvoiceMessages.GET_ALL,
+        tags: ["api", "custom-service-invoice"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
     {
       method: "GET",
       path: "/custom-service-invoices/{invoiceId}",

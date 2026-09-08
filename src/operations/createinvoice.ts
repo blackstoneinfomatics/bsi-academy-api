@@ -12,12 +12,34 @@ import { PaymentType } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
 import { customServiceInvoiceMessages } from "../config/messages";
 
+
+export interface GetPlansQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?:
+    | "createdDate"
+    | "updatedDate"
+    | "planName"
+    | "monthlyPrice"
+    | "yearlyPrice"
+    | "studentLimit";
+  sortOrder?: "asc" | "desc";
+}
+
+
+
 const calculateItemAmounts = (item: InvoiceItemInput) => {
   const taxAmount = Number(((item.unitPrice * item.taxRate) / 100).toFixed(2));
   const amount = Number((item.unitPrice + taxAmount).toFixed(2));
 
   return { ...item, taxAmount, amount };
 };
+
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const calculateInvoiceTotals = (
   items: ReturnType<typeof calculateItemAmounts>[],
@@ -350,5 +372,78 @@ export const sendCustomServiceInvoice = async (
     invoiceNumber: invoice.invoiceNumber,
     recipient: tenantEmail,
     messageId: mailResponse?.messageId ?? null,
+  };
+};
+
+
+
+
+export const getCustomServiceInvoiceRecord = async (query: GetPlansQuery = {}) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    status,
+    sortBy = "createdDate",
+    sortOrder = "desc",
+  } = query;
+
+  const normalizedPage = Number(page);
+  const normalizedLimit = Number(limit);
+  const searchTerm = search?.trim();
+
+  const filter: Record<string, unknown> = {};
+
+  if (status) {
+    filter.status = status;
+  }
+
+  if (searchTerm) {
+    const escapedSearch = escapeRegex(searchTerm);
+
+    filter.$or = [
+      {
+        planId: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+      {
+        planName: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+      {
+        planDescription: {
+          $regex: escapedSearch,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  const [items, totalRecords] = await Promise.all([
+    CustomServiceInvoiceModel.find(filter)
+      .sort({
+        [sortBy]: sortOrder === "asc" ? 1 : -1,
+      })
+      .skip((normalizedPage - 1) * normalizedLimit)
+      .limit(normalizedLimit)
+      .lean()
+      .exec(),
+    CustomServiceInvoiceModel.countDocuments(filter),
+  ]);
+
+  return {
+    items,
+    pagination: {
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / normalizedLimit),
+      hasNextPage: normalizedPage * normalizedLimit < totalRecords,
+      hasPreviousPage: normalizedPage > 1,
+    },
   };
 };
