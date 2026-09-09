@@ -19,6 +19,18 @@ const register = async (server: Server): Promise<void> => {
   },
 },
 
+{
+  method: "GET",
+  path: "/analytics/tenants-growth",
+  options: {
+    handler: handler.getTenantsGrowthCount,
+    description: analyticsMessages.ANALYTICS_GROWTH_CARD,
+    tags: ["api", "analytics"],
+      // auth: {
+        //   strategies: ["jwt"],
+        // },
+  },
+},
     
   ];
   server.route(routes);

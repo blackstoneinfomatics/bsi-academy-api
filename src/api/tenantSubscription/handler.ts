@@ -199,7 +199,7 @@ async getTenantSubscriptionByTenantId(req: Request, h: ResponseToolkit) {
       return h
         .response({
           success: false,
-          message: "Tenant subscription not found",
+          message: tenantSubscriptionMessages.TENANTID_FAILED,
         })
         .code(404);
     }
@@ -207,7 +207,7 @@ async getTenantSubscriptionByTenantId(req: Request, h: ResponseToolkit) {
     return h
       .response({
         success: true,
-        message: "Tenant subscription fetched successfully",
+        message: tenantSubscriptionMessages.TENANTID_SUCCESS,
         data: result,
       })
       .code(200);
@@ -218,7 +218,7 @@ async getTenantSubscriptionByTenantId(req: Request, h: ResponseToolkit) {
       .response({
         success: false,
         message:
-          error?.message || "Failed to fetch tenant subscription",
+          error?.message || tenantSubscriptionMessages.INTERNAL_SERVER_ERROR,
       })
       .code(500);
   }

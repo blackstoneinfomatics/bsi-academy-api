@@ -214,7 +214,7 @@ export default {
     return h
       .response({
         success: true,
-        message: "Subscription invoices fetched successfully",
+        message: subscriptionInvoiceMessages.INVOICE_FETCHED_SUCCESS,
         data: result,
       })
       .code(200);
@@ -229,7 +229,7 @@ export default {
         success: false,
         message:
           error?.message ||
-          "Failed to fetch subscription invoices",
+          subscriptionInvoiceMessages.SERVER_NOT_FOUND,
       })
       .code(500);
   }

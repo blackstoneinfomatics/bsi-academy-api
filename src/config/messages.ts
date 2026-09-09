@@ -626,6 +626,7 @@ export const subscriptionInvoiceMessages = {
   UPDATE: "Update Subscription Invoice",
   DELETE: "Delete Subscription Invoice",
   GET_DASHBOARD_COUNT: "Get Subscription Invoice Dashboard Count",
+  GET_TENANTID: "Get subscription invoices by tenant ID",
 
   // Success Responses
   CREATE_SUCCESS: "Subscription Invoice created successfully.",
@@ -635,6 +636,8 @@ export const subscriptionInvoiceMessages = {
   FETCH_ALL_SUCCESS: "Subscription Invoices fetched successfully.",
   FETCH_DASHBOARD_COUNT_SUCCESS:
     "Subscription Invoice dashboard statistics fetched successfully.",
+  INVOICE_FETCHED_SUCCESS: "Subscription invoices fetched successfully",
+
 
   // Errors
   TENANT_NOT_FOUND: "Tenant not found.",
@@ -648,6 +651,7 @@ export const subscriptionInvoiceMessages = {
   DUPLICATE_INVOICE: "Invoice number already exists.",
   INVALID_ATTACHMENT_URL: "Invalid Attachment URL.",
   BILLING_PERIOD_NOT_FOUND: "Billing Period not found.",
+  SERVER_NOT_FOUND: "Failed to fetch subscription invoices"
 };
 
 export const customServiceInvoiceMessages = {
@@ -765,6 +769,12 @@ export const tenantSubscriptionMessages = {
     "Tenant subscription activities fetched successfully.",
   GROWTH_ANALYTICS_FETCH_SUCCESS:
     "Tenant subscription growth analytics fetched successfully.",
+  GET_BY_TENANTID : "Get tenant subscription by tenant ID",
+  TENANTID_SUCCESS: "Tenant subscription fetched successfully",
+  GET_DASHBOARD: "Get tenant subscription dashboard",
+  GET_GROWTH_ANALYSTICS: "Get tenant subscription growth analytics",
+  GET_ANALYTICS_CARD: "Get tenant subscription analytics card",
+  GET_ACTIVITIES: "Get today's tenant subscription activities",
 
   // Errors
   VALIDATION_FAILED: "Validation Failed",
@@ -775,6 +785,9 @@ export const tenantSubscriptionMessages = {
     "Failed to fetch tenant subscription activities.",
   GROWTH_ANALYTICS_FETCH_FAILED:
     "Failed to fetch tenant subscription growth analytics.",
+  TENANTID_FAILED: "Tenant subscription not found",
+  INTERNAL_SERVER_ERROR: "Failed to fetch tenant subscription",
+
 };
 
 export const refundMessages = {
@@ -926,5 +939,7 @@ export const portalMessages = {
 export const analyticsMessages = {
   GET_CARD_COUNT_SUCCESS : "Get tenant, subscription and revenue dashboard cards",
   FETCH_CARD_COUNT_SUCCESS : "Dashboard cards fetched successfully",
+  ANALYTICS_GROWTH_CARD : "Get tenants growth based on weekly, monthly and yearly period",
+  GROWTH_CARD_SUCCESS :  "Tenants growth fetched successfully",
 };
 

@@ -62,7 +62,7 @@ const register = async (server: Server): Promise<void> => {
       path: "/subscription-invoices/tenant/{tenantId}",
       options: {
         handler: handler.getSubscriptionInvoiceByTenantId,
-        description: "Get subscription invoices by tenant ID",
+        description: subscriptionInvoiceMessages.GET_TENANTID,
         tags: ["api", "subscription-invoice"],
         // auth: {
         //   strategies: ["jwt"],

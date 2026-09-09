@@ -275,4 +275,148 @@ export const getDashboardCards = async () => {
       trend: getTrend(revenuePercentage),
     },
   };
+}; 
+
+
+export const getTenantsGrowth = async (
+  period: string = "monthly"
+) => {
+  const currentDate = new Date();
+
+  let startDate: Date;
+  let endDate: Date;
+  let groupFormat: string;
+
+  if (period === "weekly") {
+    const day = currentDate.getDay();
+
+    const difference =
+      day === 0 ? 6 : day - 1;
+
+    startDate = new Date(currentDate);
+
+    startDate.setDate(
+      currentDate.getDate() - difference
+    );
+
+    startDate.setHours(0, 0, 0, 0);
+
+    endDate = new Date(startDate);
+
+    endDate.setDate(
+      startDate.getDate() + 7
+    );
+
+    groupFormat = "%Y-%m-%d";
+  }
+
+  else if (period === "monthly") {
+    startDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+
+    endDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      1
+    );
+
+    groupFormat = "%Y-%m-%d";
+  }
+
+  else if (period === "yearly") {
+    startDate = new Date(
+      currentDate.getFullYear(),
+      0,
+      1
+    );
+
+    endDate = new Date(
+      currentDate.getFullYear() + 1,
+      0,
+      1
+    );
+
+    groupFormat = "%Y-%m";
+  }
+
+  else {
+    const error = new Error(
+      "Period must be weekly, monthly or yearly"
+    );
+
+    (error as any).statusCode = 400;
+
+    throw error;
+  }
+
+  const result = await Tenant.aggregate([
+    {
+      $match: {
+        tenantCode: {
+          $exists: true,
+          $ne: null,
+        },
+
+        createdDate: {
+          $gte: startDate,
+          $lt: endDate,
+        },
+
+        deletedAt: null,
+      },
+    },
+
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: groupFormat,
+            date: "$createdDate",
+          },
+        },
+
+        totalTenants: {
+          $sum: 1,
+        },
+
+        activeTenants: {
+          $sum: {
+            $cond: [
+              {
+                $eq: [
+                  "$status",
+                  "ACTIVE",
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+
+    {
+      $sort: {
+        _id: 1,
+      },
+    },
+  ]);
+
+  return {
+    period,
+
+    startDate,
+
+    endDate,
+
+    data: result.map((item) => ({
+      date: item._id,
+      totalTenants: item.totalTenants,
+      activeTenants: item.activeTenants,
+    })),
+  };
 };
