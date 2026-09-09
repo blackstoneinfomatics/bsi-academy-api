@@ -49,7 +49,7 @@ import revenueAPI from "../api/revenue/router";
 import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
 //import featuresAPI from "../api/features/router";
 import portalModuleAPI from "../api/portalModule/router";
-
+import PortalAPI from  "../api/portal/router";
 
 export const appPlugins = [
   {
@@ -203,5 +203,8 @@ export const appPlugins = [
   // },
   {
     plugin: portalModuleAPI,
+  },
+  {
+    plugin:PortalAPI
   }
 ];

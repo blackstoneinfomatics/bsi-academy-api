@@ -12,6 +12,9 @@ import CustomEnumerator, {
   SubscriptionInvoiceStatus,
   SubscriptionStatus,
   SubscriptionTrialStatus,
+  RoleType,
+  PortalType,
+  PortalStatus,
 } from "../src/shared/enum";
 
 enum Status {
@@ -2838,4 +2841,43 @@ export interface IPortalModule extends IParentModule, Document {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
+}
+
+export interface IPortal extends Document {
+
+  portalId: string;
+
+  portalName: string;
+  
+  portalType: PortalType;
+
+  roleType: RoleType;
+
+  description?: string;
+
+  status: PortalStatus;
+
+  updatedBy?: string | null;
+
+  deletedAt?: Date | null;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  createdBy: string;
+}
+
+export interface Portal {
+
+  portalName: string;
+  
+  portalType: PortalType;
+
+  roleType: RoleType;
+
+  description?: string;
+
+  status: PortalStatus;
+
 }

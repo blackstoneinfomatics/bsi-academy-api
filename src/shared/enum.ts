@@ -140,6 +140,25 @@ export enum FilterOptions {
   YEARLY = "year",
 }
 
+export enum PortalType {
+  DEFAULT = "DEFAULT",
+  CUSTOM = "CUSTOM",
+}
+
+export enum RoleType {
+  ACADEMIC = "ACADEMIC",
+  ADMINISTRATION = "ADMINISTRATION",
+  FINANCE = "FINANCE",
+  TRANSPORT = "TRANSPORT",
+  HOSTEL = "HOSTEL",
+}
+
+export enum PortalStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  ARCHIVED = "ARCHIVED",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

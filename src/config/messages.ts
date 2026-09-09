@@ -879,3 +879,45 @@ export const portalModuleMessages = {
   INVALID_FEATURE_CARD_ID: "Invalid Feature Card Id",
 };
 
+export const portalMessages = {
+  // 🔹 Actions
+  CREATE_PORTAL: "Create Portal",
+  UPDATE_PORTAL: "Update Portal",
+  GET_PORTALS: "Get Portals",
+  GET_PORTAL_BY_ID: "Get Portal By Id",
+  DELETE_PORTAL: "Delete Portal",
+  UPDATE_PORTAL_STATUS: "Update Portal Status",
+  DASBOARD_CARD_COUNT : "Portal dashboard card count",
+
+  // 🔹 Success Responses
+  CREATE_PORTAL_SUCCESS: "Portal created successfully.",
+  UPDATE_PORTAL_SUCCESS: "Portal updated successfully.",
+  GET_PORTALS_SUCCESS: "Portal list fetched successfully.",
+  GET_PORTAL_BY_ID_SUCCESS: "Portal details fetched successfully.",
+  DELETE_PORTAL_SUCCESS: "Portal deleted successfully.",
+  PORTAL_STATUS_UPDATED: "Portal status updated successfully.",
+  DASBOARD_CARD_COUNT_SUCCESS : "Portal dashboard card count fetched successfully",
+
+
+  // 🔹 Errors
+  PORTAL_NOT_FOUND: "Portal not found.",
+  PORTAL_ALREADY_EXISTS: "Portal already exists.",
+  PORTAL_CREATION_FAILED: "Failed to create portal.",
+  PORTAL_UPDATE_FAILED: "Failed to update portal.",
+  PORTAL_FETCH_FAILED: "Failed to fetch portals.",
+  PORTAL_DELETE_FAILED: "Failed to delete portal.",
+
+  INVALID_PORTAL_ID: "Invalid Portal Id",
+  INVALID_PORTAL_TYPE: "Invalid portal type",
+  INVALID_ROLE_TYPE: "Invalid role type",
+  INVALID_STATUS: "Invalid portal status",
+  INVALID_REQUEST: "Invalid portal request",
+
+  // 🔹 Validation & Auth
+  VALIDATION_FAILED: "Validation Failed",
+  UNAUTHORIZED: "Unauthorized",
+
+  // 🔹 Generic
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+
