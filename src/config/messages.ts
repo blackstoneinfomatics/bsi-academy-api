@@ -30,6 +30,8 @@ export const userMessages: Record<string, string> = Object.freeze({
   CREATE: "Create a new user",
   UPDATE: "Update a existing user",
   DELETE: "Delete user by userId",
+  DASHBOARD: "Get plan,Tenants,Revenue count",
+  ANALYTICS_COUNT: "Get plan revenue analytics by period",
   BULK_DELETE: "Bulk Delete users by userIds",
   USER_NOT_FOUND: "Your account is not found or active, contact admin",
   ENCRYPT_PASSWORD_ERROR: "Password must be an encrypted value",
@@ -919,5 +921,10 @@ export const portalMessages = {
 
   // 🔹 Generic
   INTERNAL_SERVER_ERROR: "Internal Server Error",
+}; 
+
+export const analyticsMessages = {
+  GET_CARD_COUNT_SUCCESS : "Get tenant, subscription and revenue dashboard cards",
+  FETCH_CARD_COUNT_SUCCESS : "Dashboard cards fetched successfully",
 };
 

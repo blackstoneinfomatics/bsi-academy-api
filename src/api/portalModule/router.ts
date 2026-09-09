@@ -12,6 +12,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createParentModule,
         description: "Create parent module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -21,6 +24,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.getParentModules,
         description: "Get parent modules",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -30,6 +36,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateParentModule,
         description: "Update parent module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -39,6 +48,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateParentModuleAccess,
         description: "Enable/disable parent module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
 
@@ -50,6 +62,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createChildModule,
         description: "Create child module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -59,6 +74,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.getChildModules,
         description: "Get child modules",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -68,6 +86,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateChildModule,
         description: "Update child module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -77,6 +98,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateChildModuleAccess,
         description: "Enable/disable child module",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
 
@@ -88,6 +112,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.createFeature,
         description: "Create feature",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -97,6 +124,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.getFeatures,
         description: "Get features",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -106,6 +136,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateFeature,
         description: "Update feature",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
     {
@@ -115,6 +148,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.updateFeatureAccess,
         description: "Enable/disable feature",
         tags: ["api", "module"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
       },
     },
 

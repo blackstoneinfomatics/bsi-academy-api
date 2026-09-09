@@ -2808,6 +2808,7 @@ export interface IParentModule {
   portal: string;
   parentModuleId: string;
   parentModuleName: string;
+  order?: number;
   description?: string | null;
   status: ModuleStatus;
   isEnabled: boolean;

@@ -68,10 +68,13 @@ export const createParentModule = async (
     throw new Error("Parent module already exists");
   }
 
+  const order = payload.order ?? (await getNextParentOrder());
+
   const parentModulePayload: IParentModule = {
     portal: payload.portal,
     parentModuleId: generateId("PM"),
     parentModuleName: payload.parentModuleName,
+    order,
     description: payload.description ?? null,
     status: payload.status,
     isEnabled: payload.isEnabled,
@@ -88,8 +91,16 @@ export const createParentModule = async (
   return parentModule;
 };
 
+const getNextParentOrder = async (): Promise<number> => {
+  const lastParent = await PortalModule.findOne({ deletedAt: null })
+    .sort({ order: -1, createdAt: -1 })
+    .lean();
+
+  return lastParent && typeof lastParent.order === "number" ? lastParent.order + 1 : 1;
+};
+
 export const getParentModules = async (): Promise<IPortalModule[]> => {
-  return PortalModule.find({ deletedAt: null }).sort({ createdAt: -1 });
+  return PortalModule.find({ deletedAt: null }).sort({ order: 1, createdAt: -1 });
 };
 
 export const updateParentModule = async (
@@ -100,6 +111,9 @@ export const updateParentModule = async (
 
   if (payload.parentModuleName !== undefined) {
     parent.parentModuleName = payload.parentModuleName;
+  }
+  if (payload.order !== undefined) {
+    parent.order = payload.order;
   }
   if (payload.description !== undefined) {
     parent.description = payload.description;

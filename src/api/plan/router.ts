@@ -171,7 +171,7 @@ const register = async (server: Server): Promise<void> => {
       options: {
         handler: handler.getPlanAnalytics,
 
-        description: "Get plan revenue analytics by period",
+        description: userMessages.ANALYTICS_COUNT,
 
         tags: ["api", "plans"],
 

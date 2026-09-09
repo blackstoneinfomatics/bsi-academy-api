@@ -21,6 +21,12 @@ const portalModuleSchema = new Schema<IPortalModule>(
       required: true,
       trim: true,
     },
+    order: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 1,
+    },
     description: {
       type: String,
       default: null,
@@ -69,6 +75,7 @@ const portalModuleSchema = new Schema<IPortalModule>(
 export const createParentModuleValidation = z.object({
   portal: z.string().min(1, "Portal is required"),
   parentModuleName: z.string().min(1, "Parent module name is required"),
+  order: z.number().int().min(1).optional(),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
@@ -77,6 +84,7 @@ export const createParentModuleValidation = z.object({
 
 export const updateParentModuleValidation = z.object({
   parentModuleName: z.string().min(1, "Parent module name is required").optional(),
+  order: z.number().int().min(1).optional(),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),
