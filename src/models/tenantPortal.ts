@@ -85,7 +85,7 @@ export const TenantPortalSchema = new Schema<ITenantPortal>(
     },
   },
   {
-    collection: "tenant_portal",
+    collection: "tenantPortal",
     timestamps: true,
   }
 );
