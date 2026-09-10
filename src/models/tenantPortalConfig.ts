@@ -41,7 +41,7 @@ export const TenantPortalConfigSchema = new Schema(
     },
   },
   {
-    collection: "tenant_portal_config",
+    collection: "tenantPortalConfig",
     timestamps: true,
   }
 );
