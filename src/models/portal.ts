@@ -5,19 +5,18 @@ import { z } from "zod";
 
 export const PortalSchema = new Schema<IPortal>(
   {
-    portalId: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      index: true,
-    },
-
+  
     portalName: {
       type: String,
       required: true,
       trim: true,
       index: true,
+    },
+
+    portalCode:{
+      type:String,
+      required:true,
+      trim:true
     },
 
     portalType: {
@@ -76,6 +75,8 @@ PortalSchema.index({ portalType: 1, status: 1 });
 export const PortalBaseValidation = z.object({
 
   portalName: z.string().trim().min(1, "Portal name is required"),
+
+  portalCode:z.string().trim().min(1,"Portal code is required"),
 
   portalType: z
     .enum([PortalType.DEFAULT, PortalType.CUSTOM])

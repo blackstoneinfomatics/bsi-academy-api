@@ -972,6 +972,17 @@ export const portalMessages = {
   // 🔹 Validation & Auth
   VALIDATION_FAILED: "Validation Failed",
   UNAUTHORIZED: "Unauthorized",
+  SUBSCRIPTION_NOT_FOUND: "Subscription not found.",
+  SUBSCRIPTION_NOT_ACTIVE: "Subscription is not active.",
+
+  TENANT_PORTAL_ALREADY_EXISTS: "Portal already exists for this tenant.",
+  
+   // 🔹 Validation Messages
+  TENANT_ID_REQUIRED: "TenantId is required",
+  SUBSCRIPTION_ID_REQUIRED: "SubscriptionId is required",
+  PORTAL_NAME_REQUIRED: "Portal name is required",
+  ROLE_TYPE_REQUIRED: "Role type is required",
+  CREATED_BY_REQUIRED: "CreatedBy is required",
 
   // 🔹 Generic
   INTERNAL_SERVER_ERROR: "Internal Server Error",

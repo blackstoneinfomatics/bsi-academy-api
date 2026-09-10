@@ -80,7 +80,7 @@ const register = async (server: Server): Promise<void> => {
     },
     {
      method:"PUT",
-     path:"/portal/tennat/{tenantId}/{portalId}",
+     path:"/portal/tenant/{tenantPortalId}/status",
      handler:handler.updateTenantPortal,
       options:{
         description:portalMessages.UPDATE_PORTAL,

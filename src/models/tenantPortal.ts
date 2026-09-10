@@ -1,6 +1,6 @@
 import mongoose, { Schema, Types } from "mongoose";
 import { ITenantPortal } from "../../types/models.types";
-import { PortalStatus, PortalType } from "../shared/enum";
+import { PortalStatus, PortalType, RoleType } from "../shared/enum";
 import { z } from "zod";
 
 export const TenantPortalSchema = new Schema<ITenantPortal>(
@@ -48,6 +48,12 @@ export const TenantPortalSchema = new Schema<ITenantPortal>(
       default: 0,
       min: 0,
     },
+    roleType: {
+      type: String,
+      enum: Object.values(RoleType),
+      required: true,
+      index: true,
+    },
 
     status: {
       type: String,
@@ -87,33 +93,31 @@ export const TenantPortalSchema = new Schema<ITenantPortal>(
   {
     collection: "tenantPortal",
     timestamps: true,
-  }
+  },
 );
 
 TenantPortalSchema.index({ tenantId: 1, portalId: 1 }, { unique: true });
 TenantPortalSchema.index({ status: 1, isEnabled: 1 });
 
-
 export default mongoose.model<ITenantPortal>(
   "tenantPortal",
-  TenantPortalSchema
+  TenantPortalSchema,
 );
 
-const objectId = z
-  .string()
-  .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
 export const TenantPortalBaseValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant ID is required"),
 
   subscriptionId: objectId,
 
-  portalId: objectId,
+  portalId: objectId.optional(),
 
-  portalCode: z.string().trim().min(1, "Portal code is required"),
+  portalCode: z.string().trim().min(1, "Portal code is required").optional(),
 
   portalName: z.string().trim().min(1, "Portal name is required"),
-
+  
+  roleType : z.enum([RoleType.ACADEMIC,RoleType.ADMINISTRATION,RoleType.FINANCE,RoleType.HOSTEL,RoleType.TRANSPORT]).default(RoleType.ACADEMIC),
   portalType: z
     .enum([PortalType.DEFAULT, PortalType.CUSTOM])
     .default(PortalType.DEFAULT),
@@ -121,11 +125,7 @@ export const TenantPortalBaseValidation = z.object({
   userLimit: z.number().min(0).default(0),
 
   status: z
-    .enum([
-      PortalStatus.ACTIVE,
-      PortalStatus.INACTIVE,
-      PortalStatus.ARCHIVED,
-    ])
+    .enum([PortalStatus.ACTIVE, PortalStatus.INACTIVE, PortalStatus.ARCHIVED])
     .default(PortalStatus.ACTIVE),
 
   isEnabled: z.boolean().default(true),

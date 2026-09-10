@@ -2846,11 +2846,11 @@ export interface IPortalModule extends IParentModule, Document {
 
 export interface IPortal extends Document {
 
-  portalId: string;
-
   portalName: string;
   
   portalType: PortalType;
+
+  portalCode:string;
 
   roleType: RoleType;
 
@@ -2875,6 +2875,8 @@ export interface Portal {
   
   portalType: PortalType;
 
+  portalCode:string;
+
   roleType: RoleType;
 
   description?: string;
@@ -2893,6 +2895,7 @@ export interface ITenantPortal extends Document {
   portalType:PortalType;
 
   userLimit: number;
+  roleType:RoleType;
 
   status: string;
   isEnabled: boolean;

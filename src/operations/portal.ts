@@ -3,6 +3,9 @@ import { portalMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 import { PortalStatus, PortalType } from "../shared/enum";
 import PortalModal from "../models/portal";
+import tenantPortal from "../models/tenantPortal";
+import tenantsubscription from "../models/tenantsubscription";
+import mongoose from "mongoose";
 
 export const createPortalService = async (payload: Portal) => {
   try {
@@ -31,9 +34,9 @@ export const createPortalService = async (payload: Portal) => {
     const portalId = `POR-${String(count + 1).padStart(3, "0")}`;
 
     const newPortal = new PortalModal({
-      portalId,
       portalName: payload.portalName,
       portalType: payload.portalType || PortalType.DEFAULT,
+      portalcode: portalId,
       roleType: payload.roleType,
       description: payload.description || "",
       status: PortalStatus.ACTIVE,
@@ -150,5 +153,4 @@ export const getPortalDashboardCountService = async () => {
     throw error;
   }
 };
-
 
