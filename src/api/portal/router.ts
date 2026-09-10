@@ -42,6 +42,54 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+    {
+      method: "POST",
+      path:"/portal/tenant",
+      handler:handler.createPortalToTenant,
+      options:{
+        description:portalMessages.CREATE_PORTAL_TO_TENANT,
+         tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      }
+    },
+    {
+      method:"GET",
+      path:"/portal/tenant/{tenantId}",
+      handler:handler.getAllTenantPortal,
+      options:{
+        description:portalMessages.GET_TENANT_PORTALS,
+         tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      }
+    },
+    {
+      method:"GET",
+      path:"/portal/tenant/dashboard",
+      handler:handler.getTenantPortalDashboardHandler,
+      options:{
+        description:portalMessages.DASBOARD_CARD_COUNT,
+         tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      }
+    },
+    {
+     method:"PUT",
+     path:"/portal/tennat/{tenantId}/{portalId}",
+     handler:handler.updateTenantPortal,
+      options:{
+        description:portalMessages.UPDATE_PORTAL,
+         tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      }
+    }
   ];
   server.route(routes);
 };

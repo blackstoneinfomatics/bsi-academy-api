@@ -2882,3 +2882,68 @@ export interface Portal {
   status: PortalStatus;
 
 }
+
+export interface ITenantPortal extends Document {
+  tenantId: string;
+  subscriptionId: Types.ObjectId;
+
+  portalId:Types.ObjectId;
+  portalCode: string;
+  portalName: string;
+  portalType:PortalType;
+
+  userLimit: number;
+
+  status: string;
+  isEnabled: boolean;
+
+  description?: string;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+
+export interface IFeature {
+  featureId: string;
+  featureName: string;
+  featureStatus: PortalStatus;
+  isEnabled: boolean;
+  featuretype:PortalType
+}
+
+export interface IChildModule {
+  childModuleId: string;
+  childModuleName: string;
+  childModuleStatus: PortalStatus;
+  childModuleType:PortalType;
+  isEnabled: boolean;
+  features: IFeature[];
+}
+
+export interface IModule {
+  moduleId: string;
+  moduleName: string;
+
+  orderNo: number; 
+
+  moduleStatus: PortalStatus;
+  moduleType:PortalType;
+  isEnabled: boolean;
+
+  features: IFeature[];     
+  children: IChildModule[]; 
+}
+
+export interface ITenantPortalConfig extends Document {
+  tenantId: string;
+  portalId: Types.ObjectId;
+  tenantPortalId: Types.ObjectId;
+
+  modules: IModule[];
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}

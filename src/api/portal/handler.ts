@@ -79,6 +79,48 @@ export default {
     }
   },
 
+  createPortalToTenant : async(request: Request, h: ResponseToolkit) => {
+     try{
+      const result="";
+      return h
+        .response({
+          success: true,
+          message: portalMessages.CREATE_PORTAL_TO_TENANT_SUCCESS,
+          data: result,
+        })
+        .code(200);
+     }catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  getAllTenantPortal : async(request: Request, h: ResponseToolkit) =>{
+    try{
+        const result="";
+      return h
+        .response({
+          success: true,
+          message: portalMessages.GET_TENANT_PORTALS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+     }catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
   getAllPortal: async (request: Request, h: ResponseToolkit) => {
     try {
       const parsed = getAllPortalValidation.safeParse({
@@ -119,7 +161,7 @@ export default {
       return h
         .response({
           success: true,
-          message: "Portal dashboard statistics fetched successfully.",
+          message: portalMessages.DASBOARD_CARD_COUNT_SUCCESS,
           data: result,
         })
         .code(200);
@@ -133,4 +175,51 @@ export default {
         .code(err.statusCode || 500);
     }
   },
+
+  getTenantPortalDashboardHandler: async (
+    request: Request,
+    h: ResponseToolkit,
+  ) => {
+    try {
+     const result="";
+      return h
+        .response({
+          success: true,
+          message: portalMessages.DASBOARD_CARD_COUNT_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  updateTenantPortal: async(request: Request, h: ResponseToolkit)=>{
+     try{
+      const result="";
+      return h
+        .response({
+          success: true,
+          message: portalMessages.UPDATE_PORTAL_SUCCESS,
+          data: result,
+        })
+        .code(200);
+
+     }catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  } 
+
 };

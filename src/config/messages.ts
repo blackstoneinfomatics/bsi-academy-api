@@ -903,6 +903,11 @@ export const portalMessages = {
   DELETE_PORTAL: "Delete Portal",
   UPDATE_PORTAL_STATUS: "Update Portal Status",
   DASBOARD_CARD_COUNT : "Portal dashboard card count",
+   CREATE_PORTAL_TO_TENANT: "Create Portal To Tenant",
+  UPDATE_TENANT_PORTAL: "Update Tenant Portal",
+  ENABLE_TENANT_PORTAL: "Enable Tenant Portal",
+  DISABLE_TENANT_PORTAL: "Disable Tenant Portal",
+  GET_TENANT_PORTALS: "Get Tenant Portals",
 
   // 🔹 Success Responses
   CREATE_PORTAL_SUCCESS: "Portal created successfully.",
@@ -912,7 +917,20 @@ export const portalMessages = {
   DELETE_PORTAL_SUCCESS: "Portal deleted successfully.",
   PORTAL_STATUS_UPDATED: "Portal status updated successfully.",
   DASBOARD_CARD_COUNT_SUCCESS : "Portal dashboard card count fetched successfully",
+ CREATE_PORTAL_TO_TENANT_SUCCESS:
+    "Portal assigned to tenant successfully.",
 
+  UPDATE_TENANT_PORTAL_SUCCESS:
+    "Tenant portal updated successfully.",
+
+  ENABLE_TENANT_PORTAL_SUCCESS:
+    "Tenant portal enabled successfully.",
+
+  DISABLE_TENANT_PORTAL_SUCCESS:
+    "Tenant portal disabled successfully.",
+
+  GET_TENANT_PORTALS_SUCCESS:
+    "Tenant portal list fetched successfully.",
 
   // 🔹 Errors
   PORTAL_NOT_FOUND: "Portal not found.",
@@ -927,6 +945,29 @@ export const portalMessages = {
   INVALID_ROLE_TYPE: "Invalid role type",
   INVALID_STATUS: "Invalid portal status",
   INVALID_REQUEST: "Invalid portal request",
+
+  TENANT_NOT_FOUND: "Tenant not found.",
+  TENANT_PORTAL_NOT_FOUND: "Tenant portal not found.",
+
+  PORTAL_ALREADY_ASSIGNED:
+    "Portal already assigned to this tenant.",
+
+  PORTAL_ASSIGN_FAILED:
+    "Failed to assign portal to tenant.",
+
+  TENANT_PORTAL_UPDATE_FAILED:
+    "Failed to update tenant portal.",
+
+  TENANT_PORTAL_FETCH_FAILED:
+    "Failed to fetch tenant portals.",
+
+  TENANT_PORTAL_ENABLE_FAILED:
+    "Failed to enable tenant portal.",
+
+  TENANT_PORTAL_DISABLE_FAILED:
+    "Failed to disable tenant portal.",
+
+  INVALID_TENANT_ID: "Invalid tenant ID",
 
   // 🔹 Validation & Auth
   VALIDATION_FAILED: "Validation Failed",
