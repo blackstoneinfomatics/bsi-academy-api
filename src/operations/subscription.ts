@@ -157,8 +157,16 @@ export const validateFeatureAccess =
       return false;
     }
 
-    return !!plan.features[role]?.includes(
-      feature
+    return plan.modules.some(
+      (module) =>
+        module.features?.some(
+          (item) => item.featureId === feature || item.featureName === feature
+        ) ||
+        module.children?.some((child) =>
+          child.features?.some(
+            (item) => item.featureId === feature || item.featureName === feature
+          )
+        )
     );
   };
 

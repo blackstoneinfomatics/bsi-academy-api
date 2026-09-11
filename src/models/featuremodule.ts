@@ -1,6 +1,6 @@
 import { Schema } from "mongoose";
 import { z } from "zod";
-import { Status } from "../shared/enum";
+import { Status, PortalType } from "../shared/enum";
 import { IFeature } from "../../types/models.types";
 
 export const featureSchema = new Schema<IFeature>(
@@ -12,6 +12,12 @@ export const featureSchema = new Schema<IFeature>(
     featureName: {
       type: String,
       required: true,
+    },
+    // Default vs Custom - unrelated to Global vs Tenant scoping.
+    type: {
+      type: String,
+      enum: Object.values(PortalType),
+      default: PortalType.DEFAULT,
     },
     description: {
       type: String,
@@ -40,6 +46,7 @@ export const featureSchema = new Schema<IFeature>(
 
 export const createFeatureValidation = z.object({
   featureName: z.string().min(1, "Feature name is required"),
+  type: z.nativeEnum(PortalType).default(PortalType.DEFAULT),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
@@ -48,6 +55,7 @@ export const createFeatureValidation = z.object({
 
 export const updateFeatureValidation = z.object({
   featureName: z.string().min(1, "Feature name is required").optional(),
+  type: z.nativeEnum(PortalType).optional(),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),

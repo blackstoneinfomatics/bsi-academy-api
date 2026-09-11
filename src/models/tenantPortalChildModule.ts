@@ -3,8 +3,9 @@
 import { Schema } from "mongoose";
 import { PortalStatus, PortalType } from "../shared/enum";
 import { FeatureSchema } from "./tenantPortalFeature";
+import { ITenantPortalChildModule } from "../../types/models.types";
 
-export const ChildModuleSchema = new Schema(
+export const ChildModuleSchema = new Schema<ITenantPortalChildModule>(
   {
     childModuleId: {
       type: String,
@@ -25,7 +26,7 @@ export const ChildModuleSchema = new Schema(
     childModuleType: {
       type: String,
       enum: Object.values(PortalType),
-      default: PortalType.DEFAULT,
+      default: PortalType.CUSTOM,
     },
 
     isEnabled: {
@@ -33,7 +34,15 @@ export const ChildModuleSchema = new Schema(
       default: true,
     },
 
-    features: [FeatureSchema],
+    features: {
+      type: [FeatureSchema],
+      default: [],
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { _id: false }
+  { _id: false, timestamps: true }
 );

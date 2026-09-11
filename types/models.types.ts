@@ -2339,55 +2339,116 @@ export interface IBillingPeriod {
   totalAmount: number;
 }
 
+export interface IAllowedRole {
+  portalId: string;
+  portalName: string;
+}
+
+
+export interface IPlanFeature {
+  featureId: string;
+  featureName: string;
+}
+
+export interface IPlanChildModule {
+  childModuleId: string;
+  childModuleName: string;
+  // Selection order of this child module within its parent, as chosen in the frontend.
+  order: number;
+  features?: IPlanFeature[];
+}
+
+export interface IPlanModule {
+  moduleId: string;
+  moduleName: string;
+
+  // Selection order of this module within the plan, as chosen in the frontend.
+  order: number;
+
+  // Features directly under the parent module
+  features?: IPlanFeature[];
+
+  // Child modules under the parent module
+  children?: IPlanChildModule[];
+}
+
 export interface Plans extends Document {
   planId: string;
   planName: string;
+
   studentLimit: number;
   userLimit: number;
   trialDays: number;
+
   gstAndTax: number;
   taxAmount: number;
+
   billingPeriods: IBillingPeriod[];
+
   planDescription: string;
+
   planStatus: "Growing" | "Low_Adoption" | "Most_Popular";
-  allowedRoles: string[];
-  features: Record<string, string[]>;
+
+  allowedRoles: IAllowedRole[];
+
+  // Module → Features / Children → Features
+  modules: IPlanModule[];
+
   canCreateCustomRole: boolean;
   customDomain: boolean;
+
   totalPrice: number;
   domainName: string;
   backup: boolean;
+
   status: string;
+
   createdDate: Date;
   createdBy: string;
+
   updatedDate?: Date;
   lastUpdatedBy?: string;
 }
 
 export interface PlansCreate {
   tenantId: string;
+
   planId: string;
   planName: string;
+
   studentLimit: number;
   userLimit: number;
   trialDays: number;
+
   gstAndTax: number;
   taxAmount: number;
+
   maxUsers: number;
+
   planDescription: string;
+
   planStatus: "Growing" | "Low_Adoption" | "Most_Popular";
-  allowedRoles: string[];
-  features: Record<string, string[]>;
+
+  allowedRoles: IAllowedRole[];
+
+  // Module → Features / Children → Features
+  modules: IPlanModule[];
+
   canCreateCustomRole: boolean;
   customDomain: boolean;
+
   domainName: string;
   backup: boolean;
+
   status: string;
+
   createdDate: Date;
   createdBy: string;
+
   updatedDate?: Date;
   lastUpdatedBy?: string;
 }
+
 
 export interface Subscription extends Document {
   tenantId: string;
@@ -2809,6 +2870,9 @@ export interface IParentModule {
   parentModuleId: string;
   parentModuleName: string;
   order?: number;
+  // Default vs Custom - the Global collection accepts either (a tenant can request a
+  // custom Global module too); it is unrelated to Global vs Tenant scoping.
+  type?: PortalType;
   description?: string | null;
   status: ModuleStatus;
   isEnabled: boolean;
@@ -2819,6 +2883,7 @@ export interface IParentModule {
 export interface IFeature {
   featureId: string;
   featureName: string;
+  type?: PortalType;
   description?: string | null;
   status: ModuleStatus;
   isEnabled: boolean;
@@ -2829,6 +2894,7 @@ export interface IFeature {
 export interface IChildModule {
   childModuleId: string;
   childModuleName: string;
+  type?: PortalType;
   description?: string | null;
   status: ModuleStatus;
   isEnabled: boolean;
@@ -2839,6 +2905,8 @@ export interface IChildModule {
 
 export interface IPortalModule extends IParentModule, Document {
   children: IChildModule[];
+  // Features created directly under the Parent Module (no Child Module in between).
+  features: IFeature[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -2908,35 +2976,44 @@ export interface ITenantPortal extends Document {
 }
 
 
-export interface IFeature {
+export interface ITenantPortalFeature {
   featureId: string;
   featureName: string;
   featureStatus: PortalStatus;
   isEnabled: boolean;
-  featuretype:PortalType
+  featuretype: PortalType;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-export interface IChildModule {
+export interface ITenantPortalChildModule {
   childModuleId: string;
   childModuleName: string;
   childModuleStatus: PortalStatus;
-  childModuleType:PortalType;
+  childModuleType: PortalType;
   isEnabled: boolean;
-  features: IFeature[];
+  features: ITenantPortalFeature[];
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-export interface IModule {
+export interface ITenantPortalModule {
   moduleId: string;
   moduleName: string;
 
-  orderNo: number; 
+  orderNo: number;
 
   moduleStatus: PortalStatus;
-  moduleType:PortalType;
+  moduleType: PortalType;
   isEnabled: boolean;
 
-  features: IFeature[];     
-  children: IChildModule[]; 
+  features: ITenantPortalFeature[];
+  children: ITenantPortalChildModule[];
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ITenantPortalConfig extends Document {
@@ -2944,7 +3021,7 @@ export interface ITenantPortalConfig extends Document {
   portalId: Types.ObjectId;
   tenantPortalId: Types.ObjectId;
 
-  modules: IModule[];
+  modules: ITenantPortalModule[];
 
   createdBy: string;
   updatedBy?: string;

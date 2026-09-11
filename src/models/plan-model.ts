@@ -72,16 +72,105 @@ const PlanSchema = new Schema<Plans>(
     },
 
     allowedRoles: {
-      type: [String],
+      type: [
+        {
+          portalId: {
+            type: String,
+            required: true,
+          },
+          portalName: {
+            type: String,
+            required: true,
+          },
+        },
+      ],
       required: true,
       default: [],
     },
 
-    features: {
-      type: Schema.Types.Mixed,
-      required: true,
-      default: {},
+  modules: {
+  type: [
+    {
+      moduleId: {
+        type: String,
+        required: true,
+      },
+
+      moduleName: {
+        type: String,
+        required: true,
+      },
+
+      // Selection order of this module within the plan, as chosen in the frontend.
+      order: {
+        type: Number,
+        required: true,
+      },
+
+      // Direct features under parent module
+      features: {
+        type: [
+          {
+            featureId: {
+              type: String,
+              required: true,
+            },
+            featureName: {
+              type: String,
+              required: true,
+            },
+          },
+        ],
+        required: false,
+        default: undefined,
+      },
+
+      // Child modules under parent module
+      children: {
+        type: [
+          {
+            childModuleId: {
+              type: String,
+              required: true,
+            },
+
+            childModuleName: {
+              type: String,
+              required: true,
+            },
+
+            // Selection order of this child module within its parent, as chosen in the frontend.
+            order: {
+              type: Number,
+              required: true,
+            },
+
+            // Features under child module
+            features: {
+              type: [
+                {
+                  featureId: {
+                    type: String,
+                    required: true,
+                  },
+                  featureName: {
+                    type: String,
+                    required: true,
+                  },
+                },
+              ],
+              required: false,
+              default: undefined,
+            },
+          },
+        ],
+        required: false,
+        default: undefined,
+      },
     },
+  ],
+  required: true,
+},
     totalPrice: {
       type: Number,
       required: false,
@@ -164,8 +253,48 @@ export const createPlanValidation = z.object({
     "Low_Adoption",
     "Most_Popular",
   ]),
-  allowedRoles: z.array(z.string()),
-  features: z.record(z.string(), z.array(z.string())),
+  allowedRoles: z.array(
+    z.object({
+      portalName: z.string(),
+      portalId: z.string(),
+    }),
+  ),
+modules: z.array(
+  z.object({
+    moduleId: z.string(),
+    moduleName: z.string(),
+
+    // Selection order of this module within the plan - sent as-is from the frontend.
+    order: z.number().int().nonnegative(),
+
+    // Parent module may or may not have direct features
+    features: z.array(
+      z.object({
+        featureId: z.string(),
+        featureName: z.string()
+      })
+    ).optional(),
+
+    // Parent module may or may not have children
+    children: z.array(
+      z.object({
+        childModuleId: z.string(),
+        childModuleName: z.string(),
+
+        // Selection order of this child module within its parent - sent as-is from the frontend.
+        order: z.number().int().nonnegative(),
+
+        // Child may or may not have features
+        features: z.array(
+          z.object({
+            featureId: z.string(),
+            featureName: z.string()
+          })
+        ).optional()
+      })
+    ).optional()
+  })
+),
   canCreateCustomRole: z.boolean(),
   customDomain: z.boolean().default(false),
   domain: z.string().optional(),

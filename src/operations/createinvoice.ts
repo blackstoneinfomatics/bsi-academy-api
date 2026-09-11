@@ -75,22 +75,30 @@ const getBillingCycle = (
 export const createCustomServiceInvoice = async (
   payload: CreateCustomServiceInvoicePayload,
 ) => {
+  console.log("createCustomServiceInvoice: payload =", payload);
+
   const tenant = await Tenants.findOne({
     tenantCode: payload.tenantId,
     status: "Active",
   });
+  console.log("createCustomServiceInvoice: tenant =", tenant);
 
   if (!tenant) {
+    console.log("createCustomServiceInvoice: tenant not found for tenantId =", payload.tenantId);
     throwError(customServiceInvoiceMessages.TENANT_NOT_FOUND, 404);
   }
 
   const subscription = await TenantSubscription.findOne({
     _id: payload.subscriptionId,
     tenantId: payload.tenantId,
+    status: "ACTIVE",
+    paymentStatus : "SUCCESS",
     deletedAt: null,
   });
+  console.log("createCustomServiceInvoice: subscription =", subscription);
 
   if (!subscription) {
+    console.log("createCustomServiceInvoice: subscription not found for subscriptionId =", payload.subscriptionId);
     throwError(customServiceInvoiceMessages.SUBSCRIPTION_NOT_FOUND, 404);
     return;
   }
@@ -98,17 +106,23 @@ export const createCustomServiceInvoice = async (
   const duplicateInvoice = await CustomServiceInvoiceModel.findOne({
     invoiceNumber: payload.invoiceNumber,
   });
+  console.log("createCustomServiceInvoice: duplicateInvoice =", duplicateInvoice);
 
   if (duplicateInvoice) {
+    console.log("createCustomServiceInvoice: duplicate invoiceNumber =", payload.invoiceNumber);
     throwError(customServiceInvoiceMessages.DUPLICATE_INVOICE, 409);
   }
 
   if (payload.attachments?.some((url) => !url.startsWith("https://"))) {
+    console.log("createCustomServiceInvoice: invalid attachment url in =", payload.attachments);
     throwError(customServiceInvoiceMessages.INVALID_ATTACHMENT_URL, 400);
   }
 
   const items = payload.items.map(calculateItemAmounts);
+  console.log("createCustomServiceInvoice: items =", items);
+
   const totals = calculateInvoiceTotals(items);
+  console.log("createCustomServiceInvoice: totals =", totals);
 
   const newInvoice = new CustomServiceInvoiceModel({
     ...payload,
@@ -116,15 +130,21 @@ export const createCustomServiceInvoice = async (
     items,
     ...totals,
   });
+  console.log("createCustomServiceInvoice: newInvoice before save =", newInvoice);
 
   await newInvoice.save();
   const invoiceId = String(newInvoice._id);
+  console.log("createCustomServiceInvoice: saved invoiceId =", invoiceId);
+
   newInvoice.paymentLink = getPaymentLink(invoiceId);
   await newInvoice.save();
+  console.log("createCustomServiceInvoice: paymentLink =", newInvoice.paymentLink);
+
   await newInvoice.populate({
     path: "planId",
     select: "planId planName billingPeriods",
   });
+  console.log("createCustomServiceInvoice: populated planId =", newInvoice.planId);
 
   const plan = newInvoice.planId as unknown as {
     planName?: string;
@@ -141,6 +161,7 @@ export const createCustomServiceInvoice = async (
     const mailResult = await sendCustomServiceInvoice(invoiceId, {
       paymentLink: newInvoice.paymentLink ?? undefined,
     });
+    console.log("createCustomServiceInvoice: mailResult =", mailResult);
     email = { sent: true, recipient: mailResult?.recipient ?? null, error: null };
   } catch (err: any) {
     console.error("Failed to send custom service invoice email:", err);
@@ -151,7 +172,9 @@ export const createCustomServiceInvoice = async (
     };
   }
 
-  return {
+  console.log("createCustomServiceInvoice: email result =", email);
+
+  const result = {
     invoice: {
       ...newInvoice.toObject(),
       planName: plan?.planName ?? null,
@@ -160,6 +183,10 @@ export const createCustomServiceInvoice = async (
     },
     email,
   };
+
+  console.log("createCustomServiceInvoice: returning =", result);
+
+  return result;
 };
 
 export const getCustomServiceInvoiceById = async (invoiceId: string) => {

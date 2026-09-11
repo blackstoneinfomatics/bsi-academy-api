@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import { throwError } from "../helpers/throwError";
+import { portalModuleMessages, tenantPortalConfigMessages } from "../config/messages";
+import { PortalType } from "../shared/enum";
 import PortalModule, {
   CreateParentModuleInput,
   UpdateAccessInput,
@@ -6,7 +9,26 @@ import PortalModule, {
 } from "../models/portalModule";
 import { CreateChildModuleInput, UpdateChildModuleInput } from "../models/childportal";
 import { CreateFeatureInput, UpdateFeatureInput } from "../models/featuremodule";
-import { IChildModule, IFeature, IParentModule, IPortalModule } from "../../types/models.types";
+import Tenants from "../models/tenants";
+import TenantPortalConfig, {
+  AddTenantChildModuleInput,
+  AddTenantFeatureInput,
+  AddTenantModuleInput,
+  TenantPortalConfigAccessInput,
+  UpdateTenantChildModuleInput,
+  UpdateTenantFeatureInput,
+  UpdateTenantModuleInput,
+} from "../models/tenantPortalConfig";
+import {
+  IChildModule,
+  IFeature,
+  IParentModule,
+  IPortalModule,
+  ITenantPortalChildModule,
+  ITenantPortalConfig,
+  ITenantPortalFeature,
+  ITenantPortalModule,
+} from "../../types/models.types";
 // ---------------------------------------------------------------------------
 // ID generation
 // ---------------------------------------------------------------------------
@@ -18,6 +40,18 @@ const generateId = (prefix: string): string => {
   return `${prefix}-${suffix}`;
 };
 
+// Regenerates on the rare chance the random suffix collides with an id already
+// present in the same scope, so ids stay unique within that TenantConfig scope.
+const generateUniqueId = (prefix: string, existingIds: string[]): string => {
+  let id = generateId(prefix);
+
+  while (existingIds.includes(id)) {
+    id = generateId(prefix);
+  }
+
+  return id;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -26,7 +60,7 @@ const findActiveParent = async (parentModuleId: string): Promise<IPortalModule> 
   const parent = await PortalModule.findOne({ parentModuleId, deletedAt: null });
 
   if (!parent) {
-    throw new Error("Parent module not found");
+    return throwError(portalModuleMessages.PARENT_MODULE_NOT_FOUND, 404);
   }
 
   return parent as IPortalModule;
@@ -36,7 +70,7 @@ const findChildOrThrow = (parent: IPortalModule, childModuleId: string): IChildM
   const child = parent.children.find((item) => item.childModuleId === childModuleId);
 
   if (!child) {
-    throw new Error("Child module not found");
+    return throwError(portalModuleMessages.CHILD_MODULE_NOT_FOUND, 404);
   }
 
   return child as IChildModule;
@@ -46,7 +80,17 @@ const findFeatureOrThrow = (child: IChildModule, featureId: string): IFeature =>
   const feature = child.features.find((item) => item.featureId === featureId);
 
   if (!feature) {
-    throw new Error("Feature not found");
+    return throwError(portalModuleMessages.FEATURE_NOT_FOUND, 404);
+  }
+
+  return feature as IFeature;
+};
+
+const findParentFeatureOrThrow = (parent: IPortalModule, featureId: string): IFeature => {
+  const feature = parent.features.find((item) => item.featureId === featureId);
+
+  if (!feature) {
+    return throwError(portalModuleMessages.FEATURE_NOT_FOUND, 404);
   }
 
   return feature as IFeature;
@@ -65,16 +109,41 @@ export const createParentModule = async (
   });
 
   if (duplicate) {
-    throw new Error("Parent module already exists");
+    return throwError(portalModuleMessages.PARENT_MODULE_ALREADY_EXISTS, 409);
   }
 
   const order = payload.order ?? (await getNextParentOrder());
+
+  const now = new Date();
+  const features: IFeature[] = [];
+  const seenFeatureIds = new Set<string>();
+  const seenFeatureNames = new Set<string>();
+
+  for (const feature of payload.features ?? []) {
+    if (seenFeatureIds.has(feature.featureId) || seenFeatureNames.has(feature.featureName)) {
+      return throwError(portalModuleMessages.FEATURE_ALREADY_EXISTS, 409);
+    }
+    seenFeatureIds.add(feature.featureId);
+    seenFeatureNames.add(feature.featureName);
+
+    features.push({
+      featureId: feature.featureId,
+      featureName: feature.featureName,
+      type: payload.type,
+      description: feature.description ?? null,
+      status: feature.status,
+      isEnabled: feature.isEnabled,
+      createdAt: now,
+      updatedAt: now,
+    } as IFeature);
+  }
 
   const parentModulePayload: IParentModule = {
     portal: payload.portal,
     parentModuleId: generateId("PM"),
     parentModuleName: payload.parentModuleName,
     order,
+    type: payload.type,
     description: payload.description ?? null,
     status: payload.status,
     isEnabled: payload.isEnabled,
@@ -85,6 +154,7 @@ export const createParentModule = async (
   const parentModule = await PortalModule.create({
     ...parentModulePayload,
     children: [],
+    features,
     deletedAt: null,
   });
 
@@ -114,6 +184,9 @@ export const updateParentModule = async (
   }
   if (payload.order !== undefined) {
     parent.order = payload.order;
+  }
+  if (payload.type !== undefined) {
+    parent.type = payload.type;
   }
   if (payload.description !== undefined) {
     parent.description = payload.description;
@@ -158,7 +231,7 @@ export const createChildModule = async (
   );
 
   if (duplicate) {
-    throw new Error("Child module already exists");
+    return throwError(portalModuleMessages.CHILD_MODULE_ALREADY_EXISTS, 409);
   }
 
   const now = new Date();
@@ -166,6 +239,7 @@ export const createChildModule = async (
   parent.children.push({
     childModuleId: generateId("CM"),
     childModuleName: payload.childModuleName,
+    type: payload.type,
     description: payload.description ?? null,
     status: payload.status,
     isEnabled: payload.isEnabled,
@@ -197,6 +271,9 @@ export const updateChildModule = async (
 
   if (payload.childModuleName !== undefined) {
     child.childModuleName = payload.childModuleName;
+  }
+  if (payload.type !== undefined) {
+    child.type = payload.type;
   }
   if (payload.description !== undefined) {
     child.description = payload.description;
@@ -249,7 +326,7 @@ export const createFeature = async (
   );
 
   if (duplicate) {
-    throw new Error("Feature already exists");
+    return throwError(portalModuleMessages.FEATURE_ALREADY_EXISTS, 409);
   }
 
   const now = new Date();
@@ -257,6 +334,7 @@ export const createFeature = async (
   child.features.push({
     featureId: generateId("FT"),
     featureName: payload.featureName,
+    type: payload.type,
     description: payload.description ?? null,
     status: payload.status,
     isEnabled: payload.isEnabled,
@@ -295,6 +373,9 @@ export const updateFeature = async (
   if (payload.featureName !== undefined) {
     feature.featureName = payload.featureName;
   }
+  if (payload.type !== undefined) {
+    feature.type = payload.type;
+  }
   if (payload.description !== undefined) {
     feature.description = payload.description;
   }
@@ -322,6 +403,98 @@ export const updateFeatureAccess = async (
   const parent = await findActiveParent(parentModuleId);
   const child = findChildOrThrow(parent, childModuleId);
   const feature = findFeatureOrThrow(child, featureId);
+
+  feature.isEnabled = payload.isEnabled;
+  feature.updatedAt = new Date();
+
+  parent.updatedBy = payload.updatedBy;
+
+  await parent.save();
+
+  return parent;
+};
+
+// Feature directly under the Parent Module (no Child Module in between)
+
+export const createParentFeature = async (
+  parentModuleId: string,
+  payload: CreateFeatureInput
+): Promise<IPortalModule> => {
+  const parent = await findActiveParent(parentModuleId);
+
+  const duplicate = parent.features.find(
+    (feature) => feature.featureName === payload.featureName
+  );
+
+  if (duplicate) {
+    return throwError(portalModuleMessages.FEATURE_ALREADY_EXISTS, 409);
+  }
+
+  const now = new Date();
+
+  parent.features.push({
+    featureId: generateId("FT"),
+    featureName: payload.featureName,
+    type: payload.type,
+    description: payload.description ?? null,
+    status: payload.status,
+    isEnabled: payload.isEnabled,
+    createdAt: now,
+    updatedAt: now,
+  } as IFeature);
+
+  parent.updatedBy = payload.createdBy;
+
+  await parent.save();
+
+  return parent;
+};
+
+export const getParentFeatures = async (parentModuleId: string): Promise<IFeature[]> => {
+  const parent = await findActiveParent(parentModuleId);
+
+  return parent.features;
+};
+
+export const updateParentFeature = async (
+  parentModuleId: string,
+  featureId: string,
+  payload: UpdateFeatureInput
+): Promise<IPortalModule> => {
+  const parent = await findActiveParent(parentModuleId);
+  const feature = findParentFeatureOrThrow(parent, featureId);
+
+  if (payload.featureName !== undefined) {
+    feature.featureName = payload.featureName;
+  }
+  if (payload.type !== undefined) {
+    feature.type = payload.type;
+  }
+  if (payload.description !== undefined) {
+    feature.description = payload.description;
+  }
+  if (payload.status !== undefined) {
+    feature.status = payload.status;
+  }
+  if (payload.isEnabled !== undefined) {
+    feature.isEnabled = payload.isEnabled;
+  }
+  feature.updatedAt = new Date();
+
+  parent.updatedBy = payload.updatedBy;
+
+  await parent.save();
+
+  return parent;
+};
+
+export const updateParentFeatureAccess = async (
+  parentModuleId: string,
+  featureId: string,
+  payload: UpdateAccessInput
+): Promise<IPortalModule> => {
+  const parent = await findActiveParent(parentModuleId);
+  const feature = findParentFeatureOrThrow(parent, featureId);
 
   feature.isEnabled = payload.isEnabled;
   feature.updatedAt = new Date();
@@ -425,4 +598,533 @@ export const getFeatureCard = async () => {
       ...getFeatureTrend(currentInactive, previousInactive),
     },
   };
+};
+
+// ---------------------------------------------------------------------------
+// Tenant module (Custom) - everything created through these functions is
+// tenant-specific and always type=Custom, stored in tenant_portal_config.
+// ---------------------------------------------------------------------------
+// tenantId here follows the project-wide convention of matching Tenants.tenantCode
+// (see createinvoice.ts / operations/tenants.ts).
+
+const validateTenantExists = async (tenantId: string): Promise<void> => {
+  const tenant = await Tenants.findOne({ tenantCode: tenantId });
+
+  if (!tenant) {
+    throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
+  }
+};
+
+// The config document is seeded (as a Default snapshot of Global) when the tenant
+// subscribes to the portal - it is never created here, only looked up.
+const findActiveConfig = async (
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalConfig> => {
+  const config = await TenantPortalConfig.findOne({ tenantId, portalId, deletedAt: null });
+
+  if (!config) {
+    return throwError(tenantPortalConfigMessages.TENANT_CONFIG_NOT_FOUND, 404);
+  }
+
+  return config;
+};
+
+const findTenantModuleOrThrow = (
+  config: ITenantPortalConfig,
+  moduleId: string
+): ITenantPortalModule => {
+  const module = config.modules.find(
+    (item) => item.moduleId === moduleId && !item.deletedAt
+  );
+
+  if (!module) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+
+  return module;
+};
+
+const findTenantChildOrThrow = (
+  module: ITenantPortalModule,
+  childModuleId: string
+): ITenantPortalChildModule => {
+  const child = module.children.find(
+    (item) => item.childModuleId === childModuleId && !item.deletedAt
+  );
+
+  if (!child) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_FOUND, 404);
+  }
+
+  return child;
+};
+
+const findTenantFeatureOrThrow = (
+  container: ITenantPortalModule | ITenantPortalChildModule,
+  featureId: string
+): ITenantPortalFeature => {
+  const feature = container.features.find(
+    (item) => item.featureId === featureId && !item.deletedAt
+  );
+
+  if (!feature) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
+  }
+
+  return feature;
+};
+
+// Returns the full existing TenantConfig document (Portal -> Parent Module ->
+// Features / Child Modules -> Features) for the tenant, unmodified.
+export const getTenantConfig = async (
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(tenantId);
+
+  return findActiveConfig(tenantId, portalId);
+};
+
+// Module (Parent)
+
+// Adds a Custom module into the tenant's existing config and enables it -
+// the config document itself must already exist (seeded at subscription time).
+export const addTenantModule = async (
+  payload: AddTenantModuleInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+
+  const duplicate = config.modules.find(
+    (module) => !module.deletedAt && module.moduleName === payload.moduleName
+  );
+
+  if (duplicate) {
+    return throwError(tenantPortalConfigMessages.MODULE_ALREADY_EXISTS, 409);
+  }
+
+  const now = new Date();
+
+  config.modules.push({
+    moduleId: generateUniqueId("MOD", config.modules.map((module) => module.moduleId)),
+    moduleName: payload.moduleName,
+    orderNo: payload.orderNo ?? config.modules.length + 1,
+    moduleStatus: payload.moduleStatus,
+    moduleType: PortalType.CUSTOM,
+    isEnabled: true,
+    features: [],
+    children: [],
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as ITenantPortalModule);
+
+  config.updatedBy = payload.createdBy;
+
+  await config.save();
+
+  return config;
+};
+
+export const getTenantModules = async (
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalModule[]> => {
+  await validateTenantExists(tenantId);
+
+  const config = await findActiveConfig(tenantId, portalId);
+
+  return config.modules.filter((module) => !module.deletedAt);
+};
+
+export const updateTenantModuleAccess = async (
+  moduleId: string,
+  payload: TenantPortalConfigAccessInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  module.isEnabled = payload.isEnabled;
+  module.updatedAt = new Date();
+
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+// Updates an existing Custom module's own fields (name / order / status) -
+// Default modules are owned by Global Feature Control / Subscription Plan and
+// cannot be edited through this tenant-scoped API.
+export const updateTenantModule = async (
+  moduleId: string,
+  payload: UpdateTenantModuleInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  if (module.moduleType !== PortalType.CUSTOM) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_CUSTOM, 400);
+  }
+
+  if (payload.moduleName !== undefined) {
+    const duplicate = config.modules.find(
+      (item) =>
+        !item.deletedAt && item.moduleId !== moduleId && item.moduleName === payload.moduleName
+    );
+
+    if (duplicate) {
+      return throwError(tenantPortalConfigMessages.MODULE_ALREADY_EXISTS, 409);
+    }
+
+    module.moduleName = payload.moduleName;
+  }
+  if (payload.orderNo !== undefined) {
+    module.orderNo = payload.orderNo;
+  }
+  if (payload.moduleStatus !== undefined) {
+    module.moduleStatus = payload.moduleStatus;
+  }
+  module.updatedAt = new Date();
+
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+// Child Module
+
+// Adds a Custom child module under an existing tenant module and enables it.
+export const addTenantChildModule = async (
+  moduleId: string,
+  payload: AddTenantChildModuleInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  const duplicate = module.children.find(
+    (child) => !child.deletedAt && child.childModuleName === payload.childModuleName
+  );
+
+  if (duplicate) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_ALREADY_EXISTS, 409);
+  }
+
+  const now = new Date();
+
+  module.children.push({
+    childModuleId: generateUniqueId("CM", module.children.map((child) => child.childModuleId)),
+    childModuleName: payload.childModuleName,
+    childModuleStatus: payload.childModuleStatus,
+    childModuleType: PortalType.CUSTOM,
+    isEnabled: true,
+    features: [],
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as ITenantPortalChildModule);
+
+  module.updatedAt = now;
+  config.updatedBy = payload.createdBy;
+
+  await config.save();
+
+  return config;
+};
+
+export const getTenantChildModules = async (
+  moduleId: string,
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalChildModule[]> => {
+  await validateTenantExists(tenantId);
+
+  const config = await findActiveConfig(tenantId, portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  return module.children.filter((child) => !child.deletedAt);
+};
+
+export const updateTenantChildModuleAccess = async (
+  moduleId: string,
+  childModuleId: string,
+  payload: TenantPortalConfigAccessInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+
+  child.isEnabled = payload.isEnabled;
+  child.updatedAt = new Date();
+
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+// Updates an existing Custom child module's own fields (name / status) -
+// Default child modules are owned by Global Feature Control / Subscription
+// Plan and cannot be edited through this tenant-scoped API.
+export const updateTenantChildModule = async (
+  moduleId: string,
+  childModuleId: string,
+  payload: UpdateTenantChildModuleInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+
+  if (child.childModuleType !== PortalType.CUSTOM) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_CUSTOM, 400);
+  }
+
+  if (payload.childModuleName !== undefined) {
+    const duplicate = module.children.find(
+      (item) =>
+        !item.deletedAt &&
+        item.childModuleId !== childModuleId &&
+        item.childModuleName === payload.childModuleName
+    );
+
+    if (duplicate) {
+      return throwError(tenantPortalConfigMessages.CHILD_MODULE_ALREADY_EXISTS, 409);
+    }
+
+    child.childModuleName = payload.childModuleName;
+  }
+  if (payload.childModuleStatus !== undefined) {
+    child.childModuleStatus = payload.childModuleStatus;
+  }
+  child.updatedAt = new Date();
+
+  module.updatedAt = new Date();
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+// Feature - directly under a Module, or nested under a Child Module
+
+// Adds a Custom feature directly under an existing tenant module and enables it.
+export const addTenantModuleFeature = async (
+  moduleId: string,
+  payload: AddTenantFeatureInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  return pushTenantFeature(config, module, payload);
+};
+
+// Adds a Custom feature under an existing tenant child module and enables it.
+export const addTenantChildFeature = async (
+  moduleId: string,
+  childModuleId: string,
+  payload: AddTenantFeatureInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+
+  return pushTenantFeature(config, child, payload, module);
+};
+
+const pushTenantFeature = async (
+  config: ITenantPortalConfig,
+  container: ITenantPortalModule | ITenantPortalChildModule,
+  payload: AddTenantFeatureInput,
+  module?: ITenantPortalModule
+): Promise<ITenantPortalConfig> => {
+  const duplicate = container.features.find(
+    (feature) => !feature.deletedAt && feature.featureName === payload.featureName
+  );
+
+  if (duplicate) {
+    return throwError(tenantPortalConfigMessages.FEATURE_ALREADY_EXISTS, 409);
+  }
+
+  const now = new Date();
+
+  container.features.push({
+    featureId: generateUniqueId("FT", container.features.map((feature) => feature.featureId)),
+    featureName: payload.featureName,
+    featureStatus: payload.featureStatus,
+    featuretype: PortalType.CUSTOM,
+    isEnabled: true,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as ITenantPortalFeature);
+
+  container.updatedAt = now;
+  if (module) module.updatedAt = now;
+  config.updatedBy = payload.createdBy;
+
+  await config.save();
+
+  return config;
+};
+
+// Updates an existing Custom feature's own fields (name / status), whether it
+// lives directly under a Module or nested under a Child Module - Default
+// features are owned by Global Feature Control / Subscription Plan and cannot
+// be edited through this tenant-scoped API.
+const updateContainerFeature = async (
+  config: ITenantPortalConfig,
+  container: ITenantPortalModule | ITenantPortalChildModule,
+  featureId: string,
+  payload: UpdateTenantFeatureInput,
+  module?: ITenantPortalModule
+): Promise<ITenantPortalConfig> => {
+  const feature = findTenantFeatureOrThrow(container, featureId);
+
+  if (feature.featuretype !== PortalType.CUSTOM) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_CUSTOM, 400);
+  }
+
+  if (payload.featureName !== undefined) {
+    const duplicate = container.features.find(
+      (item) =>
+        !item.deletedAt && item.featureId !== featureId && item.featureName === payload.featureName
+    );
+
+    if (duplicate) {
+      return throwError(tenantPortalConfigMessages.FEATURE_ALREADY_EXISTS, 409);
+    }
+
+    feature.featureName = payload.featureName;
+  }
+  if (payload.featureStatus !== undefined) {
+    feature.featureStatus = payload.featureStatus;
+  }
+  feature.updatedAt = new Date();
+
+  container.updatedAt = new Date();
+  if (module) module.updatedAt = new Date();
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+export const updateTenantModuleFeature = async (
+  moduleId: string,
+  featureId: string,
+  payload: UpdateTenantFeatureInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  return updateContainerFeature(config, module, featureId, payload);
+};
+
+export const updateTenantChildFeature = async (
+  moduleId: string,
+  childModuleId: string,
+  featureId: string,
+  payload: UpdateTenantFeatureInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+
+  return updateContainerFeature(config, child, featureId, payload, module);
+};
+
+export const getTenantModuleFeatures = async (
+  moduleId: string,
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalFeature[]> => {
+  await validateTenantExists(tenantId);
+
+  const config = await findActiveConfig(tenantId, portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+
+  return module.features.filter((feature) => !feature.deletedAt);
+};
+
+export const getTenantChildFeatures = async (
+  moduleId: string,
+  childModuleId: string,
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalFeature[]> => {
+  await validateTenantExists(tenantId);
+
+  const config = await findActiveConfig(tenantId, portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+
+  return child.features.filter((feature) => !feature.deletedAt);
+};
+
+export const updateTenantModuleFeatureAccess = async (
+  moduleId: string,
+  featureId: string,
+  payload: TenantPortalConfigAccessInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const feature = findTenantFeatureOrThrow(module, featureId);
+
+  feature.isEnabled = payload.isEnabled;
+  feature.updatedAt = new Date();
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
+};
+
+export const updateTenantChildFeatureAccess = async (
+  moduleId: string,
+  childModuleId: string,
+  featureId: string,
+  payload: TenantPortalConfigAccessInput
+): Promise<ITenantPortalConfig> => {
+  await validateTenantExists(payload.tenantId);
+
+  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const module = findTenantModuleOrThrow(config, moduleId);
+  const child = findTenantChildOrThrow(module, childModuleId);
+  const feature = findTenantFeatureOrThrow(child, featureId);
+
+  feature.isEnabled = payload.isEnabled;
+  feature.updatedAt = new Date();
+  config.updatedBy = payload.updatedBy;
+
+  await config.save();
+
+  return config;
 };

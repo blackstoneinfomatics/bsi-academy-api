@@ -1,8 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 import { z } from "zod";
-import { Status } from "../shared/enum";
+import { Status, PortalType } from "../shared/enum";
 import { IPortalModule } from "../../types/models.types";
 import { childModuleSchema } from "./childportal";
+import { featureSchema } from "./featuremodule";
 
 const portalModuleSchema = new Schema<IPortalModule>(
   {
@@ -27,6 +28,12 @@ const portalModuleSchema = new Schema<IPortalModule>(
       default: 0,
       min: 1,
     },
+    // Default vs Custom - unrelated to Global vs Tenant scoping.
+    type: {
+      type: String,
+      enum: Object.values(PortalType),
+      default: PortalType.DEFAULT,
+    },
     description: {
       type: String,
       default: null,
@@ -43,6 +50,11 @@ const portalModuleSchema = new Schema<IPortalModule>(
     },
     children: {
       type: [childModuleSchema],
+      default: [],
+    },
+    // Features created directly under the Parent Module (no Child Module in between).
+    features: {
+      type: [featureSchema],
       default: [],
     },
     createdBy: {
@@ -74,17 +86,56 @@ const portalModuleSchema = new Schema<IPortalModule>(
 
 export const createParentModuleValidation = z.object({
   portal: z.string().min(1, "Portal is required"),
-  parentModuleName: z.string().min(1, "Parent module name is required"),
-  order: z.number().int().min(1).optional(),
+
+  parentModuleName: z
+    .string()
+    .min(1, "Parent module name is required"),
+
+  order: z
+    .number()
+    .int()
+    .min(1)
+    .optional(),
+
+  type: z
+    .nativeEnum(PortalType)
+    .default(PortalType.DEFAULT),
+
   description: z.string().optional(),
+
   status: z.nativeEnum(Status),
+
   isEnabled: z.boolean(),
-  createdBy: z.string().min(1, "Created by is required"),
+
+  // Features directly under Parent Module
+  features: z
+    .array(
+      z.object({
+        featureId: z.string().min(1, "Feature ID is required"),
+
+        featureName: z
+          .string()
+          .min(1, "Feature name is required"),
+
+        description: z.string().optional(),
+
+        status: z.nativeEnum(Status),
+
+        isEnabled: z.boolean()
+      })
+    )
+    .optional()
+    .default([]),
+
+  createdBy: z
+    .string()
+    .min(1, "Created by is required")
 });
 
 export const updateParentModuleValidation = z.object({
   parentModuleName: z.string().min(1, "Parent module name is required").optional(),
   order: z.number().int().min(1).optional(),
+  type: z.nativeEnum(PortalType).optional(),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),

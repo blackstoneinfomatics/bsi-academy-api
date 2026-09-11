@@ -1,6 +1,6 @@
 import { Schema } from "mongoose";
 import { z } from "zod";
-import { Status } from "../shared/enum";
+import { Status, PortalType } from "../shared/enum";
 import { IChildModule } from "../../types/models.types";
 import { featureSchema } from "./featuremodule";
 
@@ -13,6 +13,12 @@ export const childModuleSchema = new Schema<IChildModule>(
     childModuleName: {
       type: String,
       required: true,
+    },
+    // Default vs Custom - unrelated to Global vs Tenant scoping.
+    type: {
+      type: String,
+      enum: Object.values(PortalType),
+      default: PortalType.DEFAULT,
     },
     description: {
       type: String,
@@ -45,6 +51,7 @@ export const childModuleSchema = new Schema<IChildModule>(
 
 export const createChildModuleValidation = z.object({
   childModuleName: z.string().min(1, "Child module name is required"),
+  type: z.nativeEnum(PortalType).default(PortalType.DEFAULT),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean(),
@@ -53,6 +60,7 @@ export const createChildModuleValidation = z.object({
 
 export const updateChildModuleValidation = z.object({
   childModuleName: z.string().min(1, "Child module name is required").optional(),
+  type: z.nativeEnum(PortalType).optional(),
   description: z.string().optional(),
   status: z.nativeEnum(Status),
   isEnabled: z.boolean().optional(),

@@ -88,7 +88,7 @@ const createInputValidation = z.object({
     taxAmount: true,
     billingPeriods: true,
     allowedRoles: true,
-    features: true,
+    modules: true,
     canCreateCustomRole: true,
     customDomain: true,
     domain: true,

@@ -886,12 +886,56 @@ export const portalModuleMessages = {
   UPDATE_FEATURE_SUCCESS: "Feature updated successfully",
   UPDATE_FEATURE_ACCESS_SUCCESS: "Feature access updated successfully",
 
+  PARENT_MODULE_NOT_FOUND: "Parent module not found",
+  CHILD_MODULE_NOT_FOUND: "Child module not found",
+  FEATURE_NOT_FOUND: "Feature not found",
+  PARENT_MODULE_ALREADY_EXISTS: "Parent module already exists",
+  CHILD_MODULE_ALREADY_EXISTS: "Child module already exists",
+  FEATURE_ALREADY_EXISTS: "Feature already exists",
+
   VALIDATION_FAILED: "Validation Failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
 
   GET_FEATURE_CARD_SUCCESS: "Feature card fetched successfully",
   FEATURE_CARD_NOT_FOUND: "Feature card not found",
   INVALID_FEATURE_CARD_ID: "Invalid Feature Card Id",
+};
+
+export const tenantPortalConfigMessages = {
+  GET_CONFIG_SUCCESS: "Tenant configuration fetched successfully",
+
+  ADD_MODULE_SUCCESS: "Custom module added and enabled successfully",
+  UPDATE_MODULE_SUCCESS: "Module updated successfully",
+  GET_MODULES_SUCCESS: "Modules fetched successfully",
+  UPDATE_MODULE_ACCESS_SUCCESS: "Module access updated successfully",
+
+  ADD_CHILD_MODULE_SUCCESS: "Custom child module added and enabled successfully",
+  UPDATE_CHILD_MODULE_SUCCESS: "Child module updated successfully",
+  GET_CHILD_MODULES_SUCCESS: "Child modules fetched successfully",
+  UPDATE_CHILD_MODULE_ACCESS_SUCCESS: "Child module access updated successfully",
+
+  ADD_FEATURE_SUCCESS: "Custom feature added and enabled successfully",
+  UPDATE_FEATURE_SUCCESS: "Feature updated successfully",
+  GET_FEATURES_SUCCESS: "Features fetched successfully",
+  UPDATE_FEATURE_ACCESS_SUCCESS: "Feature access updated successfully",
+
+  TENANT_NOT_FOUND: "Tenant not found",
+  TENANT_CONFIG_NOT_FOUND: "Tenant portal config not found for this tenant and portal",
+  MODULE_NOT_FOUND: "Module not found",
+  CHILD_MODULE_NOT_FOUND: "Child module not found",
+  FEATURE_NOT_FOUND: "Feature not found",
+  MODULE_ALREADY_EXISTS: "Module already exists",
+  CHILD_MODULE_ALREADY_EXISTS: "Child module already exists",
+  FEATURE_ALREADY_EXISTS: "Feature already exists",
+  MODULE_NOT_CUSTOM:
+    "Only custom modules can be updated here. Default modules come from Global Feature Control / Subscription Plan.",
+  CHILD_MODULE_NOT_CUSTOM:
+    "Only custom child modules can be updated here. Default child modules come from Global Feature Control / Subscription Plan.",
+  FEATURE_NOT_CUSTOM:
+    "Only custom features can be updated here. Default features come from Global Feature Control / Subscription Plan.",
+
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
 };
 
 export const portalMessages = {
