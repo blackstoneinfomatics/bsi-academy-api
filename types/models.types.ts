@@ -3027,3 +3027,16 @@ export interface ITenantPortalConfig extends Document {
   updatedBy?: string;
   deletedAt?: Date | null;
 }
+
+export interface ILookup extends Document {
+  tenantId: string;
+  lookupKey: string;
+  keyName: string;
+  keyValue: string;
+  dataType: "string" | "number" | "boolean";
+  status: "Active" | "Inactive";
+  createdBy: string;
+  lastUpdatedBy: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
