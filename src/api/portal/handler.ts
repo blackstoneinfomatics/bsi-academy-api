@@ -24,7 +24,6 @@ const createPortalValidation = z.object({
 export const createTenantPortalValidation = z.object({
   payload: TenantPortalBaseValidation.pick({
     tenantId: true,
-    subscriptionId: true,
     portalName: true,
     roleType: true,
     portalType: true,

@@ -2,7 +2,7 @@ import { throwError } from "../helpers/throwError";
 import tenantsubscription from "../models/tenantsubscription";
 import tenantPortal from "../models/tenantPortal";
 import { portalMessages } from "../config/messages";
-import { PortalStatus, PortalType } from "../shared/enum";
+import { PortalStatus, PortalType, SubscriptionStatus } from "../shared/enum";
 import mongoose from "mongoose";
 
 export const syncTenantSubscriptionToTenantPortal = async (
@@ -25,10 +25,6 @@ export const createCustomTenantPortalService = async (payload: any) => {
       throwError(portalMessages.TENANT_ID_REQUIRED, 400);
     }
 
-    if (!payload.subscriptionId) {
-      throwError(portalMessages.SUBSCRIPTION_ID_REQUIRED, 400);
-    }
-
     if (!payload.portalName) {
       throwError(portalMessages.PORTAL_NAME_REQUIRED, 400);
     }
@@ -46,7 +42,8 @@ export const createCustomTenantPortalService = async (payload: any) => {
     }
 
     const subscription = await tenantsubscription.findOne({
-      _id: payload.subscriptionId,
+      tenantId: payload.tenantId,
+      status:SubscriptionStatus.ACTIVE,
       deletedAt: null,
     });
 
@@ -55,9 +52,6 @@ export const createCustomTenantPortalService = async (payload: any) => {
       return;
     }
 
-    if (subscription.status !== "ACTIVE") {
-      throwError(portalMessages.SUBSCRIPTION_NOT_ACTIVE, 400);
-    }
 
     const existing = await tenantPortal.findOne({
       tenantId: payload.tenantId,
@@ -77,7 +71,7 @@ export const createCustomTenantPortalService = async (payload: any) => {
     const id = new mongoose.Types.ObjectId();
     const newTenantPortal = new tenantPortal({
       tenantId: payload.tenantId,
-      subscriptionId: payload.subscriptionId,
+      subscriptionId: subscription?._id,
       portalId: id.toString(),
       portalCode,
       portalName: payload.portalName,
