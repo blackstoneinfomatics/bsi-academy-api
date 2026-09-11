@@ -32,11 +32,11 @@ export const createPortalService = async (payload: Portal) => {
 
     const count = await PortalModal.countDocuments();
     const portalId = `POR-${String(count + 1).padStart(3, "0")}`;
-
+  
     const newPortal = new PortalModal({
       portalName: payload.portalName,
       portalType: payload.portalType || PortalType.DEFAULT,
-      portalcode: portalId,
+      portalCode: portalId,
       roleType: payload.roleType,
       description: payload.description || "",
       status: PortalStatus.ACTIVE,
