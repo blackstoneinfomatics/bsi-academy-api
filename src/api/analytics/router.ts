@@ -31,6 +31,45 @@ const register = async (server: Server): Promise<void> => {
         // },
   },
 },
+
+  {
+    method: "GET",
+    path: "/analytics/tenant-subscription-activities",
+    options: {
+      handler: handler.getTenantSubscriptionActivitiesOperation,
+      description: analyticsMessages.ANALYTICS_ACTIVITY,
+      tags: ["api", "analytics"],
+      // auth: {
+      //   strategies: ["jwt"],
+      // },
+    },
+  },
+
+  {
+  method: "GET",
+  path: "/analytics/chartcount",
+  options: {
+    handler: handler.getAnalyticsChartCount,
+    description: analyticsMessages.ANALYSTICS_CHART_COUNT,
+    tags: ["api", "analytics"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/analytics/revenue-overview",
+  options: {
+    handler: handler.getRevenueOverviewOperation,
+    description: analyticsMessages.REVENUE_OVERVIEW,
+    tags: ["api", "analytics"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
     
   ];
   server.route(routes);

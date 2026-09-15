@@ -270,4 +270,9 @@ export interface GetPaymentDetailsRecordsParams {
   searchText?: string
 }
 
+export enum RevenuePeriod {
+  WEEKLY = "weekly",
+  MONTHLY = "monthly",
+}
+
 export default CustomEnumerator;

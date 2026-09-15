@@ -1037,5 +1037,11 @@ export const analyticsMessages = {
   FETCH_CARD_COUNT_SUCCESS : "Dashboard cards fetched successfully",
   ANALYTICS_GROWTH_CARD : "Get tenants growth based on weekly, monthly and yearly period",
   GROWTH_CARD_SUCCESS :  "Tenants growth fetched successfully",
+  ANALYTICS_ACTIVITY : "Get today's tenant subscription activities",
+  FETCH_ANALYTICS_ACTIVITY_SUCCESS : "Tenant subscription activities fetched successfully",
+  ANALYSTICS_CHART_COUNT : "Get tenant subscription analytics",
+  ANALYSTICS_CARD_COUNT_SUCCESS : "Subscription Chart Count Fetched Successfully",
+  REVENUE_OVERVIEW: "Get revenue overview",
+  FETCH_REVENUE_OVERVIEW_SUCCESS:"Revenue overview fetched successfully",
 };
 

@@ -2,6 +2,8 @@ import Tenant from "../models/tenants";
 import TenantSubscription from "../models/tenantsubscription";
 import PaymentTransaction from "../models/paymenttransaction";
 import RefundTransaction from "../models/refundTransaction";
+import SubscriptionInvoice from "../models/subscriptionInvoice";
+
 
 const getMonthRange = (date: Date) => {
   const start = new Date(
@@ -419,4 +421,754 @@ export const getTenantsGrowth = async (
       activeTenants: item.activeTenants,
     })),
   };
+};
+
+export const getTenantSubscriptionActivities = async () => {
+  try {
+    const activities = await SubscriptionInvoice.aggregate([
+
+      {
+        $match: {
+          deletedAt: null,
+          status: "PAID",
+        },
+      },
+
+      {
+        $lookup: {
+          from: "tenants",
+          localField: "tenantId",
+          foreignField: "tenantCode",
+          as: "tenant",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$tenant",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "plan",
+          localField: "planId",
+          foreignField: "_id",
+          as: "planDetails",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$planDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+
+          date: "$createdAt",
+
+          type: "Subscription Invoice",
+
+          activity: "$status",
+
+          tenantId: "$tenantId",
+
+          tenantName: "$tenant.tenantName",
+
+          plan: "$tenant.plan",
+
+          status: "$tenant.status",
+
+          createdDate: "$tenant.createdDate",
+
+          planName: "$planDetails.planName",
+        },
+      },
+
+      {
+        $unionWith: {
+          coll: "paymenttransaction",
+
+          pipeline: [
+
+            {
+              $match: {
+                deletedAt: null,
+                paymentStatus: "SUCCESS",
+              },
+            },
+
+            {
+              $lookup: {
+                from: "tenants",
+                localField: "tenantId",
+                foreignField: "tenantCode",
+                as: "tenant",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$tenant",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $lookup: {
+                from: "plan",
+                localField: "planId",
+                foreignField: "_id",
+                as: "planDetails",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$planDetails",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+
+                date: "$createdAt",
+
+                type: "Payment Transaction",
+
+                activity: "$paymentStatus",
+
+                tenantId: "$tenantId",
+
+                tenantName: "$tenant.tenantName",
+
+                plan: "$tenant.plan",
+
+                status: "$tenant.status",
+
+                createdDate: "$tenant.createdDate",
+
+                planName: "$planDetails.planName",
+              },
+            },
+          ],
+        },
+      },
+
+      {
+        $unionWith: {
+          coll: "subscriptiontrials",
+
+          pipeline: [
+
+            {
+              $match: {
+                deletedAt: null,
+              },
+            },
+
+            {
+              $lookup: {
+                from: "tenants",
+                localField: "tenantId",
+                foreignField: "tenantCode",
+                as: "tenant",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$tenant",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $lookup: {
+                from: "plan",
+                localField: "planId",
+                foreignField: "_id",
+                as: "planDetails",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$planDetails",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+
+                date: "$createdAt",
+
+                type: "Subscription Trial",
+
+                activity: {
+                  $cond: [
+                    {
+                      $eq: ["$status", "CONVERTED"],
+                    },
+                    "Trial Converted",
+                    "$status",
+                  ],
+                },
+
+                tenantId: "$tenantId",
+
+                tenantName: "$tenant.tenantName",
+
+                plan: "$tenant.plan",
+
+                status: "$tenant.status",
+
+                createdDate: "$tenant.createdDate",
+
+                planName: "$planDetails.planName",
+              },
+            },
+          ],
+        },
+      },
+
+      {
+        $unionWith: {
+          coll: "refundtransaction",
+
+          pipeline: [
+
+            {
+              $match: {
+                deletedAt: null,
+                refundStatus: "SUCCESS",
+              },
+            },
+
+            {
+              $lookup: {
+                from: "tenants",
+                localField: "tenantId",
+                foreignField: "tenantCode",
+                as: "tenant",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$tenant",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $lookup: {
+                from: "plan",
+                localField: "planId",
+                foreignField: "_id",
+                as: "planDetails",
+              },
+            },
+
+            {
+              $unwind: {
+                path: "$planDetails",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+
+                date: "$createdAt",
+
+                type: "Refund Transaction",
+
+                activity: "$refundStatus",
+
+                tenantId: "$tenantId",
+
+                tenantName: "$tenant.tenantName",
+
+                plan: "$tenant.plan",
+
+                status: "$tenant.status",
+
+                createdDate: "$tenant.createdDate",
+
+                planName: "$planDetails.planName",
+
+                refundStatus: "$refundStatus",
+
+                refundMethod: "$refundMethod",
+              },
+            },
+          ],
+        },
+      },
+
+      {
+        $unionWith: {
+          coll: "tenants",
+
+          pipeline: [
+
+            {
+              $match: {
+                deletedAt: null,
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+
+                date: "$createdDate",
+
+                type: "Tenant",
+
+                activity: "Tenant Created",
+
+                tenantId: "$tenantCode",
+
+                tenantName: "$tenantName",
+
+                plan: "$plan",
+
+                status: "$status",
+
+                createdDate: "$createdDate",
+              },
+            },
+          ],
+        },
+      },
+
+      {
+        $sort: {
+          date: -1,
+        },
+      },
+
+      {
+        $limit: 5,
+      },
+    ]);
+
+    return {
+      total: activities.length,
+      activities,
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAnalyticsChart = async () => {
+  try {
+    const subscriptions = await TenantSubscription.aggregate([
+
+      {
+        $match: {
+          deletedAt: null,
+          status: "ACTIVE",
+        },
+      },
+
+      {
+        $group: {
+          _id: "$planName",
+          count: {
+            $sum: 1,
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: null,
+
+          total: {
+            $sum: "$count",
+          },
+
+          subscriptions: {
+            $push: {
+              planName: "$_id",
+              count: "$count",
+            },
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+
+          total: 1,
+
+          subscriptions: {
+            $map: {
+              input: "$subscriptions",
+              as: "subscription",
+
+              in: {
+                planName: "$$subscription.planName",
+
+                count: "$$subscription.count",
+
+percentage: {
+  $round: [
+    {
+      $multiply: [
+        {
+          $divide: [
+            "$$subscription.count",
+            "$total",
+          ],
+        },
+        100,
+      ],
+    },
+    0,
+  ],
+},
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    return (
+      subscriptions[0] || {
+        total: 0,
+        subscriptions: [],
+      }
+    );
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getRevenueOverview = async (
+  period: string = "monthly"
+) => {
+  try {
+    const now = new Date();
+
+    if (period !== "weekly" && period !== "monthly") {
+      throw {
+        statusCode: 400,
+        message: "Period must be weekly or monthly",
+      };
+    }
+
+    if (period === "weekly") {
+      const currentDay = now.getDay();
+
+      // Sunday = 0
+      // Monday = 1
+      // Calculate Monday
+      const monday = new Date(now);
+
+      const daysFromMonday =
+        currentDay === 0 ? 6 : currentDay - 1;
+
+      monday.setDate(
+        now.getDate() - daysFromMonday
+      );
+
+      monday.setHours(0, 0, 0, 0);
+
+      // Sunday
+      const sunday = new Date(monday);
+
+      sunday.setDate(
+        monday.getDate() + 7
+      );
+
+      const paymentRevenue =
+        await PaymentTransaction.aggregate([
+          {
+            $match: {
+              deletedAt: null,
+
+              paymentStatus: "SUCCESS",
+
+              createdAt: {
+                $gte: monday,
+                $lt: sunday,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$createdAt",
+                  timezone: "Asia/Kolkata"
+                },
+              },
+
+              revenue: {
+                $sum: "$netAmount",
+              },
+            },
+          },
+        ]);
+
+      const refundRevenue =
+        await RefundTransaction.aggregate([
+          {
+            $match: {
+              deletedAt: null,
+
+              refundStatus: "SUCCESS",
+
+              createdAt: {
+                $gte: monday,
+                $lt: sunday,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$createdAt",
+                  timezone: "Asia/Kolkata"
+                },
+              },
+
+              revenue: {
+                $sum: "$netAmount",
+              },
+            },
+          },
+        ]);
+
+      const weeklyRevenue = [];
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+
+        date.setDate(
+          monday.getDate() + i
+        );
+
+        const dateKey =
+          `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, "0")}-${String(
+            date.getDate()
+          ).padStart(2, "0")}`;
+
+        const payment =
+          paymentRevenue.find(
+            (item) => item._id === dateKey
+          );
+
+        const refund =
+          refundRevenue.find(
+            (item) => item._id === dateKey
+          );
+
+        const paymentAmount =
+          Number(payment?.revenue || 0);
+
+        const refundAmount =
+          Number(refund?.revenue || 0);
+
+        const revenue =
+          paymentAmount - refundAmount;
+
+        weeklyRevenue.push({
+          date: dateKey,
+
+          day: date.toLocaleDateString(
+            "en-US",
+            {
+              weekday: "short",
+            }
+          ),
+
+          revenue,
+        });
+      }
+
+      const totalRevenue =
+        weeklyRevenue.reduce(
+          (total, item) =>
+            total + item.revenue,
+          0
+        );
+
+      return {
+        period: "weekly",
+
+        startDate: monday,
+
+        endDate: new Date(
+          sunday.getTime() - 1
+        ),
+
+        totalRevenue,
+
+        revenue: weeklyRevenue,
+      };
+    }
+
+    const currentYear =
+      now.getFullYear();
+
+    const yearStart = new Date(
+      currentYear,
+      0,
+      1
+    );
+
+    const nextYearStart = new Date(
+      currentYear + 1,
+      0,
+      1
+    );
+
+    const paymentRevenue =
+      await PaymentTransaction.aggregate([
+        {
+          $match: {
+            deletedAt: null,
+
+            paymentStatus: "SUCCESS",
+
+            createdAt: {
+              $gte: yearStart,
+              $lt: nextYearStart,
+            },
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $month: "$createdAt",
+            },
+
+            revenue: {
+              $sum: "$netAmount",
+            },
+          },
+        },
+      ]);
+
+    const refundRevenue =
+      await RefundTransaction.aggregate([
+        {
+          $match: {
+            deletedAt: null,
+
+            refundStatus: "SUCCESS",
+
+            createdAt: {
+              $gte: yearStart,
+              $lt: nextYearStart,
+            },
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $month: "$createdAt",
+            },
+
+            revenue: {
+              $sum: "$netAmount",
+            },
+          },
+        },
+      ]);
+
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const monthlyRevenue = [];
+
+    for (let month = 1; month <= 12; month++) {
+      const payment =
+        paymentRevenue.find(
+          (item) =>
+            item._id === month
+        );
+
+      const refund =
+        refundRevenue.find(
+          (item) =>
+            item._id === month
+        );
+
+      const paymentAmount =
+        Number(payment?.revenue || 0);
+
+      const refundAmount =
+        Number(refund?.revenue || 0);
+
+      const revenue =
+        paymentAmount - refundAmount;
+
+      monthlyRevenue.push({
+        month: monthNames[month - 1],
+
+        monthNumber: month,
+
+        revenue,
+      });
+    }
+
+    const totalRevenue =
+      monthlyRevenue.reduce(
+        (total, item) =>
+          total + item.revenue,
+        0
+      );
+
+    return {
+      period: "monthly",
+
+      year: currentYear,
+
+      totalRevenue,
+
+      revenue: monthlyRevenue,
+    };
+  } catch (error) {
+    throw error;
+  }
 };
