@@ -903,6 +903,7 @@ export const portalModuleMessages = {
 
 export const tenantPortalConfigMessages = {
   GET_CONFIG_SUCCESS: "Tenant configuration fetched successfully",
+  GET_CONFIGS_SUCCESS: "Tenant configurations fetched successfully",
 
   ADD_MODULE_SUCCESS: "Custom module added and enabled successfully",
   UPDATE_MODULE_SUCCESS: "Module updated successfully",

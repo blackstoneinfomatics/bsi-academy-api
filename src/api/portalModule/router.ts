@@ -29,6 +29,7 @@ import handler from "./handler";
 // enable/disable an existing Default or Custom entry - they never create a
 // second config document.
 //   GET    /modules/tenant/config                                           get the full tenant config (Portal -> Modules -> Children/Features)
+//   GET    /modules/tenant/configs                                          list tenant configs across tenants/portals (paginated)
 //   POST   /modules/tenant                                                  add a custom tenant module (and enable it)
 //   GET    /modules/tenant                                                  list tenant modules
 //   PUT    /modules/tenant/{moduleId}                                       update a custom tenant module
@@ -221,6 +222,15 @@ const register = async (server: Server): Promise<void> => {
       options: {
         handler: handler.getTenantConfig,
         description: "Get the full tenant portal configuration (Portal -> Modules -> Children/Features)",
+        tags: ["api", "module", "tenant"],
+      },
+    },
+    {
+      method: "GET",
+      path: "/modules/tenant/configs",
+      options: {
+        handler: handler.getTenantConfigs,
+        description: "List tenant portal configurations across tenants/portals (paginated)",
         tags: ["api", "module", "tenant"],
       },
     },

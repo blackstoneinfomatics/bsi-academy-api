@@ -1,7 +1,8 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { throwError } from "../helpers/throwError";
 import { portalModuleMessages, tenantPortalConfigMessages } from "../config/messages";
-import { PortalType } from "../shared/enum";
+import { PortalStatus, PortalType, Status } from "../shared/enum";
 import PortalModule, {
   CreateParentModuleInput,
   UpdateAccessInput,
@@ -10,6 +11,8 @@ import PortalModule, {
 import { CreateChildModuleInput, UpdateChildModuleInput } from "../models/childportal";
 import { CreateFeatureInput, UpdateFeatureInput } from "../models/featuremodule";
 import Tenants from "../models/tenants";
+import TenantSubscription from "../models/tenantsubscription";
+import TenantPortal from "../models/tenantPortal";
 import TenantPortalConfig, {
   AddTenantChildModuleInput,
   AddTenantFeatureInput,
@@ -24,10 +27,12 @@ import {
   IFeature,
   IParentModule,
   IPortalModule,
+  ITenant,
   ITenantPortalChildModule,
   ITenantPortalConfig,
   ITenantPortalFeature,
   ITenantPortalModule,
+  ITenantSubscription,
 } from "../../types/models.types";
 // ---------------------------------------------------------------------------
 // ID generation
@@ -227,6 +232,8 @@ export const updateParentModuleAccess = async (
   parentModuleId: string,
   payload: UpdateAccessInput
 ): Promise<IPortalModule> => {
+  console.log("[updateParentModuleAccess] payload", { parentModuleId, ...payload });
+
   const parent = await findActiveParent(parentModuleId);
 
   parent.isEnabled = payload.isEnabled;
@@ -317,6 +324,8 @@ export const updateChildModuleAccess = async (
   childModuleId: string,
   payload: UpdateAccessInput
 ): Promise<IPortalModule> => {
+  console.log("[updateChildModuleAccess] payload", { parentModuleId, childModuleId, ...payload });
+
   const parent = await findActiveParent(parentModuleId);
   const child = findChildOrThrow(parent, childModuleId);
 
@@ -419,6 +428,13 @@ export const updateFeatureAccess = async (
   featureId: string,
   payload: UpdateAccessInput
 ): Promise<IPortalModule> => {
+  console.log("[updateFeatureAccess] payload", {
+    parentModuleId,
+    childModuleId,
+    featureId,
+    ...payload,
+  });
+
   const parent = await findActiveParent(parentModuleId);
   const child = findChildOrThrow(parent, childModuleId);
   const feature = findFeatureOrThrow(child, featureId);
@@ -512,6 +528,8 @@ export const updateParentFeatureAccess = async (
   featureId: string,
   payload: UpdateAccessInput
 ): Promise<IPortalModule> => {
+  console.log("[updateParentFeatureAccess] payload", { parentModuleId, featureId, ...payload });
+
   const parent = await findActiveParent(parentModuleId);
   const feature = findParentFeatureOrThrow(parent, featureId);
 
@@ -649,6 +667,124 @@ const findActiveConfig = async (
   return config;
 };
 
+// The Global catalog (portalmodules collection) uses Status ("Active" /
+// "Inactive" / "Archived" / ...) while tenant-scoped module/child/feature
+// status uses the differently-cased PortalStatus ("ACTIVE" / "INACTIVE" /
+// "ARCHIVED") - passing a Status value straight into a PortalStatus field
+// would fail the tenantPortalConfig schema's enum validation on save.
+const toPortalStatus = (status: Status): PortalStatus => {
+  switch (status) {
+    case Status.ACTIVE:
+      return PortalStatus.ACTIVE;
+    case Status.ARCHIVED:
+      return PortalStatus.ARCHIVED;
+    default:
+      return PortalStatus.INACTIVE;
+  }
+};
+
+// Snapshots the Global (Default) parent modules registered under this portal's
+// name, mapped into the tenant-scoped shape - used to seed a brand new
+// tenantPortalConfig document. A portal name with no Global modules yet simply
+// starts with an empty snapshot.
+const buildDefaultModulesSnapshot = (parents: IPortalModule[]): ITenantPortalModule[] => {
+  const now = new Date();
+
+  const mapFeature = (feature: IFeature): ITenantPortalFeature => ({
+    featureId: feature.featureId,
+    featureName: feature.featureName,
+    featureStatus: toPortalStatus(feature.status),
+    featuretype: PortalType.DEFAULT,
+    isEnabled: feature.isEnabled,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const mapChild = (child: IChildModule): ITenantPortalChildModule => ({
+    childModuleId: child.childModuleId,
+    childModuleName: child.childModuleName,
+    childModuleStatus: toPortalStatus(child.status),
+    childModuleType: PortalType.DEFAULT,
+    isEnabled: child.isEnabled,
+    features: (child.features ?? []).map(mapFeature),
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return parents.map((parent) => ({
+    moduleId: parent.parentModuleId,
+    moduleName: parent.parentModuleName,
+    orderNo: parent.order ?? 0,
+    moduleStatus: toPortalStatus(parent.status),
+    moduleType: PortalType.DEFAULT,
+    isEnabled: parent.isEnabled,
+    features: (parent.features ?? []).map(mapFeature),
+    children: (parent.children ?? []).map(mapChild),
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  }));
+};
+
+// Used by addTenantModule only: unlike findActiveConfig (every other tenant-
+// scoped read/update, which requires the config to already exist), this one
+// self-heals and never 404s on a missing config - whatever tenantId/portalId
+// is sent in the payload is accepted as-is, and a tenantPortalConfig doc is
+// created for it on the fly if one isn't there yet. If a matching tenantPortal
+// record happens to exist, its Global default modules are used to seed the
+// snapshot; otherwise it just starts empty and the module from the payload is
+// added as the first (Custom) entry.
+const findOrCreateActiveConfig = async (
+  tenantId: string,
+  portalId: string,
+  createdBy: string
+): Promise<ITenantPortalConfig> => {
+  console.log("[findOrCreateActiveConfig] lookup", { tenantId, portalId });
+
+  const existing = await TenantPortalConfig.findOne({ tenantId, portalId, deletedAt: null });
+
+  if (existing) {
+    console.log("[findOrCreateActiveConfig] existing config found", { configId: existing._id });
+    return existing;
+  }
+
+  console.log("[findOrCreateActiveConfig] no existing config, checking tenantPortal", {
+    tenantId,
+    portalId,
+  });
+
+  const portal = await TenantPortal.findOne({ tenantId, portalId, deletedAt: null });
+
+  console.log("[findOrCreateActiveConfig] tenantPortal lookup result", {
+    found: !!portal,
+    portalName: portal?.portalName ?? null,
+  });
+
+  const defaultParents = portal
+    ? await PortalModule.find({ portal: portal.portalName, deletedAt: null })
+    : [];
+
+  console.log("[findOrCreateActiveConfig] default parents snapshot", {
+    count: defaultParents.length,
+  });
+
+  const created = await TenantPortalConfig.create({
+    tenantId,
+    portalId,
+    tenantPortalId: portal?._id ?? new mongoose.Types.ObjectId(),
+    modules: buildDefaultModulesSnapshot(defaultParents),
+    createdBy,
+    updatedBy: null,
+    deletedAt: null,
+  });
+
+  console.log("[findOrCreateActiveConfig] created new config", { configId: created._id });
+
+  return created;
+};
+
 const findTenantModuleOrThrow = (
   config: ITenantPortalConfig,
   moduleId: string
@@ -694,15 +830,134 @@ const findTenantFeatureOrThrow = (
   return feature;
 };
 
+const buildTenantDetails = (tenant: ITenant): Partial<ITenant> => ({
+  tenantCode: tenant.tenantCode,
+  tenantName: tenant.tenantName,
+  tenantLogo: tenant.tenantLogo,
+  domainName: tenant.domainName,
+  organizationName: tenant.organizationName,
+  emailId: tenant.emailId,
+  phoneNumber: tenant.phoneNumber,
+  mobileNumber: tenant.mobileNumber,
+  plan: tenant.plan,
+  status: tenant.status,
+});
+
+const buildSubscriptionDetails = (
+  subscription: ITenantSubscription | null
+): Partial<ITenantSubscription> | null =>
+  subscription
+    ? {
+        planId: subscription.planId,
+        planName: subscription.planName,
+        subscriptionCode: subscription.subscriptionCode,
+        duration: subscription.duration,
+        status: subscription.status,
+        paymentStatus: subscription.paymentStatus,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        nextRenewalDate: subscription.nextRenewalDate,
+        autoRenew: subscription.autoRenew,
+        remarks: subscription.remarks,
+      }
+    : null;
+
+type TenantConfigWithDetails = Partial<ITenantPortalConfig> & {
+  tenantDetails: Partial<ITenant>;
+  subscriptionDetails: Partial<ITenantSubscription> | null;
+};
+
 // Returns the full existing TenantConfig document (Portal -> Parent Module ->
-// Features / Child Modules -> Features) for the tenant, unmodified.
+// Features / Child Modules -> Features) for the tenant, along with the
+// tenant's own details (name, organization, contact info, plan, etc.) and its
+// current subscription details (plan, start/end/renewal dates, status, etc.).
 export const getTenantConfig = async (
   tenantId: string,
   portalId: string
-): Promise<ITenantPortalConfig> => {
-  await validateTenantExists(tenantId);
+): Promise<TenantConfigWithDetails> => {
+  const [tenant, subscription] = await Promise.all([
+    Tenants.findOne({ tenantCode: tenantId }),
+    TenantSubscription.findOne({ tenantId, deletedAt: null }),
+  ]);
 
-  return findActiveConfig(tenantId, portalId);
+  if (!tenant) {
+    return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
+  }
+
+  const config = await findActiveConfig(tenantId, portalId);
+
+  return {
+    ...config.toObject(),
+    tenantDetails: buildTenantDetails(tenant),
+    subscriptionDetails: buildSubscriptionDetails(subscription),
+  };
+};
+
+// Lists TenantConfig documents across tenants/portals (paginated), each
+// enriched with its tenant and subscription details - used for an admin-facing
+// overview rather than a single tenant+portal lookup.
+export const getTenantConfigs = async (
+  page = 1,
+  limit = 10,
+  filters: { tenantId?: string; portalId?: string } = {}
+): Promise<{
+  data: TenantConfigWithDetails[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalRecords: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}> => {
+  const match: Record<string, unknown> = { deletedAt: null };
+  if (filters.tenantId) match.tenantId = filters.tenantId;
+  if (filters.portalId) match.portalId = filters.portalId;
+
+  const [configs, totalRecords] = await Promise.all([
+    TenantPortalConfig.find(match)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    TenantPortalConfig.countDocuments(match),
+  ]);
+
+  const tenantIds = [...new Set(configs.map((config) => config.tenantId))];
+
+  const [tenants, subscriptions] = await Promise.all([
+    Tenants.find({ tenantCode: { $in: tenantIds } }),
+    TenantSubscription.find({ tenantId: { $in: tenantIds }, deletedAt: null }),
+  ]);
+
+  const tenantByCode = new Map(tenants.map((tenant) => [tenant.tenantCode, tenant]));
+  const subscriptionByTenantId = new Map(
+    subscriptions.map((subscription) => [subscription.tenantId, subscription])
+  );
+
+  const data = configs.map((config) => {
+    const tenant = tenantByCode.get(config.tenantId);
+
+    return {
+      ...config.toObject(),
+      tenantDetails: tenant ? buildTenantDetails(tenant) : null,
+      subscriptionDetails: buildSubscriptionDetails(
+        subscriptionByTenantId.get(config.tenantId) ?? null
+      ),
+    } as TenantConfigWithDetails;
+  });
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / limit),
+      hasNextPage: page * limit < totalRecords,
+      hasPreviousPage: page > 1,
+    },
+  };
 };
 
 // Module (Parent)
@@ -712,9 +967,15 @@ export const getTenantConfig = async (
 export const addTenantModule = async (
   payload: AddTenantModuleInput
 ): Promise<ITenantPortalConfig> => {
+  console.log("[addTenantModule] payload", payload);
+
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const config = await findOrCreateActiveConfig(
+    payload.tenantId,
+    payload.portalId,
+    payload.createdBy
+  );
 
   const duplicate = config.modules.find(
     (module) => !module.deletedAt && module.moduleName === payload.moduleName
@@ -762,6 +1023,8 @@ export const updateTenantModuleAccess = async (
   moduleId: string,
   payload: TenantPortalConfigAccessInput
 ): Promise<ITenantPortalConfig> => {
+  console.log("[updateTenantModuleAccess] payload", { moduleId, ...payload });
+
   await validateTenantExists(payload.tenantId);
 
   const config = await findActiveConfig(payload.tenantId, payload.portalId);
@@ -829,7 +1092,11 @@ export const addTenantChildModule = async (
 ): Promise<ITenantPortalConfig> => {
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const config = await findOrCreateActiveConfig(
+    payload.tenantId,
+    payload.portalId,
+    payload.createdBy
+  );
   const module = findTenantModuleOrThrow(config, moduleId);
 
   const duplicate = module.children.find(
@@ -880,6 +1147,8 @@ export const updateTenantChildModuleAccess = async (
   childModuleId: string,
   payload: TenantPortalConfigAccessInput
 ): Promise<ITenantPortalConfig> => {
+  console.log("[updateTenantChildModuleAccess] payload", { moduleId, childModuleId, ...payload });
+
   await validateTenantExists(payload.tenantId);
 
   const config = await findActiveConfig(payload.tenantId, payload.portalId);
@@ -950,7 +1219,11 @@ export const addTenantModuleFeature = async (
 ): Promise<ITenantPortalConfig> => {
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const config = await findOrCreateActiveConfig(
+    payload.tenantId,
+    payload.portalId,
+    payload.createdBy
+  );
   const module = findTenantModuleOrThrow(config, moduleId);
 
   return pushTenantFeature(config, module, payload);
@@ -964,7 +1237,11 @@ export const addTenantChildFeature = async (
 ): Promise<ITenantPortalConfig> => {
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
+  const config = await findOrCreateActiveConfig(
+    payload.tenantId,
+    payload.portalId,
+    payload.createdBy
+  );
   const module = findTenantModuleOrThrow(config, moduleId);
   const child = findTenantChildOrThrow(module, childModuleId);
 
@@ -1111,6 +1388,8 @@ export const updateTenantModuleFeatureAccess = async (
   featureId: string,
   payload: TenantPortalConfigAccessInput
 ): Promise<ITenantPortalConfig> => {
+  console.log("[updateTenantModuleFeatureAccess] payload", { moduleId, featureId, ...payload });
+
   await validateTenantExists(payload.tenantId);
 
   const config = await findActiveConfig(payload.tenantId, payload.portalId);
@@ -1132,6 +1411,13 @@ export const updateTenantChildFeatureAccess = async (
   featureId: string,
   payload: TenantPortalConfigAccessInput
 ): Promise<ITenantPortalConfig> => {
+  console.log("[updateTenantChildFeatureAccess] payload", {
+    moduleId,
+    childModuleId,
+    featureId,
+    ...payload,
+  });
+
   await validateTenantExists(payload.tenantId);
 
   const config = await findActiveConfig(payload.tenantId, payload.portalId);
