@@ -276,9 +276,8 @@ export class PaymentService {
     }
   }
 
-  // =============================
+
   // CUSTOM SERVICE INVOICE PAYMENTS
-  // =============================
 
   async createCustomServiceInvoicePaymentIntent(invoiceId: string) {
     try {
