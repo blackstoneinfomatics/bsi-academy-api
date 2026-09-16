@@ -1,4 +1,5 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
+import { z } from "zod";
 import {
   createParentModuleValidation,
   updateParentModuleValidation,
@@ -53,6 +54,13 @@ import {
   updateTenantModuleValidation,
 } from "../../models/tenantPortalConfig";
 
+export const getParentModulesValidation = z.object({
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+  }),
+});
+
 export default {
 
   // Parent module
@@ -91,27 +99,43 @@ export default {
     }
   },
 
-  getParentModules: async (_request: Request, h: ResponseToolkit) => {
-    try {
-      const result = await getParentModules();
+getParentModules: async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const { query } = getParentModulesValidation.parse({
+      query: request.query,
+    });
 
-      return h
-        .response({
-          success: true,
-          message: portalModuleMessages.GET_PARENT_MODULES_SUCCESS,
-          data: result,
-        })
-        .code(200);
-    } catch (err: any) {
-      return h
-        .response({
-          success: false,
-          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
-          errorCode: err.statusCode || 500,
-        })
-        .code(err.statusCode || 500);
-    }
-  },
+    const result = await getParentModules(
+      query.page,
+      query.limit
+    );
+
+    return h
+      .response({
+        success: true,
+        message: "Parent modules fetched successfully",
+        data: result.data,
+        pagination: result.pagination,
+      })
+      .code(200);
+  } catch (err: unknown) {
+    const error = err as {
+      message?: string;
+      statusCode?: number;
+    };
+
+    return h
+      .response({
+        success: false,
+        message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
+},
 
   updateParentModule: async (request: Request, h: ResponseToolkit) => {
     try {

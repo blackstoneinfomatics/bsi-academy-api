@@ -6,8 +6,20 @@ import {
   getRevenueOverview
 } from "../../operations/analytics";
 import { analyticsMessages } from "../../config/messages";
-import { RevenuePeriod } from "../../shared/enum";
+import { RevenuePeriod, TenantGrowthPeriod } from "../../shared/enum";
 import { z } from "zod";
+
+const getTenantsGrowthValidation = z.object({
+  query: z.object({
+    period: z
+      .enum([
+        TenantGrowthPeriod.WEEKLY,
+        TenantGrowthPeriod.MONTHLY,
+        TenantGrowthPeriod.YEARLY,
+      ])
+      .default(TenantGrowthPeriod.MONTHLY),
+  }),
+});
 
 const getRevenueOverviewValidation = z.object({
   query: z.object({
@@ -55,12 +67,12 @@ export default {
     request: Request,
     h: ResponseToolkit
   ) => {
-    try {
-      const { period } = request.query as {
-        period?: string;
-      };
+     try {
+    const { query } = getTenantsGrowthValidation.parse({
+      query: request.query,
+    });
 
-      const result = await getTenantsGrowth(period);
+    const result = await getTenantsGrowth(query.period);
 
       return h
         .response({
@@ -159,7 +171,6 @@ try {
     });
 
     const result = await getRevenueOverview(query.period);
-
 
     return h
       .response({

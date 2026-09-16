@@ -275,4 +275,10 @@ export enum RevenuePeriod {
   MONTHLY = "monthly",
 }
 
+export enum TenantGrowthPeriod {
+  WEEKLY = "weekly",
+  MONTHLY = "monthly",
+  YEARLY = "yearly",
+}
+
 export default CustomEnumerator;

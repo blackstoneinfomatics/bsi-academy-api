@@ -169,8 +169,27 @@ const getNextParentOrder = async (): Promise<number> => {
   return lastParent && typeof lastParent.order === "number" ? lastParent.order + 1 : 1;
 };
 
-export const getParentModules = async (): Promise<IPortalModule[]> => {
-  return PortalModule.find({ deletedAt: null }).sort({ order: 1, createdAt: -1 });
+export const getParentModules = async (page = 1, limit = 10) => {
+  const filter = { deletedAt: null };
+  const [data, totalRecords] = await Promise.all([
+    PortalModule.find(filter)
+      .sort({ order: 1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    PortalModule.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / limit),
+      hasNextPage: page * limit < totalRecords,
+      hasPreviousPage: page > 1,
+    },
+  };
 };
 
 export const updateParentModule = async (
