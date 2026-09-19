@@ -384,6 +384,16 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "module", "tenant"],
       },
     },
+
+     {
+    method: "GET",
+    path: "/feature-control/all",
+    options: {
+      handler: handler.getAllFeatures,
+      tags: ["api", "Feature Control"],
+      description: "Get all parent modules, child modules and features",
+    },
+  },
   ];
 
   server.route(routes);

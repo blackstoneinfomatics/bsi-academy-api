@@ -110,6 +110,10 @@ const createTenantInputValidation = z.object({
     website: true,
     domainName: true,
     status: true,
+    adminName: true,
+    adminEmail: true,
+    designation: true,
+    comments: true,
     createdBy: true,
     lastUpdatedBy: true
   })
@@ -191,6 +195,10 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     timeZone,
     currency,
     status,
+    adminName,
+    adminEmail,
+    designation,
+    comments,
     createdBy,
     lastUpdatedBy
     } = payload;
@@ -220,12 +228,16 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
       website,
       domainName,
       status,
+      adminName,
+      adminEmail,
+      designation,
+      comments,
       createdBy,
       lastUpdatedBy
     });
   },
 
-  
+
 
 
   // Create a new tenant settings

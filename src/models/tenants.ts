@@ -52,7 +52,6 @@ const tenantSchema = new Schema<ITenant>(
     },
     domainName: {
       type: String,
-      maxlength: 10,
       default: null,
       required: false,
     },
@@ -114,6 +113,23 @@ const tenantSchema = new Schema<ITenant>(
       type: String,
       required: true,
     },
+    adminName: {
+      type: String,
+      default: null,
+    },
+    adminEmail: {
+      type: String,
+      match: /\S+@\S+\.\S+/,
+      default: null,
+    },
+    designation: {
+      type: String,
+      default: null,
+    },
+    comments: {
+      type: String,
+      default: null,
+    },
     settings: {
       type: [Schema.Types.Mixed],
       default: [],
@@ -171,6 +187,10 @@ export const zodTenantSchema = z.object({
   plan: z.string().optional(),
   timeZone: z.string().optional(),
   currency: z.string().optional(),
+  adminName: z.string().optional(),
+  adminEmail: z.string().email().optional(),
+  designation: z.string().optional(),
+  comments: z.string().optional(),
   status: z.string().optional(),
   createdDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: commonMessages.INVALID_DATE_FORMAT,

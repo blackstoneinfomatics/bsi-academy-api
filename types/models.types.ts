@@ -2262,6 +2262,10 @@ export interface ITenant extends Document {
   plan?: string;
   timeZone: string;
   currency: string;
+  adminName?: string;
+  adminEmail?: string;
+  designation?: string;
+  comments?: string;
   settings?: any[];
   createdDate: Date;
   createdBy: string;
@@ -2294,6 +2298,10 @@ export interface ITenantCreate {
   website?: string;
   domainName?: string;
   status?: string;
+  adminName?: string;
+  adminEmail?: string;
+  designation?: string;
+  comments?: string;
   settings?: any[];
   createdDate?: Date;
   createdBy: string;

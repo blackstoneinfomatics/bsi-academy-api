@@ -16,6 +16,7 @@ import {
   createParentFeature,
   createParentModule,
   getChildModules,
+  getAllFeatures,
   getFeatureCard,
   getFeatures,
   getParentFeatures,
@@ -1165,5 +1166,47 @@ getParentModules: async (
         .code(err.statusCode || 500);
     }
   },
+
+ getAllFeatures : async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const {
+      page = "1",
+      limit = "10",
+      search,
+      portal,
+      status,
+    } = request.query as {
+      page?: string;
+      limit?: string;
+      search?: string;
+      portal?: string;
+      status?: string;
+    };
+
+    const result = await getAllFeatures({
+      page: Number(page),
+      limit: Number(limit),
+      search,
+      portal,
+      status,
+    });
+
+    return h.response({
+      success: true,
+      message: portalModuleMessages.GET_FEATURES_SUCCESS,
+      ...result,
+    }).code(200);
+  } catch (error) {
+    console.error("Get all features error:", error);
+
+    return h.response({
+      success: false,
+      message: portalModuleMessages.INTERNAL_SERVER_ERROR,
+    }).code(500);
+  }
+},
 
 };

@@ -1445,3 +1445,214 @@ export const updateTenantChildFeatureAccess = async (
 
   return config;
 };
+
+
+
+interface GetAllFeaturesQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  portal?: string;
+  status?: string;
+}
+
+interface FeatureRow {
+  portal: string;
+
+  parentModuleId: string;
+  parentModuleName: string;
+
+  childModuleId: string | null;
+  childModuleName: string | null;
+
+  featureId: string | null;
+  featureName: string | null;
+
+  description: string;
+
+  status: string;
+  isEnabled: boolean;
+
+  createdAt: Date;
+}
+
+export const getAllFeatures = async (
+  query: GetAllFeaturesQuery = {}
+) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    portal,
+    status,
+  } = query;
+
+  const normalizedPage = Math.max(1, Number(page) || 1);
+  const normalizedLimit = Math.max(1, Number(limit) || 10);
+
+  // 1. Fetch all parent modules
+  const parentModules = await PortalModule.find({
+    deletedAt: null,
+  })
+    .sort({ order: 1, createdAt: -1 })
+    .lean();
+
+  const rows: FeatureRow[] = [];
+
+  // 2. Flatten parent, child and feature records
+  for (const parent of parentModules) {
+    const parentId = parent.parentModuleId;
+    const parentName = parent.parentModuleName;
+
+    // Parent module row
+    rows.push({
+      portal: parent.portal,
+
+      parentModuleId: parentId,
+      parentModuleName: parentName,
+
+      childModuleId: null,
+      childModuleName: null,
+
+      featureId: null,
+      featureName: null,
+
+      description: parent.description || "",
+
+      status: parent.status,
+      isEnabled: parent.isEnabled,
+
+      createdAt: parent.createdAt,
+    });
+
+    // Parent-level feature rows
+    for (const feature of parent.features || []) {
+      rows.push({
+        portal: parent.portal,
+
+        parentModuleId: parentId,
+        parentModuleName: parentName,
+
+        childModuleId: null,
+        childModuleName: null,
+
+        featureId: feature.featureId,
+        featureName: feature.featureName,
+
+        description: feature.description || "",
+
+        status: feature.status,
+        isEnabled: feature.isEnabled,
+
+        createdAt: feature.createdAt,
+      });
+    }
+
+    // Child module rows
+    for (const child of parent.children || []) {
+      rows.push({
+        portal: parent.portal,
+
+        parentModuleId: parentId,
+        parentModuleName: parentName,
+
+        childModuleId: child.childModuleId,
+        childModuleName: child.childModuleName,
+
+        featureId: null,
+        featureName: null,
+
+        description: child.description || "",
+
+        status: child.status,
+        isEnabled: child.isEnabled,
+
+        createdAt: child.createdAt,
+      });
+
+      // Child-level feature rows
+      for (const feature of child.features || []) {
+        rows.push({
+          portal: parent.portal,
+
+          parentModuleId: parentId,
+          parentModuleName: parentName,
+
+          childModuleId: child.childModuleId,
+          childModuleName: child.childModuleName,
+
+          featureId: feature.featureId,
+          featureName: feature.featureName,
+
+          description: feature.description || "",
+
+          status: feature.status,
+          isEnabled: feature.isEnabled,
+
+          createdAt: feature.createdAt,
+        });
+      }
+    }
+  }
+
+  // 3. Search
+  let filteredRows = rows;
+
+  if (search?.trim()) {
+    const searchTerm = search.trim().toLowerCase();
+
+    filteredRows = filteredRows.filter((row) =>
+      [
+        row.portal,
+        row.parentModuleName,
+        row.childModuleName,
+        row.featureName,
+        row.description,
+      ].some((value) =>
+        value?.toLowerCase().includes(searchTerm)
+      )
+    );
+  }
+
+  // 4. Portal filter
+  if (portal) {
+    filteredRows = filteredRows.filter(
+      (row) =>
+        row.portal.toLowerCase() === portal.toLowerCase()
+    );
+  }
+
+  // 5. Status filter
+  if (status) {
+    filteredRows = filteredRows.filter(
+      (row) =>
+        row.status.toLowerCase() === status.toLowerCase()
+    );
+  }
+
+  // 6. Pagination
+  const totalRecords = filteredRows.length;
+
+  const totalPages = Math.ceil(
+    totalRecords / normalizedLimit
+  );
+
+  const startIndex = (normalizedPage - 1) * normalizedLimit;
+
+  const data = filteredRows.slice(
+    startIndex,
+    startIndex + normalizedLimit
+  );
+
+  return {
+    data,
+    pagination: {
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalRecords,
+      totalPages,
+      hasNextPage: normalizedPage < totalPages,
+      hasPreviousPage: normalizedPage > 1,
+    },
+  };
+};
