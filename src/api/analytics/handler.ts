@@ -11,13 +11,16 @@ import { z } from "zod";
 
 const getTenantsGrowthValidation = z.object({
   query: z.object({
-    period: z
-      .enum([
-        TenantGrowthPeriod.WEEKLY,
-        TenantGrowthPeriod.MONTHLY,
-        TenantGrowthPeriod.YEARLY,
-      ])
-      .default(TenantGrowthPeriod.MONTHLY),
+    period: z.preprocess(
+      (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+      z
+        .enum([
+          TenantGrowthPeriod.WEEKLY,
+          TenantGrowthPeriod.MONTHLY,
+          TenantGrowthPeriod.YEARLY,
+        ])
+        .default(TenantGrowthPeriod.MONTHLY)
+    ),
   }),
 });
 
@@ -67,17 +70,21 @@ export default {
     request: Request,
     h: ResponseToolkit
   ) => {
-     try {
-    const { query } = getTenantsGrowthValidation.parse({
-      query: request.query,
-    });
+    try {
+      const rawQuery = request.query as Record<string, unknown>;
+      const { query } = getTenantsGrowthValidation.parse({
+        query: {
+          ...rawQuery,
+          period: rawQuery.period ?? rawQuery["period "],
+        },
+      });
 
-    const result = await getTenantsGrowth(query.period);
+      const result = await getTenantsGrowth(query.period);
 
       return h
         .response({
           success: true,
-          message:analyticsMessages.GROWTH_CARD_SUCCESS,
+          message: analyticsMessages.GROWTH_CARD_SUCCESS,
           data: result,
         })
         .code(200);

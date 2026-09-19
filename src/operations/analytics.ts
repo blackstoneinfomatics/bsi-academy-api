@@ -354,57 +354,54 @@ export const getTenantsGrowth = async (
     throw error;
   }
 
-  const result = await Tenant.aggregate([
+  const result = await TenantSubscription.aggregate([
     {
       $match: {
-        tenantCode: {
+        tenantId: {
           $exists: true,
           $ne: null,
         },
-
-        createdDate: {
+        createdAt: {
           $gte: startDate,
           $lt: endDate,
         },
-
         deletedAt: null,
       },
     },
-
     {
-      $group: {
-        _id: {
+      $project: {
+        tenantId: 1,
+        status: 1,
+        period: {
           $dateToString: {
             format: groupFormat,
-            date: "$createdDate",
-          },
-        },
-
-        totalTenants: {
-          $sum: 1,
-        },
-
-        activeTenants: {
-          $sum: {
-            $cond: [
-              {
-                $eq: [
-                  "$status",
-                  "ACTIVE",
-                ],
-              },
-              1,
-              0,
-            ],
+            date: "$createdAt",
           },
         },
       },
     },
-
     {
-      $sort: {
-        _id: 1,
+      $group: {
+        _id: {
+          period: "$period",
+          tenantId: "$tenantId",
+        },
+        isActive: {
+          $max: {
+            $cond: [{ $eq: ["$status", "ACTIVE"] }, 1, 0],
+          },
+        },
       },
+    },
+    {
+      $group: {
+        _id: "$_id.period",
+        totalTenants: { $sum: 1 },
+        activeTenants: { $sum: "$isActive" },
+      },
+    },
+    {
+      $sort: { _id: 1 },
     },
   ]);
 
