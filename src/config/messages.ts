@@ -410,7 +410,13 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
 
   INVALID_PLAN_ID: "Invalid plan id",
 
-  INTERNAL_SERVER_ERROR: "Internal server error"
+  INTERNAL_SERVER_ERROR: "Internal server error",
+
+  ORGANIZATION_NAME_EXISTS: "Organization Name already exists",
+
+  TENANT_JOB_CODE_EXISTS: "Organization Code already exists",
+
+  TENANT_UPDATE_SUCCESS: "Tenant details updated successfully",
 });
 
 export const dashboardMessages: Record<string, any> = Object.freeze({

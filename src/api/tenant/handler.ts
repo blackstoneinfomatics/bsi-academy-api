@@ -16,6 +16,7 @@ import {
 } from "../../operations/tenants";
 import { zodTenantSchema } from "../../models/tenants";
 import { throwError } from "../../helpers/throwError";
+import { tenantsMessages } from "../../config/messages";
 
 // Input Validation for Create a tenant settings
 const createInputValidation = z.object({
@@ -74,23 +75,13 @@ const updateInputValidation = z.object({
 });
 
 const updateTenantDetailsInput = z.object({
-  payload: zodTenantSchema.pick({
-    organizationName: true,
-    phoneNumber: true,
-    state: true,
-    city: true,
-    street: true,
-    country: true,
-    emailId: true,
-    faxNo: true,
-    gstNo: true,
-    panNo: true,
-    postalCode: true,
-    tenantJobCode: true,
-    website: true,
-    lastUpdatedDate: true,
-    lastUpdatedBy: true
-  })
+  payload: zodTenantSchema
+    .omit({
+      tenantCode: true,
+      createdDate: true,
+      createdBy: true,
+    })
+    .partial(),
 });
 
 const createTenantInputValidation = z.object({
@@ -302,15 +293,62 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     return getActiveTenantRecord();
   },
   
-  // async updateTenantDetailsById(req: Request, h: ResponseToolkit) {
-  //   const { payload } = updateTenantDetailsInput.parse({
-  //     payload: req.payload
-  //   })
-  //   return updateTenantDetailsByTenantId(String(req.params.tenantId), {
-  //     ...payload,
-  //     lastUpdatedDate: new Date()
-  //   });
-  // },
+  async updateTenantDetailsById(req: Request, h: ResponseToolkit) {
+    try {
+      const raw: any = req.payload || {};
+
+      const validationPayload = {
+        payload: {
+          ...raw,
+          ...(raw.tenantLogo !== undefined && {
+            tenantLogo: raw.tenantLogo?.hapi?.filename || raw.tenantLogo,
+          }),
+          ...(raw.companyRegistrationCertificate !== undefined && {
+            companyRegistrationCertificate:
+              raw.companyRegistrationCertificate?.hapi?.filename ||
+              raw.companyRegistrationCertificate,
+          }),
+          ...(raw.gstCertificate !== undefined && {
+            gstCertificate:
+              raw.gstCertificate?.hapi?.filename || raw.gstCertificate,
+          }),
+          ...(raw.addressProof !== undefined && {
+            addressProof:
+              raw.addressProof?.hapi?.filename || raw.addressProof,
+          }),
+        },
+      };
+
+      const { payload } = updateTenantDetailsInput.parse(validationPayload);
+
+      const result = await updateTenantDetailsByTenantId(
+        String(req.params.tenantId),
+        {
+          ...payload,
+          lastUpdatedDate: new Date(),
+        },
+      );
+
+      if ((result as any)?.isBoom) {
+        return result;
+      }
+
+      return h
+        .response({
+          success: true,
+          message: tenantsMessages.TENANT_UPDATE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+        })
+        .code(error.statusCode || 400);
+    }
+  },
 
   async getTenantAnalyticsCards(
   req: Request,

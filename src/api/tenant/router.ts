@@ -115,18 +115,25 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-    // {
-    //   method: 'PUT',
-    //   path: '/tenant/{tenantId}',
-    //   options: {
-    //     handler: handler.updateTenantDetailsById,
-    //     description: tenantsMessages.BYID,
-    //     tags: ['api', 'tenants'],
-    //     auth: {
-    //       strategies: ['jwt']
-    //     },
-    //   },
-    // },
+    {
+      method: 'PUT',
+      path: '/tenant/{tenantId}',
+      options: {
+        handler: handler.updateTenantDetailsById,
+        description: tenantsMessages.UPDATE,
+        tags: ['api', 'tenants'],
+        auth: {
+          strategies: ['jwt']
+        },
+        payload: {
+          parse: true,
+          multipart: true,
+          output: 'stream',
+          allow: ['application/json', 'multipart/form-data'],
+          maxBytes: 15 * 1024 * 1024,
+        },
+      },
+    },
   ];
   server.route(routes);
 };

@@ -26,22 +26,6 @@ import { throwError } from "../helpers/throwError";
 import plan from "../models/plan-model";
 import TenantSubscription from "../models/tenantsubscription";
 
-export interface TenantDetails {
-  organizationName: string;
-  phoneNumber: string;
-  address: string;
-  country: string;
-  emailId: string;
-  faxNo: string;
-  gstNo: string;
-  panNo: string;
-  postalCode: string;
-  tenantJobCode: string;
-  website: string;
-  lastUpdatedDate: Date;
-  lastUpdatedBy: string;
-}
-
 /**
  * Creates a new student.
  *
@@ -80,53 +64,60 @@ export const getActiveTenantRecordByCode = async (
   }).lean();
 };
 
-/**
- * Updates the tenant details by its ID, ensuring no duplicate organization name or tenant job code exists.
- *
- * @param {string} tenantId - The ID of the tenant to update.
- * @param {TenantDetails} payload - The details of the tenant to update. It includes organizationName and tenantJobCode.
- *
- * @returns {Promise<ITenant | null | { message: string }>}
- * - Returns the updated tenant document if the update is successful.
- * - Returns a conflict message if the organization name or tenant job code already exists.
- *
- * @throws {Error} - Throws an error if the update operation fails.
- *
- */
+
 export const updateTenantDetailsByTenantId = async (
   tenantId: string,
-  payload: TenantDetails,
-): Promise<ITenant | null | { message: string }> => {
+  payload: Partial<ITenant>,
+): Promise<ITenant | null | Boom> => {
   const { organizationName, tenantJobCode } = payload;
 
-  // Check Duplicate for OrganizationName (excluding the current tenant)
-  const organizationNameDuplicate = await TenantModel.findOne({
-    _id: { $ne: new Types.ObjectId(tenantId) }, // Exclude current tenant
-    organizationName,
+  const existingTenant = await TenantModel.findOne({
+    _id: new Types.ObjectId(tenantId),
     status: appStatus.ACTIVE,
   }).exec();
 
-  if (organizationNameDuplicate) {
-    return conflict("Organization Name already exists");
+  if (!existingTenant) {
+    return notFound(tenantsMessages.TENANT_NOT_FOUND);
+  }
+
+  // Check Duplicate for OrganizationName (excluding the current tenant)
+  if (!isNil(organizationName)) {
+    const organizationNameDuplicate = await TenantModel.findOne({
+      _id: { $ne: new Types.ObjectId(tenantId) }, // Exclude current tenant
+      organizationName,
+      status: appStatus.ACTIVE,
+    }).exec();
+
+    if (organizationNameDuplicate) {
+      return conflict(tenantsMessages.ORGANIZATION_NAME_EXISTS);
+    }
   }
 
   // Check Duplicate for TenantJobCode (excluding the current tenant)
-  const tenantJobCodeDuplicate = await TenantModel.findOne({
-    tenantJobCode, // Corrected to check tenantJobCode, not organizationName
-    status: appStatus.ACTIVE,
-    _id: { $ne: new Types.ObjectId(tenantId) }, // Exclude current tenant
-  }).exec();
+  if (!isNil(tenantJobCode)) {
+    const tenantJobCodeDuplicate = await TenantModel.findOne({
+      tenantJobCode,
+      status: appStatus.ACTIVE,
+      _id: { $ne: new Types.ObjectId(tenantId) }, // Exclude current tenant
+    }).exec();
 
-  if (tenantJobCodeDuplicate) {
-    return conflict("Organization Code already exists");
+    if (tenantJobCodeDuplicate) {
+      return conflict(tenantsMessages.TENANT_JOB_CODE_EXISTS);
+    }
   }
 
   // Update the tenant details
-  return TenantModel.findOneAndUpdate(
+  const updatedTenant = await TenantModel.findOneAndUpdate(
     { _id: new Types.ObjectId(tenantId) },
     { $set: payload },
     { new: true }, // Return the updated document
   ).lean();
+
+  if (!updatedTenant) {
+    return notFound(tenantsMessages.UPDATE_FAILED);
+  }
+
+  return updatedTenant;
 };
 
 export const generateRefreshToken = async (keyValue: any) => {
@@ -337,9 +328,7 @@ export const getTenantSettingsById = async (
 };
 
 export const getActiveTenantRecord = async () => {
-  const tenants = await TenantModel.find({
-    status: appStatus.ACTIVE,
-  }).lean();
+  const tenants = await TenantModel.find({}).lean();
 
   return {
     total: tenants.length,
