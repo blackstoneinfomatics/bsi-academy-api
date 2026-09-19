@@ -27,6 +27,10 @@ export const FeatureSchema = new Schema<ITenantPortalFeature>(
       enum: Object.values(PortalType),
       default: PortalType.CUSTOM,
     },
+    description: {
+      type: String,
+      required: false,
+    },
 
     isEnabled: {
       type: Boolean,

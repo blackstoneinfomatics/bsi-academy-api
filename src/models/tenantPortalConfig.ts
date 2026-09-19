@@ -94,6 +94,7 @@ export const addTenantModuleValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   moduleName: z.string().trim().min(1, "Module name is required"),
+  description: z.string().trim().optional(),
   orderNo: z.number().int().min(1).optional(),
   moduleStatus: statusValidation,
   createdBy: z.string().trim().min(1, "Created by is required"),
@@ -103,6 +104,7 @@ export const updateTenantModuleValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   moduleName: z.string().trim().min(1, "Module name is required").optional(),
+  description: z.string().trim().optional(),
   orderNo: z.number().int().min(1).optional(),
   moduleStatus: statusValidation.optional(),
   updatedBy: z.string().trim().min(1, "Updated by is required"),
@@ -114,6 +116,7 @@ export const addTenantChildModuleValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   childModuleName: z.string().trim().min(1, "Child module name is required"),
+  description: z.string().trim().optional(),
   childModuleStatus: statusValidation,
   createdBy: z.string().trim().min(1, "Created by is required"),
 });
@@ -122,6 +125,7 @@ export const updateTenantChildModuleValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   childModuleName: z.string().trim().min(1, "Child module name is required").optional(),
+  description: z.string().trim().optional(),
   childModuleStatus: statusValidation.optional(),
   updatedBy: z.string().trim().min(1, "Updated by is required"),
 });
@@ -132,6 +136,7 @@ export const addTenantFeatureValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   featureName: z.string().trim().min(1, "Feature name is required"),
+  description: z.string().trim().optional(),
   featureStatus: statusValidation,
   createdBy: z.string().trim().min(1, "Created by is required"),
 });
@@ -140,6 +145,7 @@ export const updateTenantFeatureValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant id is required"),
   portalId: objectId,
   featureName: z.string().trim().min(1, "Feature name is required").optional(),
+  description: z.string().trim().optional(),
   featureStatus: statusValidation.optional(),
   updatedBy: z.string().trim().min(1, "Updated by is required"),
 });

@@ -16,6 +16,10 @@ export const ChildModuleSchema = new Schema<ITenantPortalChildModule>(
       type: String,
       required: true,
     },
+    description: {
+      type: String,
+      required: false,
+    },
 
     childModuleStatus: {
       type: String,

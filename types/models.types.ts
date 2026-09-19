@@ -2982,6 +2982,7 @@ export interface ITenantPortalFeature {
   featureStatus: PortalStatus;
   isEnabled: boolean;
   featuretype: PortalType;
+  description?: string;
   deletedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -2993,6 +2994,7 @@ export interface ITenantPortalChildModule {
   childModuleStatus: PortalStatus;
   childModuleType: PortalType;
   isEnabled: boolean;
+description?: string;
   features: ITenantPortalFeature[];
   deletedAt?: Date | null;
   createdAt?: Date;
@@ -3002,13 +3004,11 @@ export interface ITenantPortalChildModule {
 export interface ITenantPortalModule {
   moduleId: string;
   moduleName: string;
-
+description?: string;
   orderNo: number;
-
   moduleStatus: PortalStatus;
   moduleType: PortalType;
   isEnabled: boolean;
-
   features: ITenantPortalFeature[];
   children: ITenantPortalChildModule[];
   deletedAt?: Date | null;
@@ -3020,9 +3020,8 @@ export interface ITenantPortalConfig extends Document {
   tenantId: string;
   portalId: Types.ObjectId;
   tenantPortalId: Types.ObjectId;
-
   modules: ITenantPortalModule[];
-
+  description?: string;
   createdBy: string;
   updatedBy?: string;
   deletedAt?: Date | null;

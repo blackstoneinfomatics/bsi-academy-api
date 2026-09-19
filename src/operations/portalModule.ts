@@ -990,6 +990,7 @@ export const addTenantModule = async (
   config.modules.push({
     moduleId: generateUniqueId("MOD", config.modules.map((module) => module.moduleId)),
     moduleName: payload.moduleName,
+    description: payload.description,
     orderNo: payload.orderNo ?? config.modules.length + 1,
     moduleStatus: payload.moduleStatus,
     moduleType: PortalType.CUSTOM,
@@ -1068,6 +1069,9 @@ export const updateTenantModule = async (
 
     module.moduleName = payload.moduleName;
   }
+  if (payload.description !== undefined) {
+    module.description = payload.description;
+  }
   if (payload.orderNo !== undefined) {
     module.orderNo = payload.orderNo;
   }
@@ -1112,6 +1116,7 @@ export const addTenantChildModule = async (
   module.children.push({
     childModuleId: generateUniqueId("CM", module.children.map((child) => child.childModuleId)),
     childModuleName: payload.childModuleName,
+    description: payload.description,
     childModuleStatus: payload.childModuleStatus,
     childModuleType: PortalType.CUSTOM,
     isEnabled: true,
@@ -1197,6 +1202,9 @@ export const updateTenantChildModule = async (
 
     child.childModuleName = payload.childModuleName;
   }
+  if (payload.description !== undefined) {
+    child.description = payload.description;
+  }
   if (payload.childModuleStatus !== undefined) {
     child.childModuleStatus = payload.childModuleStatus;
   }
@@ -1267,6 +1275,7 @@ const pushTenantFeature = async (
   container.features.push({
     featureId: generateUniqueId("FT", container.features.map((feature) => feature.featureId)),
     featureName: payload.featureName,
+    description: payload.description,
     featureStatus: payload.featureStatus,
     featuretype: PortalType.CUSTOM,
     isEnabled: true,
@@ -1312,6 +1321,9 @@ const updateContainerFeature = async (
     }
 
     feature.featureName = payload.featureName;
+  }
+  if (payload.description !== undefined) {
+    feature.description = payload.description;
   }
   if (payload.featureStatus !== undefined) {
     feature.featureStatus = payload.featureStatus;
