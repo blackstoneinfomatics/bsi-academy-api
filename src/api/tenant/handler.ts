@@ -10,6 +10,7 @@ import {
   getActiveTenantRecordByCode,
   getAllTenantSettingsRecords,
   getTenantAnalyticsCards,
+  getTenantFullDetailsByCode,
   updateTenantDetailsByTenantId,
   updateTenantPlanService,
   updateTenantSettings,
@@ -44,6 +45,12 @@ const getTenantSettingsListInputValidation = z.object({
 const objectId = z
   .string()
   .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+const tenantFullDetailsParamsValidation = z.object({
+  params: z.object({
+    tenantCode: z.string().trim().min(1, tenantsMessages.TENANT_CODE_REQUIRED),
+  }),
+});
 
  const tenantPlanParamsValidation = z.object({
   params: z.object({
@@ -300,6 +307,42 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     return getActiveTenantRecordByCode(String(req.params.tenantCode));
   },
 
+
+  // Company info + subscription + modules/features access for the Tenant Details screen
+  async getTenantFullDetails(req: Request, h: ResponseToolkit) {
+    try {
+      const validation = tenantFullDetailsParamsValidation.safeParse({
+        params: req.params,
+      });
+
+      if (!validation.success) {
+        throwError(validation.error.errors[0].message, 400);
+        return;
+      }
+
+      const result = await getTenantFullDetailsByCode(
+        validation.data.params.tenantCode,
+      );
+
+      return h
+        .response({
+          success: true,
+          message: tenantsMessages.TENANT_FULL_DETAILS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      console.error("Error in getTenantFullDetails:", error);
+
+      return h
+        .response({
+          success: false,
+          message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+          errorCode: error.statusCode || 500,
+        })
+        .code(error.statusCode || 500);
+    }
+  },
 
    async getTenantDetails(req: Request, h: ResponseToolkit) {
     return getActiveTenantRecord();

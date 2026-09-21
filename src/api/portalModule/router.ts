@@ -212,25 +212,13 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-    // Tenant module (Custom) - the tenant_portal_config document already exists
-    // (seeded with a Default snapshot of Global when the tenant subscribes), so
-    // these only ADD/UPDATE a Custom entry into it and enable it - they never
-    // create or replace the root document.
+    
     {
       method: "GET",
       path: "/modules/tenant/config",
       options: {
         handler: handler.getTenantConfig,
         description: "Get the full tenant portal configuration (Portal -> Modules -> Children/Features)",
-        tags: ["api", "module", "tenant"],
-      },
-    },
-    {
-      method: "GET",
-      path: "/modules/tenant/configs",
-      options: {
-        handler: handler.getTenantConfigs,
-        description: "List tenant portal configurations across tenants/portals (paginated)",
         tags: ["api", "module", "tenant"],
       },
     },

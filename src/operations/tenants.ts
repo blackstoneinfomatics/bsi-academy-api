@@ -1,8 +1,13 @@
 import {
   ITenant,
   ITenantCreate,
+  ITenantDetailsFeatureAccess,
+  ITenantDetailsModuleAccess,
+  ITenantDetailsResponse,
+  ITenantPortalFeature,
   ITenantSettings,
   ITenantSettingsPayload,
+  TenantAccessLabel,
 } from "../../types/models.types";
 import { appStatus, syncJob, tenantsMessages } from "../config/messages";
 import TenantModel from "../models/tenants";
@@ -13,6 +18,7 @@ import { badRequest, Boom, conflict, notFound } from "@hapi/boom";
 import {
   GetAllRecordsParams,
   PaymentStatus,
+  PortalStatus,
   Status,
   SubscriptionStatus,
 } from "../shared/enum";
@@ -25,6 +31,8 @@ import { TenantWelcomeMail } from "./trailExperiedMail";
 import { throwError } from "../helpers/throwError";
 import plan from "../models/plan-model";
 import TenantSubscription from "../models/tenantsubscription";
+import TenantPortalConfig from "../models/tenantPortalConfig";
+import TenantPortal from "../models/tenantPortal";
 
 /**
  * Creates a new student.
@@ -684,4 +692,142 @@ export const updateTenantPlanService = async (
       error.statusCode || 500,
     );
   }
+};
+
+// An item is "Enabled" only when its isEnabled flag is on and its own status is ACTIVE.
+const toAccessLabel = (
+  isEnabled?: boolean,
+  status?: PortalStatus,
+): TenantAccessLabel =>
+  isEnabled !== false && (status ?? PortalStatus.ACTIVE) === PortalStatus.ACTIVE
+    ? tenantsMessages.ACCESS_ENABLED
+    : tenantsMessages.ACCESS_DISABLED;
+
+const buildAddress = (tenant: ITenant): string | null => {
+  const address = [
+    tenant.street,
+    tenant.city,
+    tenant.state,
+    tenant.country,
+    tenant.postalCode,
+  ]
+    .filter((part) => !isNil(part) && String(part).trim() !== "")
+    .join(", ");
+
+  return address || null;
+};
+
+/**
+ * Retrieves everything the Tenant Details screen needs in one call:
+ * company information (Tenants), subscription (TenantSubscription) and the
+ * portal-wise module / feature access (TenantPortalConfig).
+ *
+ * TenantSubscription.tenantId and TenantPortalConfig.tenantId both store the tenantCode.
+ * A missing tenant is a 404; a missing subscription or config only empties its own section.
+ *
+ * @param {string} tenantCode - The tenantCode of the tenant document.
+ * @returns {Promise<ITenantDetailsResponse>}
+ */
+export const getTenantFullDetailsByCode = async (
+  tenantCode: string,
+): Promise<ITenantDetailsResponse> => {
+  const tenant = await TenantModel.findOne({ tenantCode }).lean();
+
+  if (!tenant) {
+    return throwError(tenantsMessages.TENANT_NOT_FOUND, 404);
+  }
+
+  const [subscription, configs, portals] = await Promise.all([
+    TenantSubscription.findOne({ tenantId: tenantCode, deletedAt: null })
+      .sort({ createdAt: -1 })
+      .lean(),
+    TenantPortalConfig.find({ tenantId: tenantCode, deletedAt: null }).lean(),
+    TenantPortal.find({ tenantId: tenantCode, deletedAt: null })
+      .select("portalId portalName")
+      .lean(),
+  ]);
+
+  const portalNameById = new Map(
+    portals.map((portal) => [String(portal.portalId), portal.portalName]),
+  );
+
+  const modulesAccess: ITenantDetailsModuleAccess[] = [];
+  const featuresAccess: ITenantDetailsFeatureAccess[] = [];
+
+  for (const config of configs) {
+    const portalId = String(config.portalId);
+    const portalName = portalNameById.get(portalId) ?? null;
+
+    const pushFeatures = (
+      features: ITenantPortalFeature[] | undefined,
+      moduleName: string,
+      childModuleName: string | null,
+    ) => {
+      for (const feature of features ?? []) {
+        if (feature.deletedAt) continue;
+
+        featuresAccess.push({
+          portalId,
+          portalName,
+          moduleName,
+          childModuleName,
+          featureId: feature.featureId,
+          featureName: feature.featureName,
+          status: toAccessLabel(feature.isEnabled, feature.featureStatus),
+        });
+      }
+    };
+
+    const modules = [...(config.modules ?? [])]
+      .filter((module) => !module.deletedAt)
+      .sort((a, b) => (a.orderNo ?? 0) - (b.orderNo ?? 0));
+
+    for (const module of modules) {
+      const childModules = (module.children ?? []).filter(
+        (child) => !child.deletedAt,
+      );
+
+      modulesAccess.push({
+        portalId,
+        portalName,
+        moduleId: module.moduleId,
+        moduleName: module.moduleName,
+        status: toAccessLabel(module.isEnabled, module.moduleStatus),
+        childModules: childModules.map((child) => ({
+          childModuleId: child.childModuleId,
+          childModuleName: child.childModuleName,
+          status: toAccessLabel(child.isEnabled, child.childModuleStatus),
+        })),
+      });
+
+      pushFeatures(module.features, module.moduleName, null);
+
+      for (const child of childModules) {
+        pushFeatures(child.features, module.moduleName, child.childModuleName);
+      }
+    }
+  }
+
+  return {
+    companyInformation: {
+      companyName: tenant.organizationName,
+      academyName: tenant.tenantName,
+      email: tenant.emailId,
+      phone: tenant.phoneNumber || tenant.mobileNumber || null,
+      address: buildAddress(tenant as ITenant),
+    },
+    subscription: subscription
+      ? {
+          planName: subscription.planName ?? tenant.plan ?? null,
+          status: subscription.status ?? null,
+          currentPeriod: {
+            startDate: subscription.startDate ?? null,
+            endDate: subscription.endDate ?? null,
+          },
+          nextBillingDate: subscription.nextRenewalDate ?? null,
+        }
+      : null,
+    modulesAccess,
+    featuresAccess,
+  };
 };

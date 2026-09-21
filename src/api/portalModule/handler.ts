@@ -641,41 +641,30 @@ getParentModules: async (
   // these only ADD a Custom entry into it and enable it - they never create
   // the root document.
 
-  getTenantConfig: async (request: Request, h: ResponseToolkit) => {
-    try {
-      const { tenantId, portalId } = request.query as { tenantId: string; portalId: string };
-      const result = await getTenantConfig(tenantId, portalId);
+ getTenantConfig: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const {
+      tenantId,
+      portalId,
+      page,
+      limit,
+    } = request.query as {
+      tenantId?: string;
+      portalId?: string;
+      page?: string;
+      limit?: string;
+    };
 
-      return h
-        .response({
-          success: true,
-          message: tenantPortalConfigMessages.GET_CONFIG_SUCCESS,
-          data: result,
-        })
-        .code(200);
-    } catch (err: any) {
-      return h
-        .response({
-          success: false,
-          message: err.message || tenantPortalConfigMessages.INTERNAL_SERVER_ERROR,
-          errorCode: err.statusCode || 500,
-        })
-        .code(err.statusCode || 500);
-    }
-  },
-
-  getTenantConfigs: async (request: Request, h: ResponseToolkit) => {
-    try {
-      const { page, limit, tenantId, portalId } = request.query as {
-        page?: string;
-        limit?: string;
-        tenantId?: string;
-        portalId?: string;
-      };
-      const result = await getTenantConfigs(Number(page) || 1, Number(limit) || 10, {
-        tenantId,
-        portalId,
-      });
+    // Get all tenant configurations with pagination
+    if (page !== undefined || limit !== undefined) {
+      const result = await getTenantConfigs(
+        Number(page) || 1,
+        Number(limit) || 10,
+        {
+          tenantId,
+          portalId,
+        }
+      );
 
       return h
         .response({
@@ -685,16 +674,40 @@ getParentModules: async (
           pagination: result.pagination,
         })
         .code(200);
-    } catch (err: any) {
+    }
+
+    // Get a single tenant configuration
+    if (!tenantId || !portalId) {
       return h
         .response({
           success: false,
-          message: err.message || tenantPortalConfigMessages.INTERNAL_SERVER_ERROR,
-          errorCode: err.statusCode || 500,
+          message: "tenantId and portalId are required",
+          errorCode: 400,
         })
-        .code(err.statusCode || 500);
+        .code(400);
     }
-  },
+
+    const result = await getTenantConfig(tenantId, portalId);
+
+    return h
+      .response({
+        success: true,
+        message: tenantPortalConfigMessages.GET_CONFIG_SUCCESS,
+        data: result,
+      })
+      .code(200);
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message:
+          err.message ||
+          tenantPortalConfigMessages.INTERNAL_SERVER_ERROR,
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
+  }
+},
 
   addTenantModule: async (request: Request, h: ResponseToolkit) => {
     try {

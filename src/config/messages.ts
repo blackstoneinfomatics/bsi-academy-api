@@ -417,6 +417,16 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   TENANT_JOB_CODE_EXISTS: "Organization Code already exists",
 
   TENANT_UPDATE_SUCCESS: "Tenant details updated successfully",
+
+  TENANT_FULL_DETAILS: "Get complete tenant details (company, subscription, modules and features access)",
+
+  TENANT_FULL_DETAILS_SUCCESS: "Tenant details fetched successfully",
+
+  TENANT_CODE_REQUIRED: "Tenant code is required",
+
+  ACCESS_ENABLED: "Enabled",
+
+  ACCESS_DISABLED: "Disabled",
 });
 
 export const dashboardMessages: Record<string, any> = Object.freeze({
@@ -932,6 +942,7 @@ export const tenantPortalConfigMessages = {
   CHILD_MODULE_NOT_FOUND: "Child module not found",
   FEATURE_NOT_FOUND: "Feature not found",
   MODULE_ALREADY_EXISTS: "Module already exists",
+  MODULE_ORDER_ALREADY_EXISTS: "Order already exists",
   CHILD_MODULE_ALREADY_EXISTS: "Child module already exists",
   FEATURE_ALREADY_EXISTS: "Feature already exists",
   MODULE_NOT_CUSTOM:

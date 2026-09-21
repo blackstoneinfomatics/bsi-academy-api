@@ -7,6 +7,19 @@ import { BillingPeriodSchema, billingPeriodSchema } from "./billingperiod";
 
 
 
+// Portal the module / child module / feature belongs to - sent as-is from the frontend.
+// Optional so plans saved before these fields existed stay valid.
+const portalRefFields = {
+  portalId: {
+    type: String,
+    required: false,
+  },
+  portalName: {
+    type: String,
+    required: false,
+  },
+};
+
 const PlanSchema = new Schema<Plans>(
   {
     // tenantId: {
@@ -107,6 +120,8 @@ const PlanSchema = new Schema<Plans>(
         required: true,
       },
 
+      ...portalRefFields,
+
       // Direct features under parent module
       features: {
         type: [
@@ -119,6 +134,7 @@ const PlanSchema = new Schema<Plans>(
               type: String,
               required: true,
             },
+            ...portalRefFields,
           },
         ],
         required: false,
@@ -145,6 +161,8 @@ const PlanSchema = new Schema<Plans>(
               required: true,
             },
 
+            ...portalRefFields,
+
             // Features under child module
             features: {
               type: [
@@ -157,6 +175,7 @@ const PlanSchema = new Schema<Plans>(
                     type: String,
                     required: true,
                   },
+                  ...portalRefFields,
                 },
               ],
               required: false,
@@ -237,6 +256,11 @@ const PlanSchema = new Schema<Plans>(
 );
 
 
+const portalRefValidation = {
+  portalId: z.string().optional(),
+  portalName: z.string().optional(),
+};
+
 export const createPlanValidation = z.object({
   planId: z.string().optional(),
   planName: z.string().min(1, "Plan name is required"),
@@ -267,11 +291,14 @@ modules: z.array(
     // Selection order of this module within the plan - sent as-is from the frontend.
     order: z.number().int().nonnegative(),
 
+    ...portalRefValidation,
+
     // Parent module may or may not have direct features
     features: z.array(
       z.object({
         featureId: z.string(),
-        featureName: z.string()
+        featureName: z.string(),
+        ...portalRefValidation,
       })
     ).optional(),
 
@@ -284,11 +311,14 @@ modules: z.array(
         // Selection order of this child module within its parent - sent as-is from the frontend.
         order: z.number().int().nonnegative(),
 
+        ...portalRefValidation,
+
         // Child may or may not have features
         features: z.array(
           z.object({
             featureId: z.string(),
-            featureName: z.string()
+            featureName: z.string(),
+            ...portalRefValidation,
           })
         ).optional()
       })

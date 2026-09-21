@@ -867,40 +867,7 @@ type TenantConfigWithDetails = Partial<ITenantPortalConfig> & {
   subscriptionDetails: Partial<ITenantSubscription> | null;
 };
 
-// Returns the full existing TenantConfig document (Portal -> Parent Module ->
-// Features / Child Modules -> Features) for the tenant, along with the
-// tenant's own details (name, organization, contact info, plan, etc.) and its
-// current subscription details (plan, start/end/renewal dates, status, etc.).
-export const getTenantConfig = async (
-  tenantId: string,
-  portalId: string
-): Promise<TenantConfigWithDetails> => {
-  const [tenant, subscription] = await Promise.all([
-    Tenants.findOne({ tenantCode: tenantId }),
-    TenantSubscription.findOne({ tenantId, deletedAt: null }),
-  ]);
-
-  if (!tenant) {
-    return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
-  }
-
-  const config = await findActiveConfig(tenantId, portalId);
-
-  return {
-    ...config.toObject(),
-    tenantDetails: buildTenantDetails(tenant),
-    subscriptionDetails: buildSubscriptionDetails(subscription),
-  };
-};
-
-// Lists TenantConfig documents across tenants/portals (paginated), each
-// enriched with its tenant and subscription details - used for an admin-facing
-// overview rather than a single tenant+portal lookup.
-export const getTenantConfigs = async (
-  page = 1,
-  limit = 10,
-  filters: { tenantId?: string; portalId?: string } = {}
-): Promise<{
+type TenantConfigsPage = {
   data: TenantConfigWithDetails[];
   pagination: {
     page: number;
@@ -910,8 +877,17 @@ export const getTenantConfigs = async (
     hasNextPage: boolean;
     hasPreviousPage: boolean;
   };
-}> => {
+};
+
+// Lists TenantConfig documents across tenants/portals (paginated), each
+// enriched with its tenant and subscription details.
+export const getTenantConfigs = async (
+  page = 1,
+  limit = 10,
+  filters: { tenantId?: string; portalId?: string } = {}
+): Promise<TenantConfigsPage> => {
   const match: Record<string, unknown> = { deletedAt: null };
+
   if (filters.tenantId) match.tenantId = filters.tenantId;
   if (filters.portalId) match.portalId = filters.portalId;
 
@@ -930,7 +906,9 @@ export const getTenantConfigs = async (
     TenantSubscription.find({ tenantId: { $in: tenantIds }, deletedAt: null }),
   ]);
 
-  const tenantByCode = new Map(tenants.map((tenant) => [tenant.tenantCode, tenant]));
+  const tenantByCode = new Map(
+    tenants.map((tenant) => [tenant.tenantCode, tenant])
+  );
   const subscriptionByTenantId = new Map(
     subscriptions.map((subscription) => [subscription.tenantId, subscription])
   );
@@ -957,6 +935,29 @@ export const getTenantConfigs = async (
       hasNextPage: page * limit < totalRecords,
       hasPreviousPage: page > 1,
     },
+  };
+};
+
+// Gets a single tenant + portal configuration with tenant and subscription details.
+export const getTenantConfig = async (
+  tenantId: string,
+  portalId: string
+): Promise<TenantConfigWithDetails> => {
+  const [tenant, subscription] = await Promise.all([
+    Tenants.findOne({ tenantCode: tenantId }),
+    TenantSubscription.findOne({ tenantId, deletedAt: null }),
+  ]);
+
+  if (!tenant) {
+    return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
+  }
+
+  const config = await findActiveConfig(tenantId, portalId);
+
+  return {
+    ...config.toObject(),
+    tenantDetails: buildTenantDetails(tenant),
+    subscriptionDetails: buildSubscriptionDetails(subscription),
   };
 };
 
@@ -1041,9 +1042,9 @@ export const updateTenantModuleAccess = async (
   return config;
 };
 
-// Updates an existing Custom module's own fields (name / order / status) -
-// Default modules are owned by Global Feature Control / Subscription Plan and
-// cannot be edited through this tenant-scoped API.
+// Updates an existing tenant module. Custom modules can change name / order /
+// status; Default modules are owned by Global Feature Control / Subscription
+// Plan, so through this tenant-scoped API they can only change their order.
 export const updateTenantModule = async (
   moduleId: string,
   payload: UpdateTenantModuleInput
@@ -1053,7 +1054,14 @@ export const updateTenantModule = async (
   const config = await findActiveConfig(payload.tenantId, payload.portalId);
   const module = findTenantModuleOrThrow(config, moduleId);
 
-  if (module.moduleType !== PortalType.CUSTOM) {
+  // Order is a per-tenant display setting, so both Default and Custom modules
+  // can change it. Every other field is still Custom-only.
+  const editsOtherFields =
+    payload.moduleName !== undefined ||
+    payload.description !== undefined ||
+    payload.moduleStatus !== undefined;
+
+  if (module.moduleType !== PortalType.CUSTOM && editsOtherFields) {
     return throwError(tenantPortalConfigMessages.MODULE_NOT_CUSTOM, 400);
   }
 
@@ -1073,6 +1081,15 @@ export const updateTenantModule = async (
     module.description = payload.description;
   }
   if (payload.orderNo !== undefined) {
+    const duplicateOrder = config.modules.find(
+      (item) =>
+        !item.deletedAt && item.moduleId !== moduleId && item.orderNo === payload.orderNo
+    );
+
+    if (duplicateOrder) {
+      return throwError(tenantPortalConfigMessages.MODULE_ORDER_ALREADY_EXISTS, 409);
+    }
+
     module.orderNo = payload.orderNo;
   }
   if (payload.moduleStatus !== undefined) {

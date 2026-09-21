@@ -2353,12 +2353,18 @@ export interface IAllowedRole {
 }
 
 
-export interface IPlanFeature {
+// Portal a plan module / child module / feature belongs to - sent from the frontend.
+export interface IPlanPortalRef {
+  portalId?: string;
+  portalName?: string;
+}
+
+export interface IPlanFeature extends IPlanPortalRef {
   featureId: string;
   featureName: string;
 }
 
-export interface IPlanChildModule {
+export interface IPlanChildModule extends IPlanPortalRef {
   childModuleId: string;
   childModuleName: string;
   // Selection order of this child module within its parent, as chosen in the frontend.
@@ -2366,7 +2372,7 @@ export interface IPlanChildModule {
   features?: IPlanFeature[];
 }
 
-export interface IPlanModule {
+export interface IPlanModule extends IPlanPortalRef {
   moduleId: string;
   moduleName: string;
 
@@ -3033,6 +3039,54 @@ export interface ITenantPortalConfig extends Document {
   createdBy: string;
   updatedBy?: string;
   deletedAt?: Date | null;
+}
+
+export type TenantAccessLabel = "Enabled" | "Disabled";
+
+export interface ITenantDetailsChildModuleAccess {
+  childModuleId: string;
+  childModuleName: string;
+  status: TenantAccessLabel;
+}
+
+export interface ITenantDetailsModuleAccess {
+  portalId: string;
+  portalName: string | null;
+  moduleId: string;
+  moduleName: string;
+  status: TenantAccessLabel;
+  childModules: ITenantDetailsChildModuleAccess[];
+}
+
+export interface ITenantDetailsFeatureAccess {
+  portalId: string;
+  portalName: string | null;
+  moduleName: string;
+  childModuleName: string | null;
+  featureId: string;
+  featureName: string;
+  status: TenantAccessLabel;
+}
+
+export interface ITenantDetailsResponse {
+  companyInformation: {
+    companyName: string;
+    academyName: string;
+    email: string;
+    phone: string | null;
+    address: string | null;
+  };
+  subscription: {
+    planName: string | null;
+    status: string | null;
+    currentPeriod: {
+      startDate: Date | null;
+      endDate: Date | null;
+    };
+    nextBillingDate: Date | null;
+  } | null;
+  modulesAccess: ITenantDetailsModuleAccess[];
+  featuresAccess: ITenantDetailsFeatureAccess[];
 }
 
 export interface ILookup extends Document {
