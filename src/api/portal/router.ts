@@ -67,18 +67,6 @@ const register = async (server: Server): Promise<void> => {
       }
     },
     {
-      method:"GET",
-      path:"/portal/tenant/dashboard",
-      handler:handler.getTenantPortalDashboardHandler,
-      options:{
-        description:portalMessages.DASBOARD_CARD_COUNT,
-         tags: ["api", "Portal"],
-        // auth: {
-        //   strategies: ["jwt"],
-        // },
-      }
-    },
-    {
      method:"PUT",
      path:"/portal/tenant/{tenantPortalId}/status",
      handler:handler.updateTenantPortal,
@@ -89,7 +77,20 @@ const register = async (server: Server): Promise<void> => {
         //   strategies: ["jwt"],
         // },
       }
-    }
+    },
+
+     {
+      method: "GET",
+      path: "/tenant-portal-dashboard/{tenantId}",
+      handler: handler.getTenantPortalDashboard,
+      options: {
+        description: portalMessages.GET_TENANT_PORTAL_DASHBOARD,
+        tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
   ];
   server.route(routes);
 };

@@ -145,6 +145,7 @@ export const createParentModule = async (
 
   const parentModulePayload: IParentModule = {
     portal: payload.portal,
+    portalId :payload.portalId,
     parentModuleId: generateId("PM"),
     parentModuleName: payload.parentModuleName,
     order,

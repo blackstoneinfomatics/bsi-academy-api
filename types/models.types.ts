@@ -2881,6 +2881,7 @@ export interface IRefundTransaction extends Document {
 
 export interface IParentModule {
   portal: string;
+  portalId :string;
   parentModuleId: string;
   parentModuleName: string;
   order?: number;

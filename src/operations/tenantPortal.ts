@@ -1,10 +1,54 @@
 import { throwError } from "../helpers/throwError";
 import tenantsubscription from "../models/tenantsubscription";
 import tenantPortal from "../models/tenantPortal";
+import tenantPortalConfig from "../models/tenantPortalConfig";
 import { portalMessages } from "../config/messages";
 import { PortalStatus, PortalType, SubscriptionStatus } from "../shared/enum";
 import mongoose from "mongoose";
+import tenantUsers from "../models/users";
+import plan from "../models/plan-model";
+import { appStatus } from "../config/messages";
 
+export interface IRoleCount {
+  role: string;
+  count: number;
+}
+
+export interface IUserStatistics {
+  totalUsers: number;
+  roles: IRoleCount[];
+}
+
+export interface IPortalStatusDetail {
+  portalName: string;
+  isEnabled: boolean;
+}
+
+export interface IPortalStatistics {
+  totalPortals: number;
+  enabledPortals: number;
+  disabledPortals: number;
+  usedPortals: number;
+  remainingPortals: number;
+  portals: IPortalStatusDetail[];
+}
+
+export interface IMostActivePortal {
+  portalName: string;
+  activeUsers: number;
+  percentage: number;
+}
+
+export interface ITenantPortalDashboard {
+  userStatistics: IUserStatistics;
+  portalStatistics: IPortalStatistics;
+  mostActivePortal: IMostActivePortal | null;
+}
+
+const normalizeRoleKey = (value: string): string => {
+  const cleaned = (value || "").toLowerCase().replace(/[^a-z]/g, "");
+  return cleaned.length > 1 && cleaned.endsWith("s") ? cleaned.slice(0, -1) : cleaned;
+};
 export const syncTenantSubscriptionToTenantPortal = async (
   subscriptionId: string,
 ) => {
@@ -166,7 +210,7 @@ export const getTenantPortals = async (query: any, tenantId: string) => {
       tenantPortal
         .find(filter)
         .select(
-          "portalId portalCode portalName portalType roleType status isEnabled userLimit createdAt",
+          "portalId  portalCode portalName portalType roleType status isEnabled userLimit createdAt",
         )
         .sort(sort)
         .skip(skip)
@@ -187,6 +231,126 @@ export const getTenantPortals = async (query: any, tenantId: string) => {
         hasNext: page < totalPages,
         hasPrevious: page > 1,
       },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+
+
+
+export const getTenantPortalDashboardService = async (
+  tenantId: string,
+): Promise<ITenantPortalDashboard> => {
+  try {
+    const trimmedTenantId = (tenantId || "").trim();
+
+    if (!trimmedTenantId) {
+      throwError(portalMessages.TENANT_ID_REQUIRED, 400);
+    }
+
+    const [configs, subscription, users] = await Promise.all([
+      tenantPortalConfig
+        .find({ tenantId: trimmedTenantId, deletedAt: null })
+        .select("tenantPortalId")
+        .lean(),
+      tenantsubscription
+        .findOne({ tenantId: trimmedTenantId, deletedAt: null })
+        .select("planId")
+        .lean(),
+      tenantUsers
+        .find({ tenantId: trimmedTenantId, status: appStatus.ACTIVE })
+        .select("role")
+        .lean(),
+    ]);
+
+    const tenantPortalIds = configs
+      .map((config) => config.tenantPortalId)
+      .filter((id): id is mongoose.Types.ObjectId => !!id);
+
+    const [subscribedPlan, portalDetails] = await Promise.all([
+      subscription?.planId
+        ? plan.findById(subscription.planId).select("allowedRoles").lean()
+        : null,
+      tenantPortal
+        .find({ _id: { $in: tenantPortalIds } })
+        .select("portalName isEnabled")
+        .lean(),
+    ]);
+
+    const portalDetailsById = new Map(
+      portalDetails.map((portal) => [portal._id.toString(), portal]),
+    );
+
+    // Each tenantPortalConfig document is one portal configured for this
+    // tenant - it is the source of truth for the portal set. portalName /
+    // isEnabled are display details, resolved from the matching tenantPortal
+    // record (falling back gracefully if that record is missing).
+    const configuredPortals = configs.map((config) => {
+      const details = config.tenantPortalId
+        ? portalDetailsById.get(config.tenantPortalId.toString())
+        : undefined;
+
+      return {
+        portalName: details?.portalName || "Unknown Portal",
+        isEnabled: details?.isEnabled ?? false,
+      };
+    });
+
+    const usedPortals = configuredPortals.length;
+    const enabledPortals = configuredPortals.filter((portal) => portal.isEnabled).length;
+    const disabledPortals = usedPortals - enabledPortals;
+
+    const totalPortals = usedPortals;
+    const planPortalLimit = subscribedPlan?.allowedRoles?.length ?? totalPortals;
+    const remainingPortals = Math.max(planPortalLimit - usedPortals, 0);
+
+    const roleCounts = new Map<string, number>();
+
+    for (const user of users) {
+      for (const role of user.role || []) {
+        const key = normalizeRoleKey(role);
+        roleCounts.set(key, (roleCounts.get(key) || 0) + 1);
+      }
+    }
+
+    const totalUsers = users.length;
+
+    const roles: IRoleCount[] = configuredPortals.map((portal) => ({
+      role: portal.portalName,
+      count: roleCounts.get(normalizeRoleKey(portal.portalName)) || 0,
+    }));
+
+    let mostActivePortal: IMostActivePortal | null = null;
+
+    if (roles.length) {
+      const top = roles.reduce((max, curr) => (curr.count > max.count ? curr : max), roles[0]);
+
+      mostActivePortal = {
+        portalName: top.role,
+        activeUsers: top.count,
+        percentage: totalUsers > 0 ? Number(((top.count / totalUsers) * 100).toFixed(2)) : 0,
+      };
+    }
+
+    return {
+      userStatistics: {
+        totalUsers,
+        roles,
+      },
+      portalStatistics: {
+        totalPortals,
+        enabledPortals,
+        disabledPortals,
+        usedPortals,
+        remainingPortals,
+        portals: configuredPortals.map((portal) => ({
+          portalName: portal.portalName,
+          isEnabled: portal.isEnabled,
+        })),
+      },
+      mostActivePortal,
     };
   } catch (error) {
     throw error;

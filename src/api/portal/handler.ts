@@ -8,10 +8,11 @@ import {
   getAllPortalService,
   getPortalDashboardCountService,
 } from "../../operations/portal";
-import {createCustomTenantPortalService,updateTenantPortalStatusService} from "../../operations/tenantPortal"
+import {createCustomTenantPortalService,getTenantPortalDashboardService,updateTenantPortalStatusService} from "../../operations/tenantPortal"
 import { PortalStatus, PortalType, RoleType } from "../../shared/enum";
 import { getTenantPortals } from "../../operations/tenantPortal";
 import { TenantPortalBaseValidation } from "../../models/tenantPortal";
+import tenants from "../../models/tenants";
 
 const createPortalValidation = z.object({
   payload: PortalBaseValidation.pick({
@@ -33,12 +34,17 @@ export const createTenantPortalValidation = z.object({
     createdBy: true,
   }),
 });
-
+export const getTenantPortalDashboardValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+});
 export const getTenantPortalByIdValidation = z.object({
   params: z.object({
     tenantId: z.string(),
   }),
 });
+
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
 
 export const updateTenantPortalStatusValidation = z.object({
@@ -86,7 +92,6 @@ export const getTenantPortalValidation = z.object({
   params: z.object({
     tenantId: z.string().trim().min(1, "Tenant ID is required"),
   }),
-
   query: z.object({
     page: z.coerce.number().min(1).default(1),
     limit: z.coerce.number().min(1).default(10),
@@ -198,14 +203,23 @@ export default {
 
       const tenantId = data?.params.tenantId;
       const query = data?.query;
+  const tenant = await tenants
+      .findOne({ tenantCode:tenantId?.trim() })
+      .select("emailId")
+      .lean();
 
-      const result = await getTenantPortals(query, tenantId || "");
+    const tenantEmail = tenant?.emailId ?? null;      
+    
+    const result = await getTenantPortals(query, tenantId || "");
 
       return h
         .response({
           success: true,
           message: portalMessages.GET_TENANT_PORTALS_SUCCESS,
-          data: result,
+           data: {
+      ...result,
+      tenantEmail,
+    },
         })
         .code(200);
     } catch (err: any) {
@@ -274,30 +288,6 @@ export default {
     }
   },
 
-  getTenantPortalDashboardHandler: async (
-    request: Request,
-    h: ResponseToolkit,
-  ) => {
-    try {
-      const result = "";
-      return h
-        .response({
-          success: true,
-          message: portalMessages.DASBOARD_CARD_COUNT_SUCCESS,
-          data: result,
-        })
-        .code(200);
-    } catch (err: any) {
-      return h
-        .response({
-          success: false,
-          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
-          errorCode: err.statusCode || 500,
-        })
-        .code(err.statusCode || 500);
-    }
-  },
-
   updateTenantPortal: async (request: Request, h: ResponseToolkit) => {
     try {
       const parsed = updateTenantPortalStatusValidation.safeParse({
@@ -334,4 +324,36 @@ export default {
         .code(err.statusCode || 500);
     }
   },
+getTenantPortalDashboard: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = getTenantPortalDashboardValidation.safeParse({
+        params: request.params,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      const tenantId = parsed.data?.params.tenantId as string;
+
+      const result = await getTenantPortalDashboardService(tenantId);
+
+      return h
+        .response({
+          success: true,
+          message: portalMessages.GET_TENANT_PORTAL_DASHBOARD_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+  
 };

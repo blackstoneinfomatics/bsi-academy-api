@@ -3,9 +3,7 @@ import { portalMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 import { PortalStatus, PortalType } from "../shared/enum";
 import PortalModal from "../models/portal";
-import tenantPortal from "../models/tenantPortal";
-import tenantsubscription from "../models/tenantsubscription";
-import mongoose from "mongoose";
+
 
 export const createPortalService = async (payload: Portal) => {
   try {

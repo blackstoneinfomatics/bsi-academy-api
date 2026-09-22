@@ -12,6 +12,10 @@ const portalModuleSchema = new Schema<IPortalModule>(
       required: true,
       trim: true,
     },
+    portalId:{
+      type : String ,
+      required :true,
+    },
     parentModuleId: {
       type: String,
       required: true,
@@ -86,7 +90,7 @@ const portalModuleSchema = new Schema<IPortalModule>(
 
 export const createParentModuleValidation = z.object({
   portal: z.string().min(1, "Portal is required"),
-
+  portalId : z.string(),
   parentModuleName: z
     .string()
     .min(1, "Parent module name is required"),

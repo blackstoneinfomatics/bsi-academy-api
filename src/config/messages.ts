@@ -970,7 +970,17 @@ export const portalMessages = {
   ENABLE_TENANT_PORTAL: "Enable Tenant Portal",
   DISABLE_TENANT_PORTAL: "Disable Tenant Portal",
   GET_TENANT_PORTALS: "Get Tenant Portals",
+  GET_TENANT_PORTAL_DASHBOARD: "Get Tenant Portal Dashboard",
 
+  // 🔹 Success Responses
+  GET_TENANT_PORTAL_DASHBOARD_SUCCESS:
+    "Tenant portal dashboard fetched successfully.",
+
+  // 🔹 Validation Messages
+  TENANT_ID_REQUIRED: "TenantId is required",
+
+  // 🔹 Generic
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
   // 🔹 Success Responses
   CREATE_PORTAL_SUCCESS: "Portal created successfully.",
   UPDATE_PORTAL_SUCCESS: "Portal updated successfully.",
@@ -1039,16 +1049,13 @@ export const portalMessages = {
 
   TENANT_PORTAL_ALREADY_EXISTS: "Portal already exists for this tenant.",
   
-   // 🔹 Validation Messages
-  TENANT_ID_REQUIRED: "TenantId is required",
   SUBSCRIPTION_ID_REQUIRED: "SubscriptionId is required",
   PORTAL_NAME_REQUIRED: "Portal name is required",
   ROLE_TYPE_REQUIRED: "Role type is required",
   CREATED_BY_REQUIRED: "CreatedBy is required",
+};
 
-  // 🔹 Generic
-  INTERNAL_SERVER_ERROR: "Internal Server Error",
-}; 
+
 
 export const analyticsMessages = {
   GET_CARD_COUNT_SUCCESS : "Get tenant, subscription and revenue dashboard cards",
