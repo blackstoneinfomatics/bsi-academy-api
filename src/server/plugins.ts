@@ -50,7 +50,8 @@ import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
 //import featuresAPI from "../api/features/router";
 import portalModuleAPI from "../api/portalModule/router";
 import PortalAPI from  "../api/portal/router";
-import analyticsAPI from "../api/analytics/router"
+import analyticsAPI from "../api/analytics/router";
+import updateAPI from "../api/update/router"
 
 
 export const appPlugins = [
@@ -212,4 +213,7 @@ export const appPlugins = [
   {
     plugin: analyticsAPI
   },
+  {
+    plugin: updateAPI
+  }
 ];

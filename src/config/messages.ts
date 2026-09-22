@@ -1063,3 +1063,6 @@ export const analyticsMessages = {
   FETCH_REVENUE_OVERVIEW_SUCCESS:"Revenue overview fetched successfully",
 };
 
+export const updateMessage = {
+  CREATE_UPDATE : "Create Update",
+}
