@@ -8,20 +8,42 @@ const register = async (server: Server): Promise<void> => {
 
 {
   method: "POST",
-
   path: "/api/updates",
-
   handler: handler.createUpdateHandler,
-
   options: {
     description: updateMessage.CREATE_UPDATE,
-
     tags: ["api", "updates"],
-
     payload: {
       parse: true,
       multipart: true,
     },
+
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+}, 
+
+{
+  method: "GET",
+  path: "/api/updates/dashboard/cards",
+  handler: handler.getUpdateDashboardCardsHandler,
+  options: {
+    description: updateMessage.UPDATE_CARDS,
+    tags: ["api", "updates"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/api/updates/table",
+  handler: handler.getUpdatesListHandler,
+  options: {
+    description: updateMessage.UPDATE_TABLE,
+    tags: ["api", "updates"],
 
     // auth: {
     //   strategies: ["jwt"],

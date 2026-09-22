@@ -5,6 +5,15 @@ import TenantSubscription from "../models/tenantsubscription";
 import emailTemplates from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
 
+interface GetUpdatesListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  category?: string;
+  priority?: string;
+}
+
 const escapeHtml = (value: string): string =>
   value.replace(
     /[&<>'"]/g,
@@ -167,6 +176,42 @@ const sendUpdateEmail = async (
   );
 };
 
+const calculatePercentage = (
+  current: number,
+  previous: number,
+) => {
+  if (previous === 0) {
+    if (current === 0) {
+      return {
+        percentage: 0,
+        direction: "same",
+      };
+    }
+
+    return {
+      percentage: 100,
+      direction: "up",
+    };
+  }
+
+  const percentage = Math.round(
+    ((current - previous) / previous) * 100,
+  );
+
+  let direction: "up" | "down" | "same" = "same";
+
+  if (percentage > 0) {
+    direction = "up";
+  } else if (percentage < 0) {
+    direction = "down";
+  }
+
+  return {
+    percentage: Math.abs(percentage),
+    direction,
+  };
+};
+
 export const createUpdate = async (payload: CreateUpdateInput) => {
 
   const update = await UpdateModel.create({
@@ -214,4 +259,276 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   }
 
   return update;
+};
+
+export const getUpdateDashboardCards = async () => {
+  const now = new Date();
+
+  // Current month
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
+
+  const nextMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  );
+
+  // Previous month
+  const previousMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  );
+
+  const [
+    currentTotalUpdates,
+    previousTotalUpdates,
+
+    currentPublishedUpdates,
+    previousPublishedUpdates,
+
+    currentScheduledUpdates,
+    previousScheduledUpdates,
+
+    // currentViewsResult,
+    // previousViewsResult,
+  ] = await Promise.all([
+
+    UpdateModel.countDocuments({
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    UpdateModel.countDocuments({
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    UpdateModel.countDocuments({
+      status: "Published",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    UpdateModel.countDocuments({
+      status: "Published",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    UpdateModel.countDocuments({
+      status: "Scheduled",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    UpdateModel.countDocuments({
+      status: "Scheduled",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    // UpdateModel.aggregate([
+    //   {
+    //     $match: {
+    //       createdAt: {
+    //         $gte: currentMonthStart,
+    //         $lt: nextMonthStart,
+    //       },
+    //     },
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       totalViews: {
+    //         $sum: {
+    //           $ifNull: ["$views", 0],
+    //         },
+    //       },
+    //     },
+    //   },
+    // ]),
+
+    // UpdateModel.aggregate([
+    //   {
+    //     $match: {
+    //       createdAt: {
+    //         $gte: previousMonthStart,
+    //         $lt: currentMonthStart,
+    //       },
+    //     },
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       totalViews: {
+    //         $sum: {
+    //           $ifNull: ["$views", 0],
+    //         },
+    //       },
+    //     },
+    //   },
+    // ]),
+  ]);
+
+  // const currentTotalViews =
+  //   currentViewsResult[0]?.totalViews || 0;
+
+  // const previousTotalViews =
+  //   previousViewsResult[0]?.totalViews || 0;
+
+  const totalUpdatesChange = calculatePercentage(
+    currentTotalUpdates,
+    previousTotalUpdates,
+  );
+
+  const publishedUpdatesChange = calculatePercentage(
+    currentPublishedUpdates,
+    previousPublishedUpdates,
+  );
+
+  const scheduledUpdatesChange = calculatePercentage(
+    currentScheduledUpdates,
+    previousScheduledUpdates,
+  );
+
+  // const totalViewsChange = calculatePercentage(
+  //   currentTotalViews,
+  //   previousTotalViews,
+  // );
+
+  return {
+    totalUpdates: {
+      count: currentTotalUpdates,
+      percentage: totalUpdatesChange.percentage,
+      direction: totalUpdatesChange.direction,
+    },
+
+    publishedUpdates: {
+      count: currentPublishedUpdates,
+      percentage: publishedUpdatesChange.percentage,
+      direction: publishedUpdatesChange.direction,
+    },
+
+    scheduledUpdates: {
+      count: currentScheduledUpdates,
+      percentage: scheduledUpdatesChange.percentage,
+      direction: scheduledUpdatesChange.direction,
+    },
+
+    // totalViews: {
+    //   count: currentTotalViews,
+    //   percentage: totalViewsChange.percentage,
+    //   direction: totalViewsChange.direction,
+    // },
+  };
+  
+};
+
+export const getUpdatesList = async (
+  params: GetUpdatesListParams,
+) => {
+  const {
+    page,
+    limit,
+    search,
+    status,
+    category,
+    priority,
+  } = params;
+
+  const skip = (page - 1) * limit;
+
+  const filter: Record<string, any> = {};
+
+  // Status filter
+  if (status) {
+    filter.status = status;
+  }
+
+  // Category filter
+  if (category) {
+    filter.category = category;
+  }
+
+  // Priority filter
+  if (priority) {
+    filter.priority = priority;
+  }
+
+  // Search filter
+  if (search?.trim()) {
+    const searchRegex = new RegExp(
+      search.trim(),
+      "i",
+    );
+
+    filter.$or = [
+      {
+        title: searchRegex,
+      },
+      {
+        description: searchRegex,
+      },
+      {
+        category: searchRegex,
+      },
+    ];
+  }
+
+  const [
+    updates,
+    totalRecords,
+  ] = await Promise.all([
+    UpdateModel.find(filter)
+      .select({
+        title: 1,
+        description: 1,
+        category: 1,
+        priority: 1,
+        audience: 1,
+        createdAt: 1,
+        publishDate: 1,
+        status: 1,
+      })
+      .sort({
+        createdAt: -1,
+      })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    UpdateModel.countDocuments(filter),
+  ]);
+
+  const totalPages = Math.ceil(
+    totalRecords / limit,
+  );
+
+  return {
+    data: updates,
+
+    pagination: {
+      currentPage: page,
+      limit,
+      totalRecords,
+      totalPages,
+    },
+  };
 };

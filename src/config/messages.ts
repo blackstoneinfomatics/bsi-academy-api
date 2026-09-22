@@ -1065,4 +1065,9 @@ export const analyticsMessages = {
 
 export const updateMessage = {
   CREATE_UPDATE : "Create Update",
+  CREATE_UPDATE_SUCCESS : "Update created successfully",
+  UPDATE_CARDS : "Get update dashboard cards",
+  UPDATE_CARDS_SUCCESS : "Update dashboard cards fetched successfully",
+  UPDATE_TABLE : "Get updates list",
+  UPDATE_TABLE_SUCCESS : "Updates fetched successfully"
 }
