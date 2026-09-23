@@ -3,28 +3,76 @@ import { z } from "zod";
 
 export const createUpdateValidation = z.object({
   title: z.string().trim().min(1, "Title is required"),
+
   category: z.string().trim().min(1, "Category is required"),
-  audience: z.array(z.string().trim().min(1)).min(1, "Audience is required"),
-  selectedTenants: z.array(z.string().trim().min(1)).default([]),
-  description: z.string().trim().min(1, "Description is required"),
-  publishDate: z.coerce.date({ message: "Publish date must be a valid date" }),
-  releaseDate: z.coerce.date({ message: "Release date must be a valid date" }).optional(),
-  priority: z.enum(["Low", "Medium", "High"]).optional(),
-  attachments: z.array(z.string()).default([]),
+
+  audience: z
+    .array(z.string().trim().min(1))
+    .min(1, "Audience is required"),
+
+  selectedTenants: z
+    .array(z.string().trim().min(1))
+    .default([]),
+
+  // NEW
+  planName: z
+    .string()
+    .trim()
+    .optional(),
+
+  description: z
+    .string()
+    .trim()
+    .min(1, "Description is required"),
+
+  publishDate: z.coerce.date({
+    message: "Publish date must be a valid date",
+  }),
+
+  releaseDate: z.coerce.date({
+    message: "Release date must be a valid date",
+  }).optional(),
+
+  priority: z
+    .enum(["Low", "Medium", "High"])
+    .optional(),
+
+  attachments: z
+    .array(z.string())
+    .default([]),
+
   sendNotification: z
     .object({
       email: z.boolean().default(false),
       inApp: z.boolean().default(false),
     })
     .default({}),
+
   email: z.boolean().optional(),
-  recipientEmail: z.string().email("Recipient email must be valid").optional(),
-  recipientEmails: z.array(z.string().email("Recipient email must be valid")).default([]),
-  purchaseTenant: z.number().min(0).default(0),
-  status: z.enum(["Scheduled", "Published"]).default("Scheduled"),
+
+  recipientEmail: z
+    .string()
+    .email("Recipient email must be valid")
+    .optional(),
+
+  recipientEmails: z
+    .array(
+      z.string().email("Recipient email must be valid"),
+    )
+    .default([]),
+
+  purchaseTenant: z
+    .number()
+    .min(0)
+    .default(0),
+
+  status: z
+    .enum(["Scheduled", "Published"])
+    .default("Scheduled"),
 });
 
-export type CreateUpdateInput = z.infer<typeof createUpdateValidation>;
+export type CreateUpdateInput =
+  z.infer<typeof createUpdateValidation>;
 
 const UpdateSchema = new Schema(
   {
@@ -46,6 +94,20 @@ const UpdateSchema = new Schema(
     selectedTenants: {
       type: [String],
       default: [],
+    },
+
+    planName: {
+      type: String,
+    },
+
+    audienceCount: {
+      type: Number,
+      default: 0,
+    },
+
+    selectedTenantsCount: {
+      type: Number,
+      default: 0,
     },
 
     description: {
@@ -124,7 +186,7 @@ const UpdateSchema = new Schema(
   {
     timestamps: true,
     collection: "updates",
-  }
+  },
 );
 
 export default mongoose.model(

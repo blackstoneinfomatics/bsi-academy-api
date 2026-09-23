@@ -176,6 +176,47 @@ const sendUpdateEmail = async (
   );
 };
 
+const resolveAudienceTenantIds = async (
+  payload: CreateUpdateInput,
+): Promise<string[]> => {
+  const activeFilter = {
+    status: "ACTIVE",
+    deletedAt: null,
+  };
+
+  if (payload.audience.includes("All Tenants")) {
+    const subscriptions = await TenantSubscription.find(activeFilter)
+      .select({ tenantId: 1, _id: 0 })
+      .lean();
+
+    return subscriptions.map((subscription) => subscription.tenantId);
+  }
+
+  if (payload.audience.includes("Select Tenants")) {
+    const subscriptions = await TenantSubscription.find({
+      ...activeFilter,
+      tenantId: { $in: payload.selectedTenants || [] },
+    })
+      .select({ tenantId: 1, _id: 0 })
+      .lean();
+
+    return subscriptions.map((subscription) => subscription.tenantId);
+  }
+
+  if (payload.planName) {
+    const subscriptions = await TenantSubscription.find({
+      ...activeFilter,
+      planName: payload.planName,
+    })
+      .select({ tenantId: 1, _id: 0 })
+      .lean();
+
+    return subscriptions.map((subscription) => subscription.tenantId);
+  }
+
+  return [];
+};
+
 const calculatePercentage = (
   current: number,
   previous: number,
@@ -213,6 +254,11 @@ const calculatePercentage = (
 };
 
 export const createUpdate = async (payload: CreateUpdateInput) => {
+  const selectedTenants = await resolveAudienceTenantIds(payload);
+  const resolvedPayload = {
+    ...payload,
+    selectedTenants,
+  };
 
   const update = await UpdateModel.create({
     title: payload.title,
@@ -221,7 +267,9 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
 
     audience: payload.audience,
 
-    selectedTenants: payload.selectedTenants || [],
+    selectedTenants,
+
+    selectedTenantsCount: selectedTenants.length,
 
     description: payload.description,
 
@@ -252,13 +300,17 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   });
 
   try {
-    await sendUpdateEmail(payload);
+    await sendUpdateEmail(resolvedPayload);
   } catch (err: unknown) {
     const error = err as { message?: string };
     console.log("sendUpdateEmail >> FAILED", error?.message || err);
   }
 
-  return update;
+  return {
+    update,
+    selectedTenants,
+    selectedTenantsCount: selectedTenants.length,
+  };
 };
 
 export const getUpdateDashboardCards = async () => {
