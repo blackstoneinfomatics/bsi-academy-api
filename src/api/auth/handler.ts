@@ -278,38 +278,42 @@ export default {
       let users: any = await getActiveUserRecord({ userName: user?.userName });
 
       if (isNil(user)) {
-        return h.response({
-          message: 'Email not found.',
-        }).code(404); // 404 - Not Found
-      }
+      return badRequest(userMessages.USER_NOT_FOUND);
+    }
 
       const activeRecord = users;
 
-    const jwtPayload = {
-      userName: activeRecord.userName ,
-      sub: String(activeRecord._id),
+       const jwtPayload = {
+      userName: user.userName,
+      sub: String(user._id),
+      tenantId: user.tenantId,
     };
-
     const accessToken = generateAuthToken(jwtPayload);
-  //  await updateUser(String(activeRecord._id), { lastLoginDate: new Date() });
+
+    await updateUser(String(user._id), { lastLoginDate: new Date() });
 
     // Save the session for logout activity
     await createActiveSessionRecord({
-      userId: String(activeRecord._id),
+      tenantId: user.tenantId || "",
+      userId: String(user._id),
       loginDate: new Date(),
       isActive: true,
       accessToken,
-      tenantId: activeRecord.tenantId ?? "Unknown",
     });
-      
-     
-      return {
-        message: 'Email found.',
+
+    const tenantData: any = await getActiveTenantRecordByCode(activeRecord.tenantId);
+
+    // Return user details with auth token for successfull login
+    return {
+      success:true,
+       message: 'Email found.',
         id:users._id,
-        username1:activeRecord.userName,
-        accessToken,
-        role:user.role[0]
-      };// 200 - OK
+        username:activeRecord.userName,
+         role:user.role[0],
+      accessToken,
+      organizationName: tenantData.organizationName ?? null,
+      tenantJobCode: tenantData.tenantJobCode ?? null
+    };
   },
 
 

@@ -16,6 +16,7 @@ import {
 import { paymentMessages, customServiceInvoiceMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 import { updateSubscriptionTrial, updateTrailConvertedByTenantId } from "./subscriptiontrial";
+import { syncTenantSubscriptionToTenantPortal } from "./tenantPortal";
 
 const stripe = new Stripe(config.stripeKey.stripesecretkey);
 
@@ -251,6 +252,8 @@ export class PaymentService {
         updateTrailConvertedByTenantId(invoice.tenantId);
 
         await subscription.save();
+
+        await syncTenantSubscriptionToTenantPortal(invoice.subscriptionId.toString());
 
         return {
           success: true,
