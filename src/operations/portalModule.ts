@@ -998,16 +998,35 @@ export const getTenantConfig = async (
   tenantId: string,
   portalId: string
 ): Promise<TenantConfigWithDetails> => {
-  const [tenant, subscription] = await Promise.all([
+  const [tenant, subscription, tenantPortal] = await Promise.all([
     Tenants.findOne({ tenantCode: tenantId }),
     TenantSubscription.findOne({ tenantId, deletedAt: null }),
+    TenantPortal.findOne({
+      tenantId,
+      portalId,
+      status: PortalStatus.ACTIVE,
+      isEnabled: true,
+      deletedAt: null,
+    }),
   ]);
 
   if (!tenant) {
     return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
   }
 
-  const config = await findActiveConfig(tenantId, portalId);
+  if (!tenantPortal) {
+    return throwError(tenantPortalConfigMessages.TENANT_PORTAL_NOT_FOUND, 404);
+  }
+
+  const config = await TenantPortalConfig.findOne({
+    tenantId,
+    tenantPortalId: tenantPortal._id,
+    deletedAt: null,
+  });
+
+  if (!config) {
+    return throwError(tenantPortalConfigMessages.TENANT_CONFIG_NOT_FOUND, 404);
+  }
 
   return {
     ...config.toObject(),
@@ -1016,87 +1035,7 @@ export const getTenantConfig = async (
   };
 };
 
-const round2 = (value: number): number => Number(value.toFixed(2));
 
-// Invoice statuses that still have an amount for the tenant to pay.
-const PAYABLE_INVOICE_STATUSES = [
-  SubscriptionInvoiceStatus.PENDING,
-  SubscriptionInvoiceStatus.OVERDUE,
-  SubscriptionInvoiceStatus.PARTIALLY_PAID,
-];
-
-const toTenantFeatureDetails = (
-  features: ITenantPortalFeature[] | undefined,
-  portalId: string,
-  portalName: string | null,
-) =>
-  (features ?? [])
-    .filter((feature) => !feature.deletedAt)
-    .map((feature) => ({
-      featureId: feature.featureId,
-      featureName: feature.featureName,
-      featureType: feature.featuretype,
-      status: feature.featureStatus,
-      isEnabled: feature.isEnabled,
-      portalId,
-      portalName,
-    }));
-
-// The tenant's portals and every non-deleted module (with child modules and
-// features) across all its TenantPortalConfig documents, ordered per portal by orderNo.
-const getTenantConfigPortalsAndModules = async (tenantId: string) => {
-  const [configs, portals] = await Promise.all([
-    TenantPortalConfig.find({ tenantId, deletedAt: null }).sort({ createdAt: 1 }).lean(),
-    TenantPortal.find({ tenantId, deletedAt: null }).select("portalId portalName").lean(),
-  ]);
-
-  const portalNameById = new Map(
-    portals.map((portal) => [String(portal.portalId), portal.portalName]),
-  );
-
-  const activeModulesOf = (config: (typeof configs)[number]) =>
-    (config.modules ?? []).filter((module) => !module.deletedAt);
-
-  const tenantPortals = configs.map((config) => ({
-    portalId: String(config.portalId),
-    portalName: portalNameById.get(String(config.portalId)) ?? null,
-    tenantPortalId: String(config.tenantPortalId),
-    totalModules: activeModulesOf(config).length,
-  }));
-
-  const modules = configs.flatMap((config) => {
-    const portalId = String(config.portalId);
-    const portalName = portalNameById.get(portalId) ?? null;
-
-    return [...activeModulesOf(config)]
-      .sort((a, b) => (a.orderNo ?? 0) - (b.orderNo ?? 0))
-      .map((module) => ({
-        moduleId: module.moduleId,
-        moduleName: module.moduleName,
-        order: module.orderNo,
-        moduleType: module.moduleType,
-        status: module.moduleStatus,
-        isEnabled: module.isEnabled,
-        portalId,
-        portalName,
-        features: toTenantFeatureDetails(module.features, portalId, portalName),
-        children: (module.children ?? [])
-          .filter((child) => !child.deletedAt)
-          .map((child) => ({
-            childModuleId: child.childModuleId,
-            childModuleName: child.childModuleName,
-            childModuleType: child.childModuleType,
-            status: child.childModuleStatus,
-            isEnabled: child.isEnabled,
-            portalId,
-            portalName,
-            features: toTenantFeatureDetails(child.features, portalId, portalName),
-          })),
-      }));
-  });
-
-  return { portals: tenantPortals, modules };
-};
 
 
 

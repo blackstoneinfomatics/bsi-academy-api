@@ -975,6 +975,7 @@ export const tenantPortalConfigMessages = {
   UPDATE_FEATURE_ACCESS_SUCCESS: "Feature access updated successfully",
 
   TENANT_NOT_FOUND: "Tenant not found",
+  TENANT_PORTAL_NOT_FOUND: "Active and enabled tenant portal not found for this tenant and portal",
   TENANT_CONFIG_NOT_FOUND: "Tenant portal config not found for this tenant and portal",
   MODULE_NOT_FOUND: "Module not found",
   CHILD_MODULE_NOT_FOUND: "Child module not found",
