@@ -49,8 +49,20 @@ const register = async (server: Server): Promise<void> => {
     //   strategies: ["jwt"],
     // },
   },
-}
+},
 
+{
+  method: "GET",
+  path: "/api/updates/{id}",
+  handler: handler.getUpdateByIdHandler,
+  options: {
+    description: updateMessage.UPDATR_GETBYID,
+    tags: ["api", "updates"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+}
 
   ];
   server.route(routes);

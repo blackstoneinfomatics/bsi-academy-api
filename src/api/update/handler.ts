@@ -1,5 +1,5 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
-import { createUpdate, getUpdateDashboardCards, getUpdatesList } from "../../operations/update";
+import { createUpdate, getUpdateById, getUpdateDashboardCards, getUpdatesList } from "../../operations/update";
 import { createUpdateValidation } from "../../models/update";
 import { z } from "zod";
 import { updateMessage } from "../../config/messages";
@@ -141,6 +141,47 @@ export default
           "Internal Server Error",
         errorCode:
           err?.statusCode || 500,
+      })
+      .code(err?.statusCode || 500);
+  }
+},
+
+  async getUpdateByIdHandler (
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const { id } = request.params as {
+      id: string;
+    };
+
+    const result = await getUpdateById(id);
+
+    return h
+      .response({
+        success: true,
+        message: updateMessage.UPDATE_GETBYID_SUCCESS,
+        data: result,
+      })
+      .code(200);
+
+  } catch (error: unknown) {
+
+    const err = error as {
+      message?: string;
+      statusCode?: number;
+    };
+
+    console.error(
+      "❌ Get Update By ID Error:",
+      err?.message || error
+    );
+
+    return h
+      .response({
+        success: false,
+        message: err?.message || "Internal Server Error",
+        errorCode: err?.statusCode || 500,
       })
       .code(err?.statusCode || 500);
   }
