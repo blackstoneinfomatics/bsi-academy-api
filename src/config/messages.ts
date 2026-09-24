@@ -1076,5 +1076,7 @@ export const updateMessage = {
   UPDATE_CARDS : "Get update dashboard cards",
   UPDATE_CARDS_SUCCESS : "Update dashboard cards fetched successfully",
   UPDATE_TABLE : "Get updates list",
-  UPDATE_TABLE_SUCCESS : "Updates fetched successfully"
+  UPDATE_TABLE_SUCCESS : "Updates fetched successfully",
+  UPDATR_GETBYID : "Get update details by ID",
+  UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully"
 }

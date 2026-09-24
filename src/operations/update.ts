@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import UpdateModel from "../models/update";
 import { CreateUpdateInput } from "../models/update";
 import Tenants from "../models/tenants";
@@ -583,4 +584,40 @@ export const getUpdatesList = async (
       totalPages,
     },
   };
+};
+
+export const getUpdateById = async (id: string) => {
+  if (!mongoose.isValidObjectId(id)) {
+    const error = new Error("Update not found") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const update = await UpdateModel.findById(id)
+    .select({
+      _id: 1,
+      title: 1,
+      category: 1,
+      description: 1,
+      audience: 1,
+      selectedTenants: 1,
+      selectedTenantsCount: 1,
+      publishDate: 1,
+      priority: 1,
+      createdAt: 1,
+      attachments: 1,
+    })
+    .lean();
+
+  if (!update) {
+    const error = new Error("Update not found") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return update;
 };
