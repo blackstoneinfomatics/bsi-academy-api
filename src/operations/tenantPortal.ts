@@ -2,12 +2,21 @@ import { throwError } from "../helpers/throwError";
 import tenantsubscription from "../models/tenantsubscription";
 import tenantPortal from "../models/tenantPortal";
 import tenantPortalConfig from "../models/tenantPortalConfig";
-import { portalMessages } from "../config/messages";
-import { PortalStatus, PortalType, SubscriptionStatus } from "../shared/enum";
+import { appStatus, portalMessages } from "../config/messages";
+import {
+  PaymentStatus,
+  PortalStatus,
+  PortalType,
+  SubscriptionStatus,
+} from "../shared/enum";
 import mongoose from "mongoose";
+import planModel from "../models/plan-model";
+import portal from "../models/portal";
+import TenantPortalConfig from "../models/tenantPortalConfig";
+import PortalModuleModel from "../models/portalModule";
+import { Types } from "mongoose";
 import tenantUsers from "../models/users";
 import plan from "../models/plan-model";
-import { appStatus } from "../config/messages";
 
 export interface IRoleCount {
   role: string;
@@ -49,20 +58,408 @@ const normalizeRoleKey = (value: string): string => {
   const cleaned = (value || "").toLowerCase().replace(/[^a-z]/g, "");
   return cleaned.length > 1 && cleaned.endsWith("s") ? cleaned.slice(0, -1) : cleaned;
 };
+
+
+type ITenantPortalDoc = {
+  _id: Types.ObjectId;
+};
+
+type IMasterModule = {
+  parentModuleId: string;
+  parentModuleName: string;
+  type: "DEFAULT" | "CUSTOM";
+  status: string;
+  order: number;
+  features?: any[];
+  isEnabled:boolean;
+  children?: any[];
+};
+
+type ITenantModule = {
+  moduleId: string;
+  moduleName: string;
+  moduleType: "DEFAULT" | "CUSTOM";
+  moduleStatus: string;
+  orderNo: number;
+
+  isEnabled: boolean;
+
+  features?: any[];
+  children?: any[];
+
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+type IPlanModule = {
+  moduleId: string;
+  features?: { featureId: string }[];
+  children?: {
+    childModuleId: string;
+    features?: { featureId: string }[];
+  }[];
+};
+
 export const syncTenantSubscriptionToTenantPortal = async (
   subscriptionId: string,
 ) => {
   try {
     const subscription = await tenantsubscription.findOne({
       _id: subscriptionId,
+      status: SubscriptionStatus.ACTIVE,
+      paymentStatus: PaymentStatus.PAID,
       deletedAt: null,
     });
 
     if (!subscription) {
       throwError("Subscription not found", 404);
+      return;
     }
-  } catch (errro: any) {}
+
+    const plan = await planModel.findById({
+      _id: subscription.planId,
+    });
+
+    if (!plan) {
+      throwError("Plan not found", 404);
+      return;
+    }
+
+    for (const role of plan?.allowedRoles) {
+      const tenantPortal = (await createTenantPortal(
+        subscription.tenantId,
+        subscriptionId,
+        role.portalId,
+      )) as ITenantPortalDoc;
+
+      if (!tenantPortal) {
+        throwError("Not Found", 404);
+        return;
+      }
+
+      const planModulesForPortal = getModulesByPortal(
+        plan.modules || [],
+        role.portalId,
+      );
+
+
+      await syncModulesToTenantPortalConfig({
+        tenantId: subscription.tenantId,
+        portalId: role.portalId,
+        tenantPortalId: tenantPortal._id.toString(),
+        subscriptionId: subscriptionId,
+        planModules: planModulesForPortal,
+      });
+    }
+  } catch (error: any) {
+    throw error;
+  }
 };
+
+export const createTenantPortal = async (
+  tenantId: string,
+  subscriptionId: string,
+  portalId: string,
+) => {
+  try {
+    if (!tenantId || !subscriptionId || !portalId) {
+      throwError("Not Found", 404);
+    }
+    const tenantPortalExist = await tenantPortal.findOne({
+      tenantId: tenantId,
+      subscriptionId: subscriptionId,
+      portalId: portalId,
+      status: PortalStatus.ACTIVE,
+      deletedAt: null,
+    });
+
+    if (tenantPortalExist) {
+      return tenantPortalExist;
+    }
+
+    const portalData = await portal.findById({
+      _id: portalId,
+      status: PortalStatus.ACTIVE,
+      deletedAt: null,
+    });
+
+    if (!portalData) {
+      throwError("Not Found", 404);
+      return;
+    }
+
+    const newTenantPortal = await tenantPortal.create({
+      tenantId,
+      subscriptionId,
+      portalId,
+
+      portalCode: portalData.portalCode,
+      portalName: portalData.portalName,
+      portalType: portalData.portalType,
+      roleType: portalData.roleType,
+      description: portalData.description,
+
+      userLimit: 0,
+      status: PortalStatus.ACTIVE,
+      isEnabled: true,
+
+      createdBy: "SYSTEM",
+      updatedBy: null,
+      deletedAt: null,
+    });
+
+    return newTenantPortal;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+const getModulesByPortal = (
+  modules: IPlanModule[] = [],
+  portalId: string,
+): IPlanModule[] => {
+  return (
+    modules
+      .filter((m: any) => m.portalId === portalId)
+      .map((m: any) => ({
+        moduleId: m.moduleId,
+        moduleName: m.moduleName,
+        order: m.order,
+
+        features: (m.features || []).map((f: any) => ({
+          featureId: f.featureId,
+          featureName: f.featureName,
+        })),
+
+        children: (m.children || []).map((c: any) => ({
+          childModuleId: c.childModuleId,
+          childModuleName: c.childModuleName,
+          order: c.order,
+
+          features: (c.features || []).map((f: any) => ({
+            featureId: f.featureId,
+            featureName: f.featureName,
+          })),
+        })),
+      })) || []
+  );
+};
+
+export const syncModulesToTenantPortalConfig = async ({
+  tenantId,
+  portalId,
+  tenantPortalId,
+  subscriptionId,
+  planModules = [],
+}: {
+  tenantId: string;
+  portalId: string;
+  tenantPortalId: string;
+  subscriptionId: string;
+  planModules: any[];
+}) => {
+  try {
+    const rawModules = await PortalModuleModel.find({
+      portalId,
+      status: "Active",
+      deletedAt: null,
+    }).lean();
+
+    const masterModules: IMasterModule[] = rawModules.map((m: any) => ({
+      parentModuleId: m.parentModuleId,
+      parentModuleName: m.parentModuleName,
+      type: m.type ?? "DEFAULT",
+      status: m.status,
+      isEnabled:m.isEnabled,
+      order: m.order,
+      features: m.features || [],
+      children: m.children || [],
+    }));
+
+    const existingConfig = await TenantPortalConfig.findOne({
+      tenantId,
+      portalId,
+      tenantPortalId,
+      deletedAt: null,
+    }).lean();
+
+    const tenantModules = existingConfig?.modules || [];
+
+    const mergedModules = mergeModules(
+      masterModules || [],
+      tenantModules,
+      planModules || [],
+    );
+
+    const finalModules = Array.isArray(mergedModules) ? mergedModules : [];
+
+    const updatedConfig = await TenantPortalConfig.findOneAndUpdate(
+      { tenantId, portalId },
+      {
+        $set: {
+          tenantPortalId,
+          modules: finalModules || [],
+          updatedBy: "SYSTEM",
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          tenantId,
+          portalId,
+          createdBy: "SYSTEM",
+          createdAt: new Date(),
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      },
+    );
+
+    return updatedConfig;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+const mergeModules = (
+  masterModules: IMasterModule[] = [],
+  tenantModules: ITenantModule[] = [],
+  planModules: IPlanModule[] = [],
+): ITenantModule[] => {
+
+  const masterMap = new Map<string, IMasterModule>(
+    masterModules.map(m => [m.parentModuleId, m])
+  );
+
+  const tenantMap = new Map<string, ITenantModule>(
+    tenantModules.map(m => [m.moduleId, m])
+  );
+
+  const result: ITenantModule[] = [];
+
+  for (const plan of planModules) {
+
+    const master = masterMap.get(plan.moduleId);
+
+    if (!master) continue;
+
+    const tenant = tenantMap.get(plan.moduleId);
+
+    const module: ITenantModule = {
+      moduleId: master.parentModuleId,
+      moduleName: master.parentModuleName,
+      moduleType: master.type,
+      moduleStatus: master.status,
+      orderNo: master.order,
+
+      isEnabled: master.isEnabled ?? true,
+
+      features: mergeFeatures(
+        master.features,
+        tenant?.features || [],
+        plan
+      ),
+
+      children: mergeChildren(
+        master.children,
+        tenant?.children || [],
+        plan
+      ),
+
+      createdAt: tenant?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+
+    result.push(module);
+  }
+
+  const customModules = tenantModules.filter(
+    m => m.moduleType === "CUSTOM"
+  );
+
+  return [...result, ...customModules];
+};
+
+const mergeFeatures = (
+  masterFeatures: any[] = [],
+  tenantFeatures: any[] = [],
+  plan?: any,
+) => {
+  const masterMap = new Map(
+    masterFeatures.map((f: any) => [f.featureId, f])
+  );
+
+  const tenantMap = new Map(
+    tenantFeatures.map((f: any) => [f.featureId, f])
+  );
+
+  const result: any[] = [];
+
+  for (const planFeature of plan?.features || []) {
+    const master = masterMap.get(planFeature.featureId);
+    if (!master) continue;
+
+    const tenant = tenantMap.get(planFeature.featureId);
+
+    result.push({
+      featureId: master.featureId,
+      featureName: master.featureName,
+      featuretype: master.type,
+      featureStatus: master.status,
+
+      isEnabled: master.isEnabled ?? true,
+
+      createdAt: tenant?.createdAt || new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  return result;
+};
+
+const mergeChildren = (
+  masterChildren: any[] = [],
+  tenantChildren: any[] = [],
+  plan?: any,
+) => {
+  const masterMap = new Map(
+    masterChildren.map((c: any) => [c.childModuleId, c])
+  );
+
+  const tenantMap = new Map(
+    tenantChildren.map((c: any) => [c.childModuleId, c])
+  );
+
+  const result: any[] = [];
+
+  for (const planChild of plan?.children || []) {
+    const master = masterMap.get(planChild.childModuleId);
+    if (!master) continue;
+
+    const tenant = tenantMap.get(planChild.childModuleId);
+
+    result.push({
+      childModuleId: master.childModuleId,
+      childModuleName: master.childModuleName,
+      childModuleType: master.type,
+      childModuleStatus: master.status,
+
+      isEnabled: master.isEnabled ?? true,
+
+      features: mergeFeatures(
+        master.features,
+        tenant?.features || [],
+        planChild
+      ),
+
+      createdAt: tenant?.createdAt || new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  return result;
+};
+
 export const createCustomTenantPortalService = async (payload: any) => {
   try {
     if (!payload.tenantId) {
@@ -87,7 +484,7 @@ export const createCustomTenantPortalService = async (payload: any) => {
 
     const subscription = await tenantsubscription.findOne({
       tenantId: payload.tenantId,
-      status:SubscriptionStatus.ACTIVE,
+      status: SubscriptionStatus.ACTIVE,
       deletedAt: null,
     });
 
@@ -95,7 +492,6 @@ export const createCustomTenantPortalService = async (payload: any) => {
       throwError(portalMessages.SUBSCRIPTION_NOT_FOUND, 404);
       return;
     }
-
 
     const existing = await tenantPortal.findOne({
       tenantId: payload.tenantId,
@@ -152,9 +548,7 @@ export const updateTenantPortalStatusService = async (
       return;
     }
 
-    const status = isEnabled
-      ? PortalStatus.ACTIVE
-      : PortalStatus.INACTIVE;
+    const status = isEnabled ? PortalStatus.ACTIVE : PortalStatus.INACTIVE;
 
     tenantPortalData.isEnabled = isEnabled;
     tenantPortalData.status = status;
