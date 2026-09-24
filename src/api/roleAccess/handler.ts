@@ -14,14 +14,14 @@ export default{
       const { _id } = req.params; // Get the employee ID from the URL parameter
   
       // Find the user by their ID
-      const user = await UserModel.findById(_id);
+      const user = (await UserModel.findById(_id)) as any;
       if (!user) {
         return h.response({ message: 'User not found' }).code(404);
       }
-  
+
       // Prepare the updated access payload
       const accessPayload: Partial<IAccessModel> = {
-        employeeId: user._id.toString(),
+        employeeId: user._id?.toString() ?? '',
         employeeName: user.userName || '',
         contact: user.email || '',
         designation: Array.isArray(user.role) ? user.role : [user.role],

@@ -32,10 +32,14 @@ const register = (server: Server) => {
       return badRequest(commonMessages.VALIDATION_ERROR);
     }
 
+    const payload = {
+      ...response.output.payload,
+      message: response.message || response.output.payload.message,
+    };
+
     return reply
-      .response(response.output.payload)
-      .code(response.output?.statusCode)
-      .message(response.message);
+      .response(payload)
+      .code(response.output?.statusCode);
   });
 };
 

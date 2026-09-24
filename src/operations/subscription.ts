@@ -134,6 +134,7 @@ export const deleteSubscriptionById =
 export const validateFeatureAccess =
   async (
     tenantId: string,
+    role: string,
     feature: string
   ): Promise<boolean> => {
 
@@ -156,43 +157,46 @@ export const validateFeatureAccess =
       return false;
     }
 
-    return plan.features.includes(
-      feature
+    return plan.modules.some(
+      (module) =>
+        module.features?.some(
+          (item) => item.featureId === feature || item.featureName === feature
+        ) ||
+        module.children?.some((child) =>
+          child.features?.some(
+            (item) => item.featureId === feature || item.featureName === feature
+          )
+        )
     );
   };
 
 
 // VALIDATE USER LIMIT
-export const validateUserLimit =
-  async (
-    tenantId: string,
-    currentUsers: number
-  ): Promise<boolean> => {
+// export const validateUserLimit =
+//   async (
+//     tenantId: string,
+//     currentUsers: number
+//   ): Promise<boolean> => {
 
-    const subscription =
-      await SubscriptionModel.findOne({
-        tenantId,
-        subscriptionStatus:
-          appStatus.ACTIVE,
-      }).lean();
+//     const subscription =
+//       await SubscriptionModel.findOne({
+//         tenantId,
+//         subscriptionStatus:
+//           appStatus.ACTIVE,
+//       }).lean();
 
-    if (!subscription) {
-      return false;
-    }
+//     if (!subscription) {
+//       return false;
+//     }
 
-    const plan = await PlanModel.findOne({
-      planId: subscription.planId,
-    }).lean();
+//     const plan = await PlanModel.findOne({
+//       planId: subscription.planId,
+//     }).lean();
 
-    if (!plan) {
-      return false;
-    }
-
-    return (
-      currentUsers <
-      plan.maxUsers
-    );
-  };
+//     if (!plan) {
+//       return false;
+//     }
+//   };
 
 
 // CHECK TRIAL STATUS

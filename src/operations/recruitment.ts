@@ -192,9 +192,15 @@ export const updateApplicantByAdminId = async (
   payload: Partial<IRecruitmentAdminUpdate>
 ): Promise<IRecruitment | null> => {
   try {
-    const getSupervisor = await User.findOne({
+    const getSupervisor = (await User.findOne({
       _id: payload.supervisor?.supervisorId,
-    }).exec();
+    }).exec()) as | {
+      _id: Types.ObjectId | string;
+      userName?: string;
+      email?: string;
+      role?: string[];
+    }
+      | null;
 
     const approvalData = await RecruitModel.findOne({
       _id: new Types.ObjectId(id),
@@ -207,13 +213,15 @@ export const updateApplicantByAdminId = async (
       approvalData &&
       approvalData.applicationStatus === applicationStatus.NEWAPPLICATION
     ) {
+      const supervisorRole = getSupervisor.role?.[0] ?? "";
+
       const updatedApprovalData = {
         ...approvalData,
         supervisor: {
           supervisorId: getSupervisor._id.toString(),
           supervisorName: getSupervisor.userName,
           supervisorEmail: getSupervisor.email,
-          supervisorRole: getSupervisor.role[0],
+          supervisorRole,
         },
         status: "Active",
       };

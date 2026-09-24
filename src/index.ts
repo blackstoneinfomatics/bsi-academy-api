@@ -27,7 +27,12 @@ import { sendNotification } from "./operations/notification";
 import { Types } from "mongoose";
 import AlStudenModel from "./models/alstudents";
 import UserModel from "./models/users";
-import SubscriptionModel from "./models/subscription-models";
+import TenantModel from "./models/tenants";
+import { appStatus } from "./config/messages";
+import { TrialExpiredMail } from "./operations/trailExperiedMail";
+import { processReminders } from "./operations/remainder";
+import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
+import { processTrialExpiry, processTrialReminders } from "./operations/subscriptiontrial";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -77,6 +82,22 @@ start();
 cron.schedule("0 0 * * 0", async () => {
   console.log("🧹 Weekly Redis + MongoDB cleanup");
   await cleanupOldDates(7);
+});
+
+//super admin subricption invoice remainder cronjob 
+cron.schedule("0 9 * * *", async () => {
+  console.log("🧹 Subscription invoice remainder cronjob");
+  await processSubscriptionInvoiceReminders();
+});
+
+cron.schedule("0 9 * * *", async () => {
+  console.log("🧹 Subscription trial expiring soon cronjob");
+  await processTrialReminders();
+});
+
+cron.schedule("0 0 * * *" , async ()=>{
+   console.log("Subscription trial expired cronjob");
+   await processTrialExpiry();
 });
 
 
@@ -255,30 +276,7 @@ cron.schedule("0 0 * * *", async () => {
 });
 
 
-cron.schedule("0 0 * * *", async () => {
-  console.log("⏰ Running subscription update check...");
 
-  const currentDate = new Date()
-  const formattedDate = currentDate.toISOString().split("T")[0]
-
-  const endOfDayIST = `${formattedDate}T23:59:59.999+00:00`
-  const result = await SubscriptionModel.updateMany(
-    {
-      endDate: { $lte: endOfDayIST },
-      subscriptionStatus: "ACTIVE",
-      isTrialUsed: true
-    },
-    {
-      $set: {
-        subscriptionStatus: "EXPIRED",
-        updatedDate: new Date(),
-        isTrialUsed: false
-      }
-    }
-  );
-
-  console.log(`✅ Expired ${result.modifiedCount} subscriptions`);
-});
 
 //adminmeeting
 cron.schedule("*/5 * * * *", async () => {
@@ -459,7 +457,7 @@ cron.schedule("*/5 * * * *", async () => {
   console.log(`🔄 Checking ${groupClassSchedule.length} classes at ${moment().format("HH:mm:ss")}`); 
  
   for (const cls of classSchedules) {
-    const classId = cls._id.toString();
+    const classId = String(cls._id);
     const startTime = moment(cls.startTime?.[0], "HH:mm");
     const endTime = moment(cls.endTime?.[0], "HH:mm");
     const nowMoment = moment();
@@ -577,7 +575,7 @@ cron.schedule("*/5 * * * *", async () => {
   const teacher = cls.teacher;
   const message = `Student ${student?.studentFirstName} was absent for the class on ${cls.startDate} at ${cls.startTime[0]}. The session has been marked accordingly.`;
 const classSchedule = await ClassScheduleModel.findOne({
-      _id: new Types.ObjectId(cls._id),
+      _id: new Types.ObjectId(String(cls._id)),
     });
     const alfstudent = await AlStudenModel.findOne({
       _id: new Types.ObjectId(classSchedule?.student.studentId),
@@ -594,7 +592,7 @@ const classSchedule = await ClassScheduleModel.findOne({
       senderName: "System",
       senderEmail: "system@gmail.com", 
       isRead: false,
-      receiverId: [teacher.teacherId.toString(),academicCoach?._id.toString()],
+      receiverId: [teacher.teacherId.toString(), String(academicCoach?._id)],
       receiverName: [teacher.teacherName ,academicCoach?.userName],
       receiverEmail: [teacher.teacherEmail || 'some@gmail.com',academicCoach?.email],
       notificationType: "STUDENT_ABSENT_ALERT",
@@ -625,7 +623,7 @@ const classSchedule = await ClassScheduleModel.findOne({
   const message = `Teacher ${teacher?.teacherName} was absent for the class on ${cls.startDate} at ${cls.startTime[0]}. The session has been marked accordingly.`;
 
   const classSchedule = await ClassScheduleModel.findOne({
-    _id: new Types.ObjectId(cls._id),
+    _id: cls._id,
   });
 
   const alfstudent = await AlStudenModel.findOne({
@@ -648,7 +646,10 @@ const classSchedule = await ClassScheduleModel.findOne({
       senderName: "System",
       senderEmail: "system@gmail.com",
       isRead: false,
-      receiverId: [student.studentId.toString(), academicCoach?._id.toString()],
+      receiverId: [
+        student.studentId.toString(),
+        academicCoach?._id != null ? String(academicCoach._id) : undefined,
+      ],
       receiverName: [student.studentFirstName, academicCoach?.userName],
       receiverEmail: [student.studentEmail || "unknown@student.com", academicCoach?.email],
       notificationType: "TEACHER_ABSENT_ALERT",
@@ -678,7 +679,7 @@ const classSchedule = await ClassScheduleModel.findOne({
   const message = `Both the student (${student?.studentFirstName}) and the teacher (${teacher?.teacherName}) were absent for the class on ${cls.startDate} at ${cls.startTime[0]}. The session has been marked accordingly.`;
 
   const classSchedule = await ClassScheduleModel.findOne({
-    _id: new Types.ObjectId(cls._id),
+    _id: cls._id,
   });
 
   const alfstudent = await AlStudenModel.findOne({
@@ -952,4 +953,75 @@ async function sendGroupAbsentNotification(type: any, user1: any, user2: any, me
 cron.schedule("0 0 * * 0", async () => {
   console.log("cron runs weekly once for add slots");
   addAditionalSlots();
+});
+
+
+/// tenant trial expiry check cron
+cron.schedule("0 0 * * *", async () => {
+  console.log("⏰ Running tenant trial expiry check...");
+
+  const currentDate = new Date();
+
+  const TRIAL_PERIOD_DAYS = 14;
+
+  // FIND ACTIVE TENANTS
+  const tenants = await TenantModel.find({
+    status: appStatus.ACTIVE,
+  });
+
+  console.log("result: ", tenants);
+
+  for (const tenant of tenants) {
+
+  const trialEndDate = new Date(tenant.createdDate);
+  trialEndDate.setDate(trialEndDate.getDate() + TRIAL_PERIOD_DAYS);
+
+  if (currentDate < trialEndDate) {
+    continue;
+  }
+
+  console.log(
+    "🔥 Processing:",
+    tenant.tenantCode
+  );
+
+  console.log(
+    "📧 Sending mail to:",
+    tenant.emailId
+  );
+
+  await TrialExpiredMail({
+    ...tenant.toObject(),
+    tenantName:
+      tenant.organizationName ||
+      tenant.tenantCode,
+    planName:
+      tenant.plan,
+    endDate:
+      trialEndDate,
+    adminEmail:
+      tenant.emailId,
+  });
+
+  console.log(
+    "✅ Mail function completed"
+  );
+}
+
+  console.log("✅ Tenant trial cron completed");
+})
+
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("Cron Started");
+
+  try {
+    console.log("Before processReminders");
+
+    await processReminders();
+
+    console.log("After processReminders");
+  } catch (err) {
+    console.error(err);
+  }
 });

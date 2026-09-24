@@ -18,12 +18,36 @@ import {
   academicStudentList,
   academicStudentProfile,
 } from "../../kafka/producers/academicProducer";
-import { sendEmailClient } from "../../shared/email";
 import EmailTemplate from "../../models/emailTemplate";
+import { sendEmailClient } from "../../shared/email";
+import { z } from "zod";
+import { PaymentService } from "../../operations/paymenttransaction";
+import { throwError } from "../../helpers/throwError";
+
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+export const createPaymentSubscriptionInvoiceValidation = z.object({
+  payload: z.object({
+    invoiceId: objectId,
+    paymentIntentResponse: z.any().optional(),
+  }),
+});
+
+
+export const payCustomServiceInvoiceValidation = z.object({
+  params: z.object({
+    invoiceId: objectId,
+  }),
+  payload: z.object({
+    paymentIntentResponse: z.any().optional(),
+  }),
+});
+
+const paymentService = new PaymentService();
 
 export const createPaymentIntent = async (
   request: Request,
-  h: ResponseToolkit
+  h: ResponseToolkit,
 ) => {
   console.log("Received request payload:", request.payload);
 
@@ -60,12 +84,14 @@ export const createPaymentIntent = async (
       });
       (await savePaymentDetails).save();
 
-      const studentpaymentstatus = paymentIntentResponse.status == "succeeded" ? "PAID" : "FAILED";
+      const studentpaymentstatus =
+        paymentIntentResponse.status == "succeeded" ? "PAID" : "FAILED";
       const invoicePayload = InvoiceModel.create({
         student: {
           studentId: evaluationDetails?.student?.studentId || "",
-          studentName: `${evaluationDetails?.student?.studentFirstName ?? ""} ${evaluationDetails?.student?.studentLastName ?? ""
-            }`,
+          studentName: `${evaluationDetails?.student?.studentFirstName ?? ""} ${
+            evaluationDetails?.student?.studentLastName ?? ""
+          }`,
           studentEmail: evaluationDetails?.student?.studentEmail,
           studentPhone: evaluationDetails?.student?.studentPhone,
           country: evaluationDetails?.student?.studentCountry,
@@ -91,7 +117,7 @@ export const createPaymentIntent = async (
         paymentStatus:
           paymentIntentResponse.status == "succeeded" ? "PAID" : "FAILED",
       },
-      { new: true }
+      { new: true },
     );
     console.log("updateEvaluationDetails>>", updateEvaluationDetails);
     if (
@@ -195,7 +221,7 @@ async function createStudentPortal(updatedEvaluation: any) {
           try {
             // Student & teacher lookup
             const studentDetails = await StudentPortModel.findById(
-              studentPortal._id
+              studentPortal._id,
             ).exec();
 
             if (!studentDetails) throw new Error("Student details not found");
@@ -224,7 +250,7 @@ async function createStudentPortal(updatedEvaluation: any) {
             const classDates = getDatesForWeekdays(
               new Date(updatedEvaluation.classStartDate),
               new Date(updatedEvaluation.classEndDate),
-              dayIndex
+              dayIndex,
             );
 
             const meetingId = `RC-${studentDetails.student.studentId}`;
@@ -250,7 +276,7 @@ async function createStudentPortal(updatedEvaluation: any) {
                   teacherName: teacherDetails?.userName,
                   teacherEmail: teacherDetails?.email,
                   teacherSessionStart: null,
-                  teacherSessionEnd: null
+                  teacherSessionEnd: null,
                 },
                 classhour: 0,
                 amount: 0,
@@ -283,14 +309,12 @@ async function createStudentPortal(updatedEvaluation: any) {
               const saved = await newClassSchedule.save();
               await createEvent(saved);
               results.push(saved);
-
             }
           } catch (error) {
             results.push({ error });
           }
         }
       }
-
     }
     await StudentPortalMail(studentPortal);
     return {
@@ -319,7 +343,10 @@ async function StudentPortalMail(studentPortal: any) {
         .replace("<course>", studentPortal.student.course)
         .replace("<package>", studentPortal.student.package)
         .replace("<refernceId>", studentPortal.classDay)
-        .replace("<portalLink>", "https://blackstoneinfomaticstech.com/student/ui/sign");
+        .replace(
+          "<portalLink>",
+          "https://blackstoneinfomaticstech.com/student/ui/sign",
+        );
       console.log("emailTemplate>>>>", emailTemplate);
       sendEmailClient(emailTo, subject, htmlPart);
     }
@@ -329,9 +356,11 @@ async function StudentPortalMail(studentPortal: any) {
   }
 }
 
+
+
 export const createStudentPaymentIntent = async (
   request: Request,
-  h: ResponseToolkit
+  h: ResponseToolkit,
 ) => {
   console.log("Received request payload:", request.payload);
 
@@ -345,12 +374,10 @@ export const createStudentPaymentIntent = async (
       _id: new Types.ObjectId(invoiceId),
     });
 
-
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
     });
-
 
     if (paymentIntentResponse) {
       console.log("Saving payment details...");
@@ -384,7 +411,7 @@ export const createStudentPaymentIntent = async (
             paymentDate: new Date(paymentIntentResponse.created * 1000),
           }),
         },
-        { new: true }
+        { new: true },
       );
 
       console.log("Updated Invoice Status:", updateInvoice);
@@ -401,11 +428,82 @@ export const createStudentPaymentIntent = async (
   }
 };
 
+export const createSubscriptionInvoicePayment = async (
+  request: Request,
+  h: ResponseToolkit,
+) => {
+  try {
+    const parsed = createPaymentSubscriptionInvoiceValidation.safeParse(
+      request.payload,
+    );
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+
+    if (parsed.data?.payload.paymentIntentResponse) {
+      const result = await paymentService.confirmPayment(
+        parsed.data?.payload.invoiceId,
+        parsed.data?.payload.paymentIntentResponse,
+      );
+      return h.response(result).code(200);
+    }
+
+    const result = await paymentService.createPaymentIntent(
+      parsed.data?.payload.invoiceId || "",
+    );
+    return h.response(result).code(200);
+  } catch (error: any) {
+    console.log(error);
+    return h
+      .response({
+        success: false,
+        message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
+};
+
+export const payCustomServiceInvoice = async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = payCustomServiceInvoiceValidation.safeParse({
+        params: request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      if (parsed.data?.payload.paymentIntentResponse) {
+        const result = await paymentService.confirmCustomServiceInvoicePayment(
+          parsed.data.params.invoiceId,
+          parsed.data.payload.paymentIntentResponse,
+        );
+        return h.response(result).code(200);
+      }
+
+      const result = await paymentService.createCustomServiceInvoicePaymentIntent(
+        parsed.data!.params.invoiceId,
+      );
+      return h.response(result).code(200);
+    } catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message || "Internal Server Error",
+          errorCode: error.statusCode || 500,
+        })
+        .code(error.statusCode || 500);
+    }
+  }
+
 // Helper function to get dates for specific weekdays between two dates
 const getDatesForWeekdays = (
   startDate: Date,
   endDate: Date,
-  targetDay: number
+  targetDay: number,
 ): Date[] => {
   console.log("startDate", startDate);
   console.log("endDate", endDate);
@@ -428,7 +526,7 @@ const client = Client.initWithMiddleware({
   authProvider: {
     getAccessToken: async (): Promise<string> => {
       const tokenResponse = await credential.getToken(
-        "https://graph.microsoft.com/.default"
+        "https://graph.microsoft.com/.default",
       );
       return tokenResponse.token;
     },
@@ -443,7 +541,7 @@ const {
 const credential = new ClientSecretCredential(
   MICROSOFT_TENANT_ID,
   MICROSOFT_CLIENT_ID,
-  MICROSOFT_CLIENT_SECRET
+  MICROSOFT_CLIENT_SECRET,
 );
 
 async function createEvent(newClassSchedule: any): Promise<void> {
@@ -503,9 +601,10 @@ async function createEvent(newClassSchedule: any): Promise<void> {
       console.error("Error message:", error);
     }
   }
-
 }
 function generateAFTCode(preName: string) {
   const num = Math.floor(10000 + Math.random() * 90000);
   return `${preName}${num}`;
 }
+
+

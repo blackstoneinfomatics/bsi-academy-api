@@ -238,16 +238,18 @@ const autoScheduleMeeting = async () => {
     const startTime = "10:00";
     const endTime = "10:30";
 
-    const supervisor = await User.findOne({ role: "SUPERVISOR" });
+    const supervisor = (await User.findOne({ role: "SUPERVISOR" })) as any;
     if (!supervisor) {
       console.log("❌ No supervisor found. Cannot schedule a meeting.");
       return;
     }
 
-    const teachers = await User.find({
+    const supervisorId = String(supervisor._id);
+
+    const teachers = (await User.find({
       role: { $in: ["TEACHER"] },
       status: "Active",
-    });
+    })) as any[];
     if (teachers.length === 0) {
       console.log("❌ No active teachers found.");
       return;
@@ -259,10 +261,11 @@ const autoScheduleMeeting = async () => {
       const baseMeetingId = generateAFTCode("AFM");
 
       for (const teacher of teachers) {
+        const teacherId = String(teacher._id);
         const existingMeeting = await Meeting.findOne({
           selectedDate: date,
-          "supervisor.supervisorId": supervisor._id.toString(),
-          "teacher.teacherId": teacher._id.toString(),
+          "supervisor.supervisorId": supervisorId,
+          "teacher.teacherId": teacherId,
         });
 
         if (existingMeeting) {

@@ -22,7 +22,9 @@ otherempdetails.preferedShiftTo = preffredToTime;
          const newOtherEmployee = new IOtherEmployeeModel(payload);
 
          // Convert file to string (Base64 encoding)
-          const savedOtherEmployee = await newOtherEmployee.save();
+          const savedOtherEmployee = (await newOtherEmployee.save()) as IOtherEmployee & {
+            _id: Types.ObjectId;
+          };
   // Add salary and wage records with error handling
   const salaryRecords = [
     {

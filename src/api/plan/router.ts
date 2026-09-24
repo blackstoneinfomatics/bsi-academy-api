@@ -104,6 +104,83 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+
+    // ADD BILLING PERIOD
+    {
+      method: "POST",
+
+      path: "/plans/{planId}/billing-period",
+
+      options: {
+        handler: handler.addBillingPeriod,
+
+        description: "Add a new billing period to an existing Plan",
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    // UPDATE BILLING PERIOD
+    {
+      method: "PUT",
+
+      path: "/plans/{planId}/billing-period/{billingPeriodId}",
+
+      options: {
+        handler: handler.updateBillingPeriod,
+
+        description: "Update an individual billing period's price and discount",
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+
+{
+      method: "GET",
+
+      path: "/plans/dashboard",
+
+      options: {
+        handler: handler.getPlanDashboard,
+
+        description: userMessages.DASHBOARD,
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    // GET PLAN ANALYTICS
+    {
+      method: "GET",
+
+      path: "/plans/analytics",
+
+      options: {
+        handler: handler.getPlanAnalytics,
+
+        description: userMessages.ANALYTICS_COUNT,
+
+        tags: ["api", "plans"],
+
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
   ];
 
   server.route(routes);

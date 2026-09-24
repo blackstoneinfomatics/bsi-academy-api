@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ResponseToolkit, Request } from "@hapi/hapi";
 import { z } from "zod";
 import { zodGetAllRecordsQuerySchema } from "../../shared/zod_schema_validation";
@@ -5,12 +6,21 @@ import { zodTenantSettingsSchema } from "../../models/tenant_setting";
 import {
   createTenant,
   createTenantSettings,
+  getActiveTenantRecord,
   getActiveTenantRecordByCode,
   getAllTenantSettingsRecords,
+  getTenantAnalyticsCards,
+  getTenantDashboardActivity,
+  getTenantDashboardGrowth,
+  getTenantDashboardSummary,
+  getTenantFullDetailsByCode,
   updateTenantDetailsByTenantId,
+  updateTenantPlanService,
   updateTenantSettings,
 } from "../../operations/tenants";
 import { zodTenantSchema } from "../../models/tenants";
+import { throwError } from "../../helpers/throwError";
+import { tenantDashboardMessages, tenantsMessages } from "../../config/messages";
 
 // Input Validation for Create a tenant settings
 const createInputValidation = z.object({
@@ -35,6 +45,89 @@ const getTenantSettingsListInputValidation = z.object({
     sortBy: true,
   }),
 });
+const objectId = z
+  .string()
+  .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+const tenantFullDetailsParamsValidation = z.object({
+  params: z.object({
+    tenantCode: z.string().trim().min(1, tenantsMessages.TENANT_CODE_REQUIRED),
+  }),
+});
+
+ const tenantPlanParamsValidation = z.object({
+  params: z.object({
+    tenantId: z.string(),
+  }),
+});
+
+ const tenantPlanBodyValidation = z.object({
+  planId: objectId,
+  planName: z.string().trim().min(1, "Plan name is required"),
+  updatedBy: z.string().optional(),
+});
+
+const dashboardTenantId = z
+  .string({ required_error: tenantDashboardMessages.TENANT_ID_REQUIRED })
+  .trim()
+  .min(1, tenantDashboardMessages.TENANT_ID_REQUIRED);
+
+const dashboardSummaryQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+  }),
+});
+
+const dashboardGrowthQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+    view: z.enum(["monthly", "yearly"], {
+      errorMap: () => ({ message: tenantDashboardMessages.INVALID_VIEW }),
+    }),
+  }),
+});
+
+const dashboardActivityQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+    page: z.coerce
+      .number({ invalid_type_error: tenantDashboardMessages.INVALID_PAGE })
+      .int(tenantDashboardMessages.INVALID_PAGE)
+      .positive(tenantDashboardMessages.INVALID_PAGE)
+      .default(1),
+    limit: z.coerce
+      .number({ invalid_type_error: tenantDashboardMessages.INVALID_LIMIT })
+      .int(tenantDashboardMessages.INVALID_LIMIT)
+      .positive(tenantDashboardMessages.INVALID_LIMIT)
+      .max(100)
+      .default(10),
+  }),
+});
+
+// Shared response/error shape for the tenant dashboard endpoints.
+const respondTenantDashboard = async <T>(
+  h: ResponseToolkit,
+  successMessage: string,
+  run: () => Promise<T>,
+) => {
+  try {
+    const data = await run();
+
+    return h
+      .response({ success: true, message: successMessage, data })
+      .code(200);
+  } catch (error: any) {
+    console.error("Tenant dashboard error:", error);
+
+    return h
+      .response({
+        success: false,
+        message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
+};
 
 // Input Validation for Update a tenant settings
 const updateInputValidation = z.object({
@@ -54,23 +147,13 @@ const updateInputValidation = z.object({
 });
 
 const updateTenantDetailsInput = z.object({
-  payload: zodTenantSchema.pick({
-    organizationName: true,
-    phoneNumber: true,
-    state: true,
-    city: true,
-    street: true,
-    country: true,
-    emailId: true,
-    faxNo: true,
-    gstNo: true,
-    panNo: true,
-    postalCode: true,
-    tenantJobCode: true,
-    website: true,
-    lastUpdatedDate: true,
-    lastUpdatedBy: true
-  })
+  payload: zodTenantSchema
+    .omit({
+      tenantCode: true,
+      createdDate: true,
+      createdBy: true,
+    })
+    .partial(),
 });
 
 const createTenantInputValidation = z.object({
@@ -86,6 +169,7 @@ const createTenantInputValidation = z.object({
     country: true,
     companyRegistrationCertificate: true,
     addressProof: true,
+    gstCertificate: true,
     plan: true,
     timeZone: true,
     currency: true,
@@ -96,7 +180,12 @@ const createTenantInputValidation = z.object({
     postalCode: true,
     tenantJobCode: true,
     website: true,
+    domainName: true,
     status: true,
+    adminName: true,
+    adminEmail: true,
+    designation: true,
+    comments: true,
     createdBy: true,
     lastUpdatedBy: true
   })
@@ -108,9 +197,52 @@ export default {
   //create new tenant
 
   async createTenant(req: Request, h: ResponseToolkit) {
-    const { payload } = createTenantInputValidation.parse({
-      payload: req.payload,
-    }); 
+    const raw: any = req.payload || {};
+    console.log(
+  "PAYLOAD KEYS:",
+  Object.keys(raw)
+);
+
+console.log(
+  "TENANT LOGO:",
+  raw.tenantLogo
+);
+
+console.log(
+  "REG CERT:",
+  raw.companyRegistrationCertificate
+);
+
+console.log(
+  "GST CERT:",
+  raw.gstCertificate
+);
+
+console.log(
+  "ADDRESS PROOF:",
+  raw.addressProof
+);
+console.log("RAW PAYLOAD:", raw);
+const validationPayload = {
+  payload: {
+    ...raw,
+
+    tenantLogo:
+      raw.tenantLogo?.hapi?.filename || "",
+
+    companyRegistrationCertificate:
+      raw.companyRegistrationCertificate?.hapi?.filename || "",
+
+    gstCertificate:
+      raw.gstCertificate?.hapi?.filename || "",
+
+    addressProof:
+      raw.addressProof?.hapi?.filename || "",
+  },
+};
+
+console.log("VALIDATION PAYLOAD:", validationPayload);
+   const { payload } = createTenantInputValidation.parse(validationPayload); 
     const {
     tenantName,
     tenantLogo,
@@ -121,6 +253,7 @@ export default {
     gstNo,
     panNo,
     website,
+    domainName,
     tenantJobCode,
     faxNo,
     state,
@@ -134,9 +267,15 @@ export default {
     timeZone,
     currency,
     status,
+    adminName,
+    adminEmail,
+    designation,
+    comments,
     createdBy,
     lastUpdatedBy
     } = payload;
+
+
     return createTenant({
       tenantName,
       tenantLogo,
@@ -159,11 +298,18 @@ export default {
       postalCode,
       tenantJobCode,
       website,
+      domainName,
       status,
+      adminName,
+      adminEmail,
+      designation,
+      comments,
       createdBy,
       lastUpdatedBy
     });
   },
+
+
 
 
   // Create a new tenant settings
@@ -226,15 +372,215 @@ export default {
     return getActiveTenantRecordByCode(String(req.params.tenantCode));
   },
 
-  // async updateTenantDetailsById(req: Request, h: ResponseToolkit) {
-  //   const { payload } = updateTenantDetailsInput.parse({
-  //     payload: req.payload
-  //   })
-  //   return updateTenantDetailsByTenantId(String(req.params.tenantId), {
-  //     ...payload,
-  //     lastUpdatedDate: new Date()
-  //   });
-  // },
 
+  // Company info + subscription + modules/features access for the Tenant Details screen
+  async getTenantFullDetails(req: Request, h: ResponseToolkit) {
+    try {
+      const validation = tenantFullDetailsParamsValidation.safeParse({
+        params: req.params,
+      });
 
+      if (!validation.success) {
+        throwError(validation.error.errors[0].message, 400);
+        return;
+      }
+
+      const result = await getTenantFullDetailsByCode(
+        validation.data.params.tenantCode,
+      );
+
+      return h
+        .response({
+          success: true,
+          message: tenantsMessages.TENANT_FULL_DETAILS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      console.error("Error in getTenantFullDetails:", error);
+
+      return h
+        .response({
+          success: false,
+          message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+          errorCode: error.statusCode || 500,
+        })
+        .code(error.statusCode || 500);
+    }
+  },
+
+   async getTenantDetails(req: Request, h: ResponseToolkit) {
+    return getActiveTenantRecord();
+  },
+  
+  async updateTenantDetailsById(req: Request, h: ResponseToolkit) {
+    try {
+      const raw: any = req.payload || {};
+
+      const validationPayload = {
+        payload: {
+          ...raw,
+          ...(raw.tenantLogo !== undefined && {
+            tenantLogo: raw.tenantLogo?.hapi?.filename || raw.tenantLogo,
+          }),
+          ...(raw.companyRegistrationCertificate !== undefined && {
+            companyRegistrationCertificate:
+              raw.companyRegistrationCertificate?.hapi?.filename ||
+              raw.companyRegistrationCertificate,
+          }),
+          ...(raw.gstCertificate !== undefined && {
+            gstCertificate:
+              raw.gstCertificate?.hapi?.filename || raw.gstCertificate,
+          }),
+          ...(raw.addressProof !== undefined && {
+            addressProof:
+              raw.addressProof?.hapi?.filename || raw.addressProof,
+          }),
+        },
+      };
+
+      const { payload } = updateTenantDetailsInput.parse(validationPayload);
+
+      const result = await updateTenantDetailsByTenantId(
+        String(req.params.tenantId),
+        {
+          ...payload,
+          lastUpdatedDate: new Date(),
+        },
+      );
+
+      if ((result as any)?.isBoom) {
+        return result;
+      }
+
+      return h
+        .response({
+          success: true,
+          message: tenantsMessages.TENANT_UPDATE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: any) {
+      return h
+        .response({
+          success: false,
+          message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+        })
+        .code(error.statusCode || 400);
+    }
+  },
+
+  async getTenantAnalyticsCards(
+  req: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const result =
+      await getTenantAnalyticsCards();
+
+    return h
+      .response({
+        success: true,
+        message:
+          "Tenant analytics cards fetched successfully.",
+        data: result,
+      })
+      .code(200);
+
+  } catch (error: any) {
+    console.error(
+      "Get Tenant Analytics Cards Error:",
+      error
+    );
+
+    return h
+      .response({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to fetch tenant analytics cards.",
+      })
+      .code(500);
+  }
+},
+
+  // Tenant dashboard - cards (users, active users, revenue, open tickets) + performance
+  async getTenantDashboardSummary(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.SUMMARY_SUCCESS, async () => {
+      const validation = dashboardSummaryQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      return getTenantDashboardSummary(validation.data.query.tenantId);
+    });
+  },
+
+  // Tenant dashboard - tenant growth + module usage (monthly / yearly)
+  async getTenantDashboardGrowth(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.GROWTH_SUCCESS, async () => {
+      const validation = dashboardGrowthQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      const { tenantId, view } = validation.data.query;
+      return getTenantDashboardGrowth(tenantId, view);
+    });
+  },
+
+  // Tenant dashboard - paginated activity table (AuditLog)
+  async getTenantDashboardActivity(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.ACTIVITY_SUCCESS, async () => {
+      const validation = dashboardActivityQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      const { tenantId, page, limit } = validation.data.query;
+      return getTenantDashboardActivity(tenantId, page, limit);
+    });
+  },
+
+async updateTenantPlan(request: Request, h: ResponseToolkit) {
+  try {
+    const { params } = tenantPlanParamsValidation.parse({
+      params: request.params,
+    });
+
+    const body = tenantPlanBodyValidation.safeParse(request.payload);
+
+    if (!body.success) {
+      throwError(body.error.errors[0].message, 400);
+    }
+
+    const result = await updateTenantPlanService(params.tenantId, {
+      planId: body?.data?.planId,
+      planName: body?.data?.planName,
+      updatedBy: body?.data?.updatedBy,
+    });
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant plan updated successfully.",
+        data: result
+      })
+      .code(200);
+
+  } catch (error: any) {
+    console.error("Error in updateTenantPlan:", error);
+
+    return h
+      .response({
+        success: false,
+        message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
+}
 };

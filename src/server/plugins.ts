@@ -29,6 +29,7 @@ import courseAPI from "../api/course/router";
 import employeeWagesAPI from "../api/empwege/router";
 import expenseAPI from "../api/expenses/router";
 import KnowledgeBaseAPI from "../api/knowledgebase/router";
+import tenantSubscriptionAPI from "../api/tenantSubscription/router";
 import salaryandwagesAPI from "../api/salarywages/router";
 import packageAPI from "../api/package/router"
 import leaveRequestAPI from "../api/leaveRequest/router";
@@ -39,6 +40,18 @@ import fileUplocadAPI from "../api/fileUpload/router";
 import  teanantAPI  from "../api/tenant/router";
 import subscriptionSAASAPI from "../api/subscription_SAAS/router";
 import plansAPI from "../api/plan/router";
+import subscriptionInvoiceAPI from "../api/subcriptionInvoice/router";
+import subscriptionTrialAPI from "../api/subscriptionTrial/router";
+import billingAPI from "../api/billing/router";
+import financeAPI from "../api/finance/router";
+import refundTransactionAPI from "../api/refund/router";
+import revenueAPI from "../api/revenue/router";
+import customServiceInvoiceAPI from "../api/customServiceInvoice/router";
+//import featuresAPI from "../api/features/router";
+import portalModuleAPI from "../api/portalModule/router";
+import PortalAPI from  "../api/portal/router";
+import analyticsAPI from "../api/analytics/router";
+import updateAPI from "../api/update/router"
 
 
 export const appPlugins = [
@@ -163,5 +176,44 @@ export const appPlugins = [
   },
   {
     plugin:plansAPI,
+  },
+  {
+    plugin:subscriptionInvoiceAPI,
+  },
+  {
+    plugin:tenantSubscriptionAPI,
+  },
+  {
+    plugin:subscriptionTrialAPI,
+  },
+  {
+    plugin:billingAPI,
+  },
+  {
+    plugin:financeAPI,
+  },
+  {
+    plugin:refundTransactionAPI,
+  },
+  {
+    plugin:revenueAPI,
+  },
+  {
+    plugin:customServiceInvoiceAPI,
+  },
+  // {
+  //   plugin:featuresAPI,
+  // },
+  {
+    plugin: portalModuleAPI,
+  }
+  ,{
+    plugin: PortalAPI
+  },
+  {
+    plugin: analyticsAPI
+  },
+  {
+    plugin: updateAPI
   }
 ];

@@ -25,18 +25,16 @@ export const getAllTeachers = async (
 
   console.log("Query Filters: ", query);
 
-  // Fetch all users matching the query
-  const users = await usershiftschedule.find(query).exec();
-
-  // Ensure the result matches the expected type
-  const usersFormatted: IUsershiftschedule[] = users.map((user) => ({
-    ...(user.toObject() as IUsershiftschedule),
-  }));
+  // Fetch all users matching the query as plain objects so they match the interface type.
+  const users = (await usershiftschedule
+    .find(query)
+    .lean()
+    .exec()) as IUsershiftschedule[];
 
   // Get the total count of users matching the query
   const totalCount = await usershiftschedule.countDocuments(query);
 
-  return { users: usersFormatted, totalCount }; // Return both users and totalCount
+  return { users, totalCount }; // Return both users and totalCount
 };
 
 

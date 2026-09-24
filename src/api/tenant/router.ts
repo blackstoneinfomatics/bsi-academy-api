@@ -1,21 +1,92 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from './handler';
-import { tenantsMessages } from '../../config/messages'
+import { tenantDashboardMessages, tenantsMessages } from '../../config/messages'
 
 const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
   const routes: ServerRoute[] = [
 
+   {
+  method: 'POST',
+  path: '/tenant',
+  options: {
+    handler: handler.createTenant,
+    description: tenantsMessages.CREATE,
+    tags: ['api', 'tenants'],
+
+    payload: {
+      parse: true,
+      multipart: true,
+      output: 'stream',
+      allow: 'multipart/form-data',
+      maxBytes: 15 * 1024 * 1024,
+    },
+
+    // auth: {
+    //   strategies: ['jwt'],
+    // },
+  },
+},
+
+{
+   method:"PUT",
+   path:"/tenant/subscription-plan/{tenantId}",
+   options:{
+      handler:handler.updateTenantPlan,
+      description:tenantsMessages.UPDATE_PLAN,
+       tags: ["api", "tenant"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+   }
+},
     {
-      method: 'POST',
-      path: '/tenant',
+  method: "GET",
+  path: "/tenants/analytics/cards",
+  options: {
+    handler: handler.getTenantAnalyticsCards,
+    description: "Get tenant analytics card counts",
+    tags: ["api", "tenant"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/summary',
       options: {
-        handler: handler.createTenant,
-        description: tenantsMessages.CREATE,
-        tags: ['api', 'tenants'],
-        auth: {
-          strategies: ['jwt']
-        },
+        handler: handler.getTenantDashboardSummary,
+        description: tenantDashboardMessages.SUMMARY,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/growth',
+      options: {
+        handler: handler.getTenantDashboardGrowth,
+        description: tenantDashboardMessages.GROWTH,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/activity',
+      options: {
+        handler: handler.getTenantDashboardActivity,
+        description: tenantDashboardMessages.ACTIVITY,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
       },
     },
 
@@ -57,28 +128,61 @@ const register = async (server: Server): Promise<void> => {
     },
     {
       method: 'GET',
+      path: '/tenant/{tenantCode}/details',
+      options: {
+        handler: handler.getTenantFullDetails,
+        description: tenantsMessages.TENANT_FULL_DETAILS,
+        tags: ['api', 'tenants'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+    {
+      method: 'GET',
       path: '/tenant/{tenantCode}',
       options: {
         handler: handler.getTenantDetailsByCode,
         description: tenantsMessages.BYID,
         tags: ['api', 'tenants'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+
+{
+      method: 'GET',
+      path: '/tenant',
+      options: {
+        handler: handler.getTenantDetails,
+        description: tenantsMessages.BYID,
+        tags: ['api', 'tenants'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+
+    {
+      method: 'PUT',
+      path: '/tenant/{tenantId}',
+      options: {
+        handler: handler.updateTenantDetailsById,
+        description: tenantsMessages.UPDATE,
+        tags: ['api', 'tenants'],
         auth: {
           strategies: ['jwt']
         },
+        payload: {
+          parse: true,
+          multipart: true,
+          output: 'stream',
+          allow: ['application/json', 'multipart/form-data'],
+          maxBytes: 15 * 1024 * 1024,
+        },
       },
     },
-    // {
-    //   method: 'PUT',
-    //   path: '/tenant/{tenantId}',
-    //   options: {
-    //     handler: handler.updateTenantDetailsById,
-    //     description: tenantsMessages.BYID,
-    //     tags: ['api', 'tenants'],
-    //     auth: {
-    //       strategies: ['jwt']
-    //     },
-    //   },
-    // },
   ];
   server.route(routes);
 };

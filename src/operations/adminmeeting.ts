@@ -39,10 +39,15 @@ export const admincreateMeeting = async (
   payload: IAdminMeetingCreate
 ): Promise<IAdminMeeting[] | { error: any }> => {
   try {
-    const admin = await User.findOne({
+    const admin = (await User.findOne({
       userName: payload.createdBy,
       role: "ADMIN",
-    }).exec();
+    }).exec()) as {
+      _id: Types.ObjectId | string;
+      userName?: string;
+      email?: string;
+      role?: string | string[];
+    } | null;
 
     if (!admin) {
       console.warn("Admin not found for user:", payload.createdBy);

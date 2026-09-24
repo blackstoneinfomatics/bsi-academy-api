@@ -1,6 +1,7 @@
 
 import { Server, ServerRoute } from "@hapi/hapi";
-import { createPaymentIntent, createStudentPaymentIntent } from "./handler";  // Import the function correctly
+import { createPaymentIntent, createStudentPaymentIntent, createSubscriptionInvoicePayment, payCustomServiceInvoice } from "./handler";  // Import the function correctly
+import { customServiceInvoiceMessages, paymentMessages } from "../../config/messages";
 
 const register = async (server: Server): Promise<void> => {
   // Define the routes for this module
@@ -21,6 +22,27 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "payment"],  
         },
     },
+    {
+      method: "POST",
+      path: "/subscription-invoices/payment",
+      options: {
+        handler: createSubscriptionInvoicePayment, 
+        description: paymentMessages.CREATE_SUBSCRIPTION_INVOICE_PAYMENT,
+        tags: ["api", "payment"],  
+      },
+    },
+    {
+          method: "POST",
+          path: "/custom-service-invoices/{invoiceId}/payment",
+          options: {
+            handler: payCustomServiceInvoice,
+            description: customServiceInvoiceMessages.CREATE_PAYMENT,
+            tags: ["api", "custom-service-invoice", "payment"],
+            // auth: {
+            //   strategies: ["jwt"],
+            // },
+          },
+        },
   ];
 
   // Register the defined routes with the Hapi server

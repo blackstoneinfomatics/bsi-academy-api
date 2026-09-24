@@ -6,7 +6,9 @@ export enum Status {
   IN_ACTIVE = "Inactive",
   DELETED ="Deleted",
   ARCHIVED = "Archived",
-  NEW = "New"
+  NEW = "New",
+  TRIAL = "Trial",
+  COMPLETED = "Completed",
 }
 
 export enum AssignmentStatus {
@@ -55,6 +57,106 @@ export enum ReferralSource {
   EMAIL = "E-Mail", 
   GOOGLE = "Google",
   OTHER = "Other"  // Keep as string
+}
+
+export enum SubscriptionInvoiceStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  PARTIALLY_PAID = "PARTIALLY_PAID",
+}
+
+export enum SubscriptionStatus {
+  PENDING = "PENDING",
+  ACTIVE = "ACTIVE",
+  EXPIRED = "EXPIRED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum BillingCycle {
+  MONTHLY = "MONTHLY",
+  QUARTERLY = "QUARTERLY",
+  YEARLY = "YEARLY",
+  HALF_YEARLY = "HALF_YEARLY",
+}
+
+export enum PaymentType {
+  SUBSCRIPTION = "SUBSCRIPTION",
+  RENEWAL = "RENEWAL",
+  REFUND = "REFUND",
+  CUSTOM_SERVICE = "CUSTOM_SERVICE",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  SUCCESS = "SUCCESS",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
+  REFUNDED = "REFUNDED",
+  PAID = "PAID",
+}
+
+export enum RefundStatus {
+  PENDING = "PENDING",
+  SUCCESS = "SUCCESS",
+  FAILED = "FAILED",
+}
+
+export enum RefundApprovalStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
+export enum PaymentGateway {
+  STRIPE = "STRIPE",
+  MANUAL = "MANUAL",
+}
+
+export enum SubscriptionTrialStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CANCELLED = "CANCELLED",
+  CONVERTED = "CONVERTED",
+  EXPIRED = "EXPIRED",
+  COMPLETED = "COMPLETED",
+  EXPIRING_SOON = "EXPIRING_SOON",
+}
+
+export enum BillingStatus {
+  PAID = "PAID",
+  PENDING = "PENDING",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+}
+
+export enum FilterOptions {
+  WEEKLY = "week",
+  MONTHLY = "month",
+  YEARLY = "year",
+}
+
+export enum PortalType {
+  DEFAULT = "DEFAULT",
+  CUSTOM = "CUSTOM",
+}
+
+export enum RoleType {
+  ACADEMIC = "ACADEMIC",
+  ADMINISTRATION = "ADMINISTRATION",
+  FINANCE = "FINANCE",
+  TRANSPORT = "TRANSPORT",
+  HOSTEL = "HOSTEL",
+}
+
+export enum PortalStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  ARCHIVED = "ARCHIVED",
 }
 
 export class CustomEnumerator {
@@ -166,6 +268,17 @@ export interface GetPaymentDetailsRecordsParams {
   offset?: any,
   limit?: any,
   searchText?: string
+}
+
+export enum RevenuePeriod {
+  WEEKLY = "weekly",
+  MONTHLY = "monthly",
+}
+
+export enum TenantGrowthPeriod {
+  WEEKLY = "weekly",
+  MONTHLY = "monthly",
+  YEARLY = "yearly",
 }
 
 export default CustomEnumerator;

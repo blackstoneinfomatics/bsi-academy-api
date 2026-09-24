@@ -128,6 +128,20 @@ const register = async (server: Server): Promise<void> => {
     },
 
 
+    {
+      method: "GET",
+      path: "/superAdmin/tenant/dashboard",
+      options: {
+        handler: handler.getSuperAdminTenantDashboard,
+        description: dashboardMessages.CARD_COUNT,
+        tags: ["api", "dashboard"],
+        // auth: {
+        //    strategies: ["jwt"],
+        //  },
+      },
+    },
+
+
 
 
   ];

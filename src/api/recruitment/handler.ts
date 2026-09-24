@@ -128,14 +128,19 @@ export default{
 
         console.log("File uploaded to SharePoint. Link:", shareLink.fileId);
 const generateTeacherId = generateAFTCode("AFT");
-   const supervisor = await users.find({role: "SUPERVISOR" , status: "Active" }).exec();
+    const supervisorList = (await users.find({ role: "SUPERVISOR", status: "Active" }).exec()) as Array<{
+      _id?: unknown;
+      userName?: string;
+      email?: string;
+    }>;
+    const supervisor = supervisorList[0];
     const result = await createRecruitment({
       candidateId: generateTeacherId,
       supervisor: {
-        supervisorId: supervisor[0]?._id.toString() || "",
-        supervisorName: supervisor[0]?.userName || "Supervisor",
-        supervisorEmail:  supervisor[0]?.email || "supervisor@gmail.com",
-        supervisorRole:  "SUPERVISOR",
+        supervisorId: supervisor?._id ? String(supervisor._id) : "",
+        supervisorName: supervisor?.userName || "Supervisor",
+        supervisorEmail: supervisor?.email || "supervisor@gmail.com",
+        supervisorRole: "SUPERVISOR",
       },
       candidateFirstName: payload.candidateFirstName,
       candidateLastName: payload.candidateLastName,
