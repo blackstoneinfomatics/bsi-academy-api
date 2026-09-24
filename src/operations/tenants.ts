@@ -9,7 +9,7 @@ import {
   ITenantSettingsPayload,
   TenantAccessLabel,
 } from "../../types/models.types";
-import { appStatus, syncJob, tenantsMessages } from "../config/messages";
+import { appStatus, syncJob} from "../config/messages";
 import TenantModel from "../models/tenants";
 import TenantSettingsModel from "../models/tenant_setting";
 import SubscriptionTrial from "../models/subcriptionTrial";
@@ -34,6 +34,22 @@ import TenantSubscription from "../models/tenantsubscription";
 import TenantPortalConfig from "../models/tenantPortalConfig";
 import TenantPortal from "../models/tenantPortal";
 
+import { Model, PipelineStage } from "mongoose";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import {
+  tenantDashboardMessages,
+  tenantsMessages,
+} from "../config/messages";
+import {
+  PortalType,
+  RefundStatus,
+} from "../shared/enum";
+import PaymentTransaction from "../models/paymenttransaction";
+import RefundTransaction from "../models/refundTransaction";
+import AuditLog from "../models/auditlog";
+import portalModule from "../models/portalModule";
 /**
  * Creates a new student.
  *
@@ -829,5 +845,671 @@ export const getTenantFullDetailsByCode = async (
       : null,
     modulesAccess,
     featuresAccess,
+  };
+};
+
+
+
+
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+export type TenantDashboardChangeType = "UPGRADE" | "DOWNGRADE" | "NO_CHANGE";
+
+export type TenantDashboardView = "monthly" | "yearly";
+
+export interface ITenantDashboardCard {
+  current: number;
+  previous: number;
+  percentageChange: number | null;
+  changeType: TenantDashboardChangeType;
+  comparison: string;
+}
+
+export interface ITenantDashboardPerformance {
+  percentage: number;
+  label: string;
+  message: string;
+}
+
+export interface ITenantDashboardSummary {
+  cards: {
+    totalUsers: ITenantDashboardCard;
+    activeUsers: ITenantDashboardCard;
+    revenue: ITenantDashboardCard;
+    openTickets: ITenantDashboardCard;
+  };
+  performance: ITenantDashboardPerformance;
+}
+
+export interface ITenantDashboardGrowthPoint {
+  label: string;
+  value: number;
+  // Growth vs the previous month/year; null when the previous value is 0.
+  percentageChange: number | null;
+}
+
+export interface ITenantDashboardGrowthItem {
+  // Absent on the "Most Used Modules" summary item.
+  moduleId?: string;
+  name: string;
+  percentage: number;
+  // totalFeatures 0 = module has no features; enabledFeatures 0 with total > 0 = all disabled.
+  enabledFeatures: number;
+  totalFeatures: number;
+}
+
+export interface ITenantDashboardGrowth {
+  view: TenantDashboardView;
+  tenantGrowth: {
+    view: TenantDashboardView;
+    data: ITenantDashboardGrowthPoint[];
+  };
+  growth: {
+    view: TenantDashboardView;
+    items: ITenantDashboardGrowthItem[];
+  };
+}
+
+export interface ITenantDashboardActivityRow {
+  dateTime: Date;
+  role: string | null;
+  activity: string | null;
+  details: string | null;
+  action: string | null;
+}
+
+export interface ITenantDashboardActivity {
+  activities: ITenantDashboardActivityRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+const SERVER_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const MONTH_LABELS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const round2 = (value: number): number => Number(value.toFixed(2));
+
+interface IMonthWindow {
+  previousStart: Date;
+  currentStart: Date;
+  nextStart: Date;
+}
+
+const getMonthWindow = (now = new Date()): IMonthWindow => ({
+  previousStart: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+  currentStart: new Date(now.getFullYear(), now.getMonth(), 1),
+  nextStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+});
+
+
+export const buildComparisonCard = (
+  current: number,
+  previous: number,
+  lowerIsBetter = false,
+): ITenantDashboardCard => {
+  let changeType: TenantDashboardChangeType = tenantDashboardMessages.CHANGE_NO_CHANGE as TenantDashboardChangeType;
+
+  if (current !== previous) {
+    const increased = current > previous;
+    changeType = (increased !== lowerIsBetter
+      ? tenantDashboardMessages.CHANGE_UPGRADE
+      : tenantDashboardMessages.CHANGE_DOWNGRADE) as TenantDashboardChangeType;
+  }
+
+  let percentageChange: number | null;
+  if (previous === 0) {
+    percentageChange = current === 0 ? 0 : null;
+  } else {
+    percentageChange = round2(Math.abs(((current - previous) / previous) * 100));
+  }
+
+  return {
+    current: round2(current),
+    previous: round2(previous),
+    percentageChange,
+    changeType,
+    comparison: tenantDashboardMessages.COMPARISON,
+  };
+};
+
+
+const ensureTenantExists = async (tenantId: string) => {
+  const tenant = await TenantModel.findOne({ tenantCode: tenantId })
+    .select("tenantCode createdDate timeZone")
+    .lean();
+
+  if (!tenant) {
+    throwError(tenantsMessages.TENANT_NOT_FOUND, 404);
+  }
+
+  return tenant!;
+};
+
+
+const getUserCounts = async (tenantId: string, window: IMonthWindow) => {
+  const [result] = await portalModule.aggregate([
+    {
+      $match: {
+        tenantId,
+        status: { $ne: Status.DELETED },
+        createdDate: { $lt: window.nextStart },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalCurrent: { $sum: 1 },
+        totalPrevious: {
+          $sum: { $cond: [{ $lt: ["$createdDate", window.currentStart] }, 1, 0] },
+        },
+        activeCurrent: {
+          $sum: { $cond: [{ $eq: ["$status", Status.ACTIVE] }, 1, 0] },
+        },
+        activePrevious: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", Status.ACTIVE] },
+                  { $lt: ["$createdDate", window.currentStart] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  return {
+    totalCurrent: result?.totalCurrent ?? 0,
+    totalPrevious: result?.totalPrevious ?? 0,
+    activeCurrent: result?.activeCurrent ?? 0,
+    activePrevious: result?.activePrevious ?? 0,
+  };
+};
+
+// Sums `netAmount` of the given collection into current / previous month buckets.
+const sumByMonth = async (
+  model: Model<any>,
+  match: Record<string, unknown>,
+  dateField: string,
+  window: IMonthWindow,
+) => {
+  const [result] = await model.aggregate([
+    {
+      $match: {
+        ...match,
+        [dateField]: { $gte: window.previousStart, $lt: window.nextStart },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        current: {
+          $sum: {
+            $cond: [{ $gte: [`$${dateField}`, window.currentStart] }, "$netAmount", 0],
+          },
+        },
+        previous: {
+          $sum: {
+            $cond: [{ $lt: [`$${dateField}`, window.currentStart] }, "$netAmount", 0],
+          },
+        },
+      },
+    },
+  ]);
+
+  return { current: result?.current ?? 0, previous: result?.previous ?? 0 };
+};
+
+
+const getRevenue = async (tenantId: string, window: IMonthWindow) => {
+  const [payments, refunds] = await Promise.all([
+    sumByMonth(
+      PaymentTransaction,
+      { tenantId, paymentStatus: PaymentStatus.SUCCESS, deletedAt: null },
+      "paymentDate",
+      window,
+    ),
+    sumByMonth(
+      RefundTransaction,
+      { tenantId, refundStatus: RefundStatus.SUCCESS, deletedAt: null },
+      "refundedAt",
+      window,
+    ),
+  ]);
+
+  return {
+    current: payments.current - refunds.current,
+    previous: payments.previous - refunds.previous,
+  };
+};
+
+
+const getOpenTicketCounts = async (
+  _tenantId: string,
+  _window: IMonthWindow,
+): Promise<{ current: number; previous: number }> => ({ current: 0, previous: 0 });
+
+interface IModuleFeatureStats {
+  portalId: string;
+  moduleId: string;
+  moduleName: string;
+  totalFeatures: number;
+  enabledFeatures: number;
+}
+
+
+const getTenantModuleFeatureStats = async (
+  tenantId: string,
+): Promise<IModuleFeatureStats[]> => {
+  const validFeature = {
+    $and: [
+      { $eq: [{ $ifNull: ["$features.deletedAt", null] }, null] },
+      { $in: ["$features.featuretype", Object.values(PortalType)] },
+    ],
+  };
+
+  const pipeline: PipelineStage[] = [
+    { $match: { tenantId, deletedAt: null } },
+    { $unwind: "$modules" },
+    { $match: { "modules.deletedAt": null } },
+    {
+      $project: {
+        portalId: 1,
+        moduleId: "$modules.moduleId",
+        moduleName: "$modules.moduleName",
+        orderNo: "$modules.orderNo",
+        features: {
+          $concatArrays: [
+            { $ifNull: ["$modules.features", []] },
+            {
+              $reduce: {
+                input: {
+                  $filter: {
+                    input: { $ifNull: ["$modules.children", []] },
+                    as: "child",
+                    cond: { $eq: [{ $ifNull: ["$$child.deletedAt", null] }, null] },
+                  },
+                },
+                initialValue: [],
+                in: { $concatArrays: ["$$value", { $ifNull: ["$$this.features", []] }] },
+              },
+            },
+          ],
+        },
+      },
+    },
+    // Keep modules with no features so they are still listed.
+    { $unwind: { path: "$features", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: {
+          portalId: "$portalId",
+          moduleId: "$moduleId",
+          featureId: "$features.featureId",
+        },
+        moduleName: { $first: "$moduleName" },
+        orderNo: { $first: "$orderNo" },
+        isValid: { $max: { $cond: [validFeature, 1, 0] } },
+        isEnabled: {
+          $max: {
+            $cond: [
+              { $and: [validFeature, { $ne: ["$features.isEnabled", false] }] },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+    {
+      $group: {
+        _id: { portalId: "$_id.portalId", moduleId: "$_id.moduleId" },
+        moduleName: { $first: "$moduleName" },
+        orderNo: { $first: "$orderNo" },
+        totalFeatures: { $sum: "$isValid" },
+        enabledFeatures: { $sum: "$isEnabled" },
+      },
+    },
+    { $sort: { orderNo: 1, moduleName: 1, "_id.moduleId": 1 } },
+  ];
+
+  const rows = await TenantPortalConfig.aggregate(pipeline);
+
+  return rows.map((row) => ({
+    portalId: String(row._id.portalId),
+    moduleId: row._id.moduleId,
+    moduleName: row.moduleName,
+    totalFeatures: row.totalFeatures,
+    enabledFeatures: row.enabledFeatures,
+  }));
+};
+
+const toFeaturePercentage = (enabledFeatures: number, totalFeatures: number) =>
+  totalFeatures > 0 ? round2((enabledFeatures / totalFeatures) * 100) : 0;
+
+/** Overall feature adoption (enabled / total features) of the tenant. */
+export const getTenantFeatureAdoption = async (tenantId: string) => {
+  const modules = await getTenantModuleFeatureStats(tenantId);
+
+  const totalFeatures = modules.reduce((sum, module) => sum + module.totalFeatures, 0);
+  const enabledFeatures = modules.reduce((sum, module) => sum + module.enabledFeatures, 0);
+
+  return {
+    totalFeatures,
+    enabledFeatures,
+    percentage: toFeaturePercentage(enabledFeatures, totalFeatures),
+  };
+};
+
+interface IPerformanceInput {
+  totalUsers: number;
+  activeUsers: number;
+  featureAdoption: { totalFeatures: number; percentage: number };
+  subscriptionStatus: string | null;
+}
+
+
+export const calculateTenantPerformance = (
+  input: IPerformanceInput,
+): ITenantDashboardPerformance => {
+  const scores: number[] = [];
+
+  if (input.totalUsers > 0) {
+    scores.push((input.activeUsers / input.totalUsers) * 100);
+  }
+  if (input.featureAdoption.totalFeatures > 0) {
+    scores.push(input.featureAdoption.percentage);
+  }
+  if (input.subscriptionStatus) {
+    scores.push(input.subscriptionStatus === SubscriptionStatus.ACTIVE ? 100 : 0);
+  }
+
+  if (!scores.length) {
+    return {
+      percentage: 0,
+      label: tenantDashboardMessages.PERFORMANCE_NO_DATA,
+      message: tenantDashboardMessages.PERFORMANCE_NO_DATA_MESSAGE,
+    };
+  }
+
+  const percentage = round2(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+
+  if (percentage >= 80) {
+    return {
+      percentage,
+      label: tenantDashboardMessages.PERFORMANCE_EXCELLENT,
+      message: tenantDashboardMessages.PERFORMANCE_EXCELLENT_MESSAGE,
+    };
+  }
+  if (percentage >= 60) {
+    return {
+      percentage,
+      label: tenantDashboardMessages.PERFORMANCE_GOOD,
+      message: tenantDashboardMessages.PERFORMANCE_GOOD_MESSAGE,
+    };
+  }
+  if (percentage >= 40) {
+    return {
+      percentage,
+      label: tenantDashboardMessages.PERFORMANCE_AVERAGE,
+      message: tenantDashboardMessages.PERFORMANCE_AVERAGE_MESSAGE,
+    };
+  }
+  return {
+    percentage,
+    label: tenantDashboardMessages.PERFORMANCE_POOR,
+    message: tenantDashboardMessages.PERFORMANCE_POOR_MESSAGE,
+  };
+};
+
+export const getTenantDashboardSummary = async (
+  tenantId: string,
+): Promise<ITenantDashboardSummary> => {
+  await ensureTenantExists(tenantId);
+
+  const window = getMonthWindow();
+
+  const [users, revenue, tickets, featureAdoption, subscription] = await Promise.all([
+    getUserCounts(tenantId, window),
+    getRevenue(tenantId, window),
+    getOpenTicketCounts(tenantId, window),
+    getTenantFeatureAdoption(tenantId),
+    TenantSubscription.findOne({ tenantId, deletedAt: null })
+      .sort({ createdAt: -1 })
+      .select("status")
+      .lean(),
+  ]);
+
+  return {
+    cards: {
+      totalUsers: buildComparisonCard(users.totalCurrent, users.totalPrevious),
+      activeUsers: buildComparisonCard(users.activeCurrent, users.activePrevious),
+      revenue: buildComparisonCard(revenue.current, revenue.previous),
+      openTickets: buildComparisonCard(tickets.current, tickets.previous, true),
+    },
+    performance: calculateTenantPerformance({
+      totalUsers: users.totalCurrent,
+      activeUsers: users.activeCurrent,
+      featureAdoption,
+      subscriptionStatus: subscription?.status ?? null,
+    }),
+  };
+};
+
+// The tenant's own timeZone when it is a valid IANA zone, else the server zone.
+const resolveTenantTimeZone = (timeZone?: string | null): string => {
+  if (!timeZone) return SERVER_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return timeZone;
+  } catch {
+    return SERVER_TIME_ZONE;
+  }
+};
+
+// Signed growth: previous 0 -> null (or 0 when both are 0); never NaN/Infinity.
+const calculateGrowthPercentage = (current: number, previous: number): number | null => {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return round2(((current - previous) / previous) * 100);
+};
+
+const getTenantUserGrowth = async (
+  tenantId: string,
+  view: TenantDashboardView,
+  tenantCreatedDate: Date | undefined,
+  timeZone: string,
+): Promise<ITenantDashboardGrowthPoint[]> => {
+  const now = dayjs().tz(timeZone);
+  const currentYear = now.year();
+
+  const firstYear = Math.min(
+    tenantCreatedDate ? dayjs(tenantCreatedDate).tz(timeZone).year() : currentYear,
+    currentYear,
+  );
+
+  // Bucket keys (matching the $dateToString output) for the window plus the one before it.
+  const keys: { key: string; label: string }[] = [];
+  let start: Date;
+  let end: Date;
+
+  if (view === "monthly") {
+    const firstMonth = now.startOf("year");
+    start = firstMonth.subtract(1, "month").toDate();
+    end = now.startOf("month").add(1, "month").toDate();
+
+    for (let month = -1; month <= now.month(); month++) {
+      const bucket = firstMonth.add(month, "month");
+      keys.push({ key: bucket.format("YYYY-MM"), label: MONTH_LABELS[bucket.month()] });
+    }
+  } else {
+    start = dayjs.tz(`${firstYear - 1}-01-01`, timeZone).toDate();
+    end = now.startOf("year").add(1, "year").toDate();
+
+    for (let year = firstYear - 1; year <= currentYear; year++) {
+      keys.push({ key: String(year), label: String(year) });
+    }
+  }
+
+  const rows: { _id: string; value: number }[] = await portalModule.aggregate([
+    {
+      $match: {
+        tenantId,
+        status: { $ne: Status.DELETED },
+        createdDate: { $gte: start, $lt: end },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: view === "monthly" ? "%Y-%m" : "%Y",
+            date: "$createdDate",
+            timezone: timeZone,
+          },
+        },
+        value: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  const valueByKey = new Map(rows.map((row) => [row._id, row.value]));
+
+  return keys.slice(1).map(({ key, label }, index) => {
+    const value = valueByKey.get(key) ?? 0;
+    const previous = valueByKey.get(keys[index].key) ?? 0;
+
+    return { label, value, percentageChange: calculateGrowthPercentage(value, previous) };
+  });
+};
+
+const getModuleUsage = async (tenantId: string): Promise<ITenantDashboardGrowthItem[]> => {
+  const modules = await getTenantModuleFeatureStats(tenantId);
+
+  const totalFeatures = modules.reduce((sum, module) => sum + module.totalFeatures, 0);
+  const enabledFeatures = modules.reduce((sum, module) => sum + module.enabledFeatures, 0);
+
+  return [
+    {
+      name: tenantDashboardMessages.MODULE_MOST_USED,
+      percentage: toFeaturePercentage(enabledFeatures, totalFeatures),
+      enabledFeatures,
+      totalFeatures,
+    },
+    ...modules.map((module) => ({
+      moduleId: module.moduleId,
+      name: module.moduleName,
+      percentage: toFeaturePercentage(module.enabledFeatures, module.totalFeatures),
+      enabledFeatures: module.enabledFeatures,
+      totalFeatures: module.totalFeatures,
+    })),
+  ];
+};
+
+export const getTenantDashboardGrowth = async (
+  tenantId: string,
+  view: TenantDashboardView,
+): Promise<ITenantDashboardGrowth> => {
+  const tenant = await ensureTenantExists(tenantId);
+  const timeZone = resolveTenantTimeZone(tenant.timeZone);
+
+  const [tenantGrowthData, items] = await Promise.all([
+    getTenantUserGrowth(tenantId, view, tenant.createdDate, timeZone),
+    getModuleUsage(tenantId),
+  ]);
+
+  return {
+    view,
+    tenantGrowth: { view, data: tenantGrowthData },
+    growth: { view, items },
+  };
+};
+
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const TECHNICAL_HTTP_METHODS = ["options", "OPTIONS", "head", "HEAD"];
+const buildTenantActivityMatch = (tenantId: string) => {
+  const id = escapeRegex(tenantId);
+  const tenantIdField = new RegExp(`"tenantId":"${id}"`);
+
+  return {
+    $or: [
+      { tenantId },
+      { "meta.tenantId": tenantId },
+      { "meta.path": new RegExp(`/${id}(/|$)`) },
+      { "meta.query": tenantIdField },
+      { "meta.payload": tenantIdField },
+    ],
+    "meta.method": { $nin: TECHNICAL_HTTP_METHODS },
+    route: { $not: /^\/tenant\/dashboard\// },
+  };
+};
+
+export const getTenantDashboardActivity = async (
+  tenantId: string,
+  page: number,
+  limit: number,
+): Promise<ITenantDashboardActivity> => {
+  await ensureTenantExists(tenantId);
+
+  const match = buildTenantActivityMatch(tenantId);
+
+  const [activities, total] = await Promise.all([
+    AuditLog.aggregate([
+      { $match: match },
+      { $sort: { createdDate: -1, _id: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: portalModule.collection.name,
+          localField: "portalCode",
+          foreignField: "portalCode",
+          as: "portal",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          dateTime: "$createdDate",
+          // tenantUsers.role is an array; the first role is the display role.
+          role: {
+            $ifNull: [
+              { $arrayElemAt: [{ $ifNull: [{ $arrayElemAt: ["$user.role", 0] }, []] }, 0] },
+              null,
+            ],
+          },
+          activity: { $ifNull: ["$route", null] },
+          details: { $ifNull: ["$description", null] },
+          action: { $ifNull: ["$action", null] },
+        },
+      },
+    ]),
+    AuditLog.countDocuments(match),
+  ]);
+
+  return {
+    activities,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };

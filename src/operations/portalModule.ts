@@ -2,7 +2,13 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { throwError } from "../helpers/throwError";
 import { portalModuleMessages, tenantPortalConfigMessages } from "../config/messages";
-import { PortalStatus, PortalType, Status } from "../shared/enum";
+import {
+  PaymentStatus,
+  PortalStatus,
+  PortalType,
+  Status,
+  SubscriptionInvoiceStatus,
+} from "../shared/enum";
 import PortalModule, {
   CreateParentModuleInput,
   UpdateAccessInput,
@@ -12,6 +18,9 @@ import { CreateChildModuleInput, UpdateChildModuleInput } from "../models/childp
 import { CreateFeatureInput, UpdateFeatureInput } from "../models/featuremodule";
 import Tenants from "../models/tenants";
 import TenantSubscription from "../models/tenantsubscription";
+import Plan from "../models/plan-model";
+import SubscriptionInvoice from "../models/subscriptionInvoice";
+import PaymentTransaction from "../models/paymenttransaction";
 import TenantPortal from "../models/tenantPortal";
 import TenantPortalConfig, {
   AddTenantChildModuleInput,
@@ -638,12 +647,75 @@ export const getFeatureCard = async () => {
   };
 };
 
-// ---------------------------------------------------------------------------
-// Tenant module (Custom) - everything created through these functions is
-// tenant-specific and always type=Custom, stored in tenant_portal_config.
-// ---------------------------------------------------------------------------
-// tenantId here follows the project-wide convention of matching Tenants.tenantCode
-// (see createinvoice.ts / operations/tenants.ts).
+// Tenant-scoped feature card - counts every feature (direct-under-module and
+// nested-under-child-module) across all of a tenant's tenantPortalConfig
+// documents, split by Custom vs Default and enabled vs disabled.
+export const getTenantFeatureCard = async (tenantId: string) => {
+  const trimmedTenantId = (tenantId || "").trim();
+
+  if (!trimmedTenantId) {
+    return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 400);
+  }
+
+  await validateTenantExists(trimmedTenantId);
+
+  const configs = await TenantPortalConfig.find({
+    tenantId: trimmedTenantId,
+    deletedAt: null,
+  }).lean();
+
+  let totalFeatures = 0;
+  let customFeatures = 0;
+  let defaultFeatures = 0;
+  let enabledFeatures = 0;
+  let disabledFeatures = 0;
+
+  const countFeature = (feature: ITenantPortalFeature) => {
+    if (feature.deletedAt) return;
+
+    totalFeatures += 1;
+
+    if (feature.featuretype === PortalType.CUSTOM) {
+      customFeatures += 1;
+    } else {
+      defaultFeatures += 1;
+    }
+
+    if (feature.isEnabled) {
+      enabledFeatures += 1;
+    } else {
+      disabledFeatures += 1;
+    }
+  };
+
+  for (const config of configs) {
+    for (const module of config.modules || []) {
+      if (module.deletedAt) continue;
+
+      for (const feature of module.features || []) {
+        countFeature(feature);
+      }
+
+      for (const child of module.children || []) {
+        if (child.deletedAt) continue;
+
+        for (const feature of child.features || []) {
+          countFeature(feature);
+        }
+      }
+    }
+  }
+
+  return {
+    totalFeatures,
+    customFeatures,
+    defaultFeatures,
+    enabledFeatures,
+    disabledFeatures,
+  };
+};
+
+
 
 const validateTenantExists = async (tenantId: string): Promise<void> => {
   const tenant = await Tenants.findOne({ tenantCode: tenantId });
@@ -653,8 +725,6 @@ const validateTenantExists = async (tenantId: string): Promise<void> => {
   }
 };
 
-// The config document is seeded (as a Default snapshot of Global) when the tenant
-// subscribes to the portal - it is never created here, only looked up.
 const findActiveConfig = async (
   tenantId: string,
   portalId: string
@@ -668,11 +738,7 @@ const findActiveConfig = async (
   return config;
 };
 
-// The Global catalog (portalmodules collection) uses Status ("Active" /
-// "Inactive" / "Archived" / ...) while tenant-scoped module/child/feature
-// status uses the differently-cased PortalStatus ("ACTIVE" / "INACTIVE" /
-// "ARCHIVED") - passing a Status value straight into a PortalStatus field
-// would fail the tenantPortalConfig schema's enum validation on save.
+
 const toPortalStatus = (status: Status): PortalStatus => {
   switch (status) {
     case Status.ACTIVE:
@@ -684,10 +750,7 @@ const toPortalStatus = (status: Status): PortalStatus => {
   }
 };
 
-// Snapshots the Global (Default) parent modules registered under this portal's
-// name, mapped into the tenant-scoped shape - used to seed a brand new
-// tenantPortalConfig document. A portal name with no Global modules yet simply
-// starts with an empty snapshot.
+
 const buildDefaultModulesSnapshot = (parents: IPortalModule[]): ITenantPortalModule[] => {
   const now = new Date();
 
@@ -729,14 +792,7 @@ const buildDefaultModulesSnapshot = (parents: IPortalModule[]): ITenantPortalMod
   }));
 };
 
-// Used by addTenantModule only: unlike findActiveConfig (every other tenant-
-// scoped read/update, which requires the config to already exist), this one
-// self-heals and never 404s on a missing config - whatever tenantId/portalId
-// is sent in the payload is accepted as-is, and a tenantPortalConfig doc is
-// created for it on the fly if one isn't there yet. If a matching tenantPortal
-// record happens to exist, its Global default modules are used to seed the
-// snapshot; otherwise it just starts empty and the module from the payload is
-// added as the first (Custom) entry.
+
 const findOrCreateActiveConfig = async (
   tenantId: string,
   portalId: string,
@@ -880,8 +936,6 @@ type TenantConfigsPage = {
   };
 };
 
-// Lists TenantConfig documents across tenants/portals (paginated), each
-// enriched with its tenant and subscription details.
 export const getTenantConfigs = async (
   page = 1,
   limit = 10,
@@ -961,6 +1015,90 @@ export const getTenantConfig = async (
     subscriptionDetails: buildSubscriptionDetails(subscription),
   };
 };
+
+const round2 = (value: number): number => Number(value.toFixed(2));
+
+// Invoice statuses that still have an amount for the tenant to pay.
+const PAYABLE_INVOICE_STATUSES = [
+  SubscriptionInvoiceStatus.PENDING,
+  SubscriptionInvoiceStatus.OVERDUE,
+  SubscriptionInvoiceStatus.PARTIALLY_PAID,
+];
+
+const toTenantFeatureDetails = (
+  features: ITenantPortalFeature[] | undefined,
+  portalId: string,
+  portalName: string | null,
+) =>
+  (features ?? [])
+    .filter((feature) => !feature.deletedAt)
+    .map((feature) => ({
+      featureId: feature.featureId,
+      featureName: feature.featureName,
+      featureType: feature.featuretype,
+      status: feature.featureStatus,
+      isEnabled: feature.isEnabled,
+      portalId,
+      portalName,
+    }));
+
+// The tenant's portals and every non-deleted module (with child modules and
+// features) across all its TenantPortalConfig documents, ordered per portal by orderNo.
+const getTenantConfigPortalsAndModules = async (tenantId: string) => {
+  const [configs, portals] = await Promise.all([
+    TenantPortalConfig.find({ tenantId, deletedAt: null }).sort({ createdAt: 1 }).lean(),
+    TenantPortal.find({ tenantId, deletedAt: null }).select("portalId portalName").lean(),
+  ]);
+
+  const portalNameById = new Map(
+    portals.map((portal) => [String(portal.portalId), portal.portalName]),
+  );
+
+  const activeModulesOf = (config: (typeof configs)[number]) =>
+    (config.modules ?? []).filter((module) => !module.deletedAt);
+
+  const tenantPortals = configs.map((config) => ({
+    portalId: String(config.portalId),
+    portalName: portalNameById.get(String(config.portalId)) ?? null,
+    tenantPortalId: String(config.tenantPortalId),
+    totalModules: activeModulesOf(config).length,
+  }));
+
+  const modules = configs.flatMap((config) => {
+    const portalId = String(config.portalId);
+    const portalName = portalNameById.get(portalId) ?? null;
+
+    return [...activeModulesOf(config)]
+      .sort((a, b) => (a.orderNo ?? 0) - (b.orderNo ?? 0))
+      .map((module) => ({
+        moduleId: module.moduleId,
+        moduleName: module.moduleName,
+        order: module.orderNo,
+        moduleType: module.moduleType,
+        status: module.moduleStatus,
+        isEnabled: module.isEnabled,
+        portalId,
+        portalName,
+        features: toTenantFeatureDetails(module.features, portalId, portalName),
+        children: (module.children ?? [])
+          .filter((child) => !child.deletedAt)
+          .map((child) => ({
+            childModuleId: child.childModuleId,
+            childModuleName: child.childModuleName,
+            childModuleType: child.childModuleType,
+            status: child.childModuleStatus,
+            isEnabled: child.isEnabled,
+            portalId,
+            portalName,
+            features: toTenantFeatureDetails(child.features, portalId, portalName),
+          })),
+      }));
+  });
+
+  return { portals: tenantPortals, modules };
+};
+
+
 
 // Module (Parent)
 
@@ -1494,7 +1632,10 @@ interface FeatureRow {
   createdAt: Date;
 }
 
-export const getAllFeatures = async (
+// Shared by getAllFeatures and getAllTenantFeatures - applies the search /
+// portal / status filters and pagination to an already-flattened row list.
+const paginateFeatureRows = (
+  rows: FeatureRow[],
   query: GetAllFeaturesQuery = {}
 ) => {
   const {
@@ -1508,6 +1649,67 @@ export const getAllFeatures = async (
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedLimit = Math.max(1, Number(limit) || 10);
 
+  let filteredRows = rows;
+
+  if (search?.trim()) {
+    const searchTerm = search.trim().toLowerCase();
+
+    filteredRows = filteredRows.filter((row) =>
+      [
+        row.portal,
+        row.parentModuleName,
+        row.childModuleName,
+        row.featureName,
+        row.description,
+      ].some((value) =>
+        value?.toLowerCase().includes(searchTerm)
+      )
+    );
+  }
+
+  if (portal) {
+    filteredRows = filteredRows.filter(
+      (row) =>
+        row.portal.toLowerCase() === portal.toLowerCase()
+    );
+  }
+
+  if (status) {
+    filteredRows = filteredRows.filter(
+      (row) =>
+        row.status.toLowerCase() === status.toLowerCase()
+    );
+  }
+
+  const totalRecords = filteredRows.length;
+
+  const totalPages = Math.ceil(
+    totalRecords / normalizedLimit
+  );
+
+  const startIndex = (normalizedPage - 1) * normalizedLimit;
+
+  const data = filteredRows.slice(
+    startIndex,
+    startIndex + normalizedLimit
+  );
+
+  return {
+    data,
+    pagination: {
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalRecords,
+      totalPages,
+      hasNextPage: normalizedPage < totalPages,
+      hasPreviousPage: normalizedPage > 1,
+    },
+  };
+};
+
+export const getAllFeatures = async (
+  query: GetAllFeaturesQuery = {}
+) => {
   // 1. Fetch all parent modules
   const parentModules = await PortalModule.find({
     deletedAt: null,
@@ -1613,64 +1815,145 @@ export const getAllFeatures = async (
     }
   }
 
-  // 3. Search
-  let filteredRows = rows;
+  return paginateFeatureRows(rows, query);
+};
 
-  if (search?.trim()) {
-    const searchTerm = search.trim().toLowerCase();
+// Tenant-scoped equivalent of getAllFeatures - flattens every module, child
+// module and feature across all of a tenant's tenantPortalConfig documents
+// (portal name resolved via the linked tenantPortal record), instead of the
+// Global (portalmodules) catalog.
+export const getAllTenantFeatures = async (
+  tenantId: string,
+  query: GetAllFeaturesQuery = {}
+) => {
+  const trimmedTenantId = (tenantId || "").trim();
 
-    filteredRows = filteredRows.filter((row) =>
-      [
-        row.portal,
-        row.parentModuleName,
-        row.childModuleName,
-        row.featureName,
-        row.description,
-      ].some((value) =>
-        value?.toLowerCase().includes(searchTerm)
-      )
-    );
+  if (!trimmedTenantId) {
+    return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 400);
   }
 
-  // 4. Portal filter
-  if (portal) {
-    filteredRows = filteredRows.filter(
-      (row) =>
-        row.portal.toLowerCase() === portal.toLowerCase()
-    );
-  }
+  await validateTenantExists(trimmedTenantId);
 
-  // 5. Status filter
-  if (status) {
-    filteredRows = filteredRows.filter(
-      (row) =>
-        row.status.toLowerCase() === status.toLowerCase()
-    );
-  }
+  const configs = await TenantPortalConfig.find({
+    tenantId: trimmedTenantId,
+    deletedAt: null,
+  }).lean();
 
-  // 6. Pagination
-  const totalRecords = filteredRows.length;
+  const tenantPortalIds = configs
+    .map((config) => config.tenantPortalId)
+    .filter((id): id is mongoose.Types.ObjectId => !!id);
 
-  const totalPages = Math.ceil(
-    totalRecords / normalizedLimit
+  const portalDocs = await TenantPortal.find({ _id: { $in: tenantPortalIds } })
+    .select("portalName")
+    .lean();
+
+  const portalNameById = new Map(
+    portalDocs.map((portalDoc) => [portalDoc._id.toString(), portalDoc.portalName])
   );
 
-  const startIndex = (normalizedPage - 1) * normalizedLimit;
+  const rows: FeatureRow[] = [];
 
-  const data = filteredRows.slice(
-    startIndex,
-    startIndex + normalizedLimit
-  );
+  for (const config of configs) {
+    const portalName = config.tenantPortalId
+      ? portalNameById.get(config.tenantPortalId.toString()) || "Unknown Portal"
+      : "Unknown Portal";
 
-  return {
-    data,
-    pagination: {
-      page: normalizedPage,
-      limit: normalizedLimit,
-      totalRecords,
-      totalPages,
-      hasNextPage: normalizedPage < totalPages,
-      hasPreviousPage: normalizedPage > 1,
-    },
-  };
+    for (const module of config.modules || []) {
+      if (module.deletedAt) continue;
+
+      rows.push({
+        portal: portalName,
+
+        parentModuleId: module.moduleId,
+        parentModuleName: module.moduleName,
+
+        childModuleId: null,
+        childModuleName: null,
+
+        featureId: null,
+        featureName: null,
+
+        description: module.description || "",
+
+        status: module.moduleStatus,
+        isEnabled: module.isEnabled,
+
+        createdAt: module.createdAt as Date,
+      });
+
+      for (const feature of module.features || []) {
+        if (feature.deletedAt) continue;
+
+        rows.push({
+          portal: portalName,
+
+          parentModuleId: module.moduleId,
+          parentModuleName: module.moduleName,
+
+          childModuleId: null,
+          childModuleName: null,
+
+          featureId: feature.featureId,
+          featureName: feature.featureName,
+
+          description: feature.description || "",
+
+          status: feature.featureStatus,
+          isEnabled: feature.isEnabled,
+
+          createdAt: feature.createdAt as Date,
+        });
+      }
+
+      for (const child of module.children || []) {
+        if (child.deletedAt) continue;
+
+        rows.push({
+          portal: portalName,
+
+          parentModuleId: module.moduleId,
+          parentModuleName: module.moduleName,
+
+          childModuleId: child.childModuleId,
+          childModuleName: child.childModuleName,
+
+          featureId: null,
+          featureName: null,
+
+          description: child.description || "",
+
+          status: child.childModuleStatus,
+          isEnabled: child.isEnabled,
+
+          createdAt: child.createdAt as Date,
+        });
+
+        for (const feature of child.features || []) {
+          if (feature.deletedAt) continue;
+
+          rows.push({
+            portal: portalName,
+
+            parentModuleId: module.moduleId,
+            parentModuleName: module.moduleName,
+
+            childModuleId: child.childModuleId,
+            childModuleName: child.childModuleName,
+
+            featureId: feature.featureId,
+            featureName: feature.featureName,
+
+            description: feature.description || "",
+
+            status: feature.featureStatus,
+            isEnabled: feature.isEnabled,
+
+            createdAt: feature.createdAt as Date,
+          });
+        }
+      }
+    }
+  }
+
+  return paginateFeatureRows(rows, query);
 };

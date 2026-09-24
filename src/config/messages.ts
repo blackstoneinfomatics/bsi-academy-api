@@ -214,6 +214,8 @@ export const financeMessages: Record<string, string> = Object.freeze({
   DASHBOARD_SUMMARY_FETCHED: "Revenue dashboard summary fetched successfully",
   REVENUE_GROWTH_FETCHED: "Revenue growth fetched successfully",
   TRANSACTIONS_FETCHED: "Finance transactions fetched successfully",
+  TENANT_TRANSACTIONS_FETCHED: "Tenant finance transactions fetched successfully",
+  TENANT_ID_REQUIRED: "TenantId is required",
   TRANSACTION_CARD_COUNT_FETCHED: "Finance transaction card count fetched successfully",
   TODAY_ACTIVITIES_FETCHED: "Today's finance activities fetched successfully",
   TODAY_ACTIVITIES_FETCH_FAILED: "Failed to fetch today's finance activities",
@@ -427,6 +429,37 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   ACCESS_ENABLED: "Enabled",
 
   ACCESS_DISABLED: "Disabled",
+});
+
+export const tenantDashboardMessages = Object.freeze({
+  SUMMARY: "Get tenant dashboard cards, comparison and performance",
+  GROWTH: "Get tenant dashboard growth and module usage",
+  ACTIVITY: "Get tenant dashboard activity table",
+  SUMMARY_SUCCESS: "Tenant dashboard summary fetched successfully",
+  GROWTH_SUCCESS: "Tenant dashboard growth fetched successfully",
+  ACTIVITY_SUCCESS: "Tenant dashboard activity fetched successfully",
+  TENANT_ID_REQUIRED: "Tenant id is required",
+  INVALID_VIEW: "View must be monthly or yearly",
+  INVALID_PAGE: "Page must be a positive integer",
+  INVALID_LIMIT: "Limit must be a positive integer",
+  COMPARISON: "vs last month",
+
+  CHANGE_UPGRADE: "UPGRADE",
+  CHANGE_DOWNGRADE: "DOWNGRADE",
+  CHANGE_NO_CHANGE: "NO_CHANGE",
+
+  MODULE_MOST_USED: "Most Used Modules",
+
+  PERFORMANCE_EXCELLENT: "Excellent",
+  PERFORMANCE_GOOD: "Good",
+  PERFORMANCE_AVERAGE: "Average",
+  PERFORMANCE_POOR: "Needs Attention",
+  PERFORMANCE_NO_DATA: "No Data",
+  PERFORMANCE_EXCELLENT_MESSAGE: "Your academy is performing excellently. Keep it up!",
+  PERFORMANCE_GOOD_MESSAGE: "Your academy is performing well.",
+  PERFORMANCE_AVERAGE_MESSAGE: "Your academy performance is average. There is room to improve.",
+  PERFORMANCE_POOR_MESSAGE: "Your academy performance needs attention.",
+  PERFORMANCE_NO_DATA_MESSAGE: "Not enough data to calculate performance yet.",
 });
 
 export const dashboardMessages: Record<string, any> = Object.freeze({
@@ -915,11 +948,16 @@ export const portalModuleMessages = {
   GET_FEATURE_CARD_SUCCESS: "Feature card fetched successfully",
   FEATURE_CARD_NOT_FOUND: "Feature card not found",
   INVALID_FEATURE_CARD_ID: "Invalid Feature Card Id",
+
+  GET_TENANT_FEATURE_CARD_SUCCESS: "Tenant feature card fetched successfully",
+  GET_TENANT_FEATURES_SUCCESS: "Tenant features fetched successfully",
 };
 
 export const tenantPortalConfigMessages = {
   GET_CONFIG_SUCCESS: "Tenant configuration fetched successfully",
   GET_CONFIGS_SUCCESS: "Tenant configurations fetched successfully",
+  GET_TENANT_PLAN_DETAILS: "Get the plan details and payable amount of a tenant",
+  GET_TENANT_PLAN_DETAILS_SUCCESS: "Tenant plan details fetched successfully",
 
   ADD_MODULE_SUCCESS: "Custom module added and enabled successfully",
   UPDATE_MODULE_SUCCESS: "Module updated successfully",

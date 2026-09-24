@@ -17,7 +17,9 @@ import {
   createParentModule,
   getChildModules,
   getAllFeatures,
+  getAllTenantFeatures,
   getFeatureCard,
+  getTenantFeatureCard,
   getFeatures,
   getParentFeatures,
   getParentModules,
@@ -60,6 +62,25 @@ export const getParentModulesValidation = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
+  }),
+});
+
+export const getTenantFeatureCardValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+});
+
+export const getAllTenantFeaturesValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+    search: z.string().optional(),
+    portal: z.string().optional(),
+    status: z.string().optional(),
   }),
 });
 
@@ -636,11 +657,43 @@ getParentModules: async (
     }
   },
 
-  // Tenant module (Custom) - the tenant_portal_config document already exists
-  // (seeded with a Default snapshot of Global when the tenant subscribes), so
-  // these only ADD a Custom entry into it and enable it - they never create
-  // the root document.
+  getTenantFeatureCard: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = getTenantFeatureCardValidation.safeParse({
+        params: request.params,
+      });
 
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
+
+      const result = await getTenantFeatureCard(parsed.data.params.tenantId);
+
+      return h
+        .response({
+          success: true,
+          message: portalModuleMessages.GET_TENANT_FEATURE_CARD_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  
  getTenantConfig: async (request: Request, h: ResponseToolkit) => {
   try {
     const {
@@ -708,6 +761,8 @@ getParentModules: async (
       .code(err.statusCode || 500);
   }
 },
+
+ 
 
   addTenantModule: async (request: Request, h: ResponseToolkit) => {
     try {
@@ -1221,5 +1276,43 @@ getParentModules: async (
     }).code(500);
   }
 },
+
+  getAllTenantFeatures: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = getAllTenantFeaturesValidation.safeParse({
+        params: request.params,
+        query: request.query,
+      });
+
+      if (!parsed.success) {
+        return h
+          .response({
+            success: false,
+            message: parsed.error.issues[0].message,
+            errorCode: 400,
+          })
+          .code(400);
+      }
+
+      const { tenantId } = parsed.data.params;
+      const result = await getAllTenantFeatures(tenantId, parsed.data.query);
+
+      return h.response({
+        success: true,
+        message: portalModuleMessages.GET_TENANT_FEATURES_SUCCESS,
+        ...result,
+      }).code(200);
+    } catch (error: any) {
+      console.error("Get all tenant features error:", error);
+
+      return h
+        .response({
+          success: false,
+          message: error?.message || portalModuleMessages.INTERNAL_SERVER_ERROR,
+          errorCode: error?.statusCode || 500,
+        })
+        .code(error?.statusCode || 500);
+    }
+  },
 
 };

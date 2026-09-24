@@ -10,6 +10,9 @@ import {
   getActiveTenantRecordByCode,
   getAllTenantSettingsRecords,
   getTenantAnalyticsCards,
+  getTenantDashboardActivity,
+  getTenantDashboardGrowth,
+  getTenantDashboardSummary,
   getTenantFullDetailsByCode,
   updateTenantDetailsByTenantId,
   updateTenantPlanService,
@@ -17,7 +20,7 @@ import {
 } from "../../operations/tenants";
 import { zodTenantSchema } from "../../models/tenants";
 import { throwError } from "../../helpers/throwError";
-import { tenantsMessages } from "../../config/messages";
+import { tenantDashboardMessages, tenantsMessages } from "../../config/messages";
 
 // Input Validation for Create a tenant settings
 const createInputValidation = z.object({
@@ -63,6 +66,68 @@ const tenantFullDetailsParamsValidation = z.object({
   planName: z.string().trim().min(1, "Plan name is required"),
   updatedBy: z.string().optional(),
 });
+
+const dashboardTenantId = z
+  .string({ required_error: tenantDashboardMessages.TENANT_ID_REQUIRED })
+  .trim()
+  .min(1, tenantDashboardMessages.TENANT_ID_REQUIRED);
+
+const dashboardSummaryQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+  }),
+});
+
+const dashboardGrowthQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+    view: z.enum(["monthly", "yearly"], {
+      errorMap: () => ({ message: tenantDashboardMessages.INVALID_VIEW }),
+    }),
+  }),
+});
+
+const dashboardActivityQueryValidation = z.object({
+  query: z.object({
+    tenantId: dashboardTenantId,
+    page: z.coerce
+      .number({ invalid_type_error: tenantDashboardMessages.INVALID_PAGE })
+      .int(tenantDashboardMessages.INVALID_PAGE)
+      .positive(tenantDashboardMessages.INVALID_PAGE)
+      .default(1),
+    limit: z.coerce
+      .number({ invalid_type_error: tenantDashboardMessages.INVALID_LIMIT })
+      .int(tenantDashboardMessages.INVALID_LIMIT)
+      .positive(tenantDashboardMessages.INVALID_LIMIT)
+      .max(100)
+      .default(10),
+  }),
+});
+
+// Shared response/error shape for the tenant dashboard endpoints.
+const respondTenantDashboard = async <T>(
+  h: ResponseToolkit,
+  successMessage: string,
+  run: () => Promise<T>,
+) => {
+  try {
+    const data = await run();
+
+    return h
+      .response({ success: true, message: successMessage, data })
+      .code(200);
+  } catch (error: any) {
+    console.error("Tenant dashboard error:", error);
+
+    return h
+      .response({
+        success: false,
+        message: error.message || tenantsMessages.INTERNAL_SERVER_ERROR,
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
+  }
+};
 
 // Input Validation for Update a tenant settings
 const updateInputValidation = z.object({
@@ -438,7 +503,48 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
       .code(500);
   }
 },
-   
+
+  // Tenant dashboard - cards (users, active users, revenue, open tickets) + performance
+  async getTenantDashboardSummary(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.SUMMARY_SUCCESS, async () => {
+      const validation = dashboardSummaryQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      return getTenantDashboardSummary(validation.data.query.tenantId);
+    });
+  },
+
+  // Tenant dashboard - tenant growth + module usage (monthly / yearly)
+  async getTenantDashboardGrowth(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.GROWTH_SUCCESS, async () => {
+      const validation = dashboardGrowthQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      const { tenantId, view } = validation.data.query;
+      return getTenantDashboardGrowth(tenantId, view);
+    });
+  },
+
+  // Tenant dashboard - paginated activity table (AuditLog)
+  async getTenantDashboardActivity(req: Request, h: ResponseToolkit) {
+    return respondTenantDashboard(h, tenantDashboardMessages.ACTIVITY_SUCCESS, async () => {
+      const validation = dashboardActivityQueryValidation.safeParse({ query: req.query });
+
+      if (!validation.success) {
+        return throwError(validation.error.errors[0].message, 400);
+      }
+
+      const { tenantId, page, limit } = validation.data.query;
+      return getTenantDashboardActivity(tenantId, page, limit);
+    });
+  },
+
 async updateTenantPlan(request: Request, h: ResponseToolkit) {
   try {
     const { params } = tenantPlanParamsValidation.parse({

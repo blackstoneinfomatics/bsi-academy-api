@@ -1,5 +1,6 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from "./handler";
+import { tenantPortalConfigMessages } from "../../config/messages";
 
 // ---------------------------------------------------------------------------
 // Route map
@@ -30,6 +31,7 @@ import handler from "./handler";
 // second config document.
 //   GET    /modules/tenant/config                                           get the full tenant config (Portal -> Modules -> Children/Features)
 //   GET    /modules/tenant/configs                                          list tenant configs across tenants/portals (paginated)
+//   GET    /modules/tenant/config/{tenantId}                                plan details + payable amount of the tenant
 //   POST   /modules/tenant                                                  add a custom tenant module (and enable it)
 //   GET    /modules/tenant                                                  list tenant modules
 //   PUT    /modules/tenant/{moduleId}                                       update a custom tenant module
@@ -173,6 +175,15 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "feature"],
       },
     },
+    {
+      method: "GET",
+      path: "/features/card/tenant/{tenantId}",
+      options: {
+        handler: handler.getTenantFeatureCard,
+        description: "Get feature card for a specific tenant - total/custom/default/enabled/disabled feature counts",
+        tags: ["api", "feature", "tenant"],
+      },
+    },
 
     // Feature directly under the Parent Module (no Child Module in between)
     {
@@ -222,6 +233,8 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "module", "tenant"],
       },
     },
+   
+    
     {
       method: "POST",
       path: "/modules/tenant",
@@ -380,6 +393,15 @@ const register = async (server: Server): Promise<void> => {
       handler: handler.getAllFeatures,
       tags: ["api", "Feature Control"],
       description: "Get all parent modules, child modules and features",
+    },
+  },
+  {
+    method: "GET",
+    path: "/feature-control/all/tenant/{tenantId}",
+    options: {
+      handler: handler.getAllTenantFeatures,
+      tags: ["api", "Feature Control", "tenant"],
+      description: "Get all modules, child modules and features configured for a specific tenant",
     },
   },
   ];

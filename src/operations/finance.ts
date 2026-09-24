@@ -8,7 +8,7 @@ import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import PaymentTransactionModel from "../models/paymenttransaction";
 import RefundTransactionModel from "../models/refundTransaction";
 
-export const getAllTransactions = async (query: any = {}) => {
+const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
   try {
     const {
       page = 1,
@@ -28,6 +28,7 @@ export const getAllTransactions = async (query: any = {}) => {
 
     const match: any = {
       deletedAt: null,
+      ...extraMatch,
     };
 
     if (status) {
@@ -274,14 +275,13 @@ export const getAllTransactions = async (query: any = {}) => {
               subscription: {
                 subscriptionId: "$subscription._id",
                 subscriptionCode: "$subscription.subscriptionCode",
-                billingCycle: "$subscription.billingCycle",
+                duration: "$subscription.duration",
                 status: "$subscription.status",
               },
 
               subscriptionPlan: {
                 planId: "$plan._id",
                 planName: "$plan.planName",
-                billingCycle: "$plan.billingCycle",
               },
             },
           },
@@ -315,6 +315,14 @@ export const getAllTransactions = async (query: any = {}) => {
     throw error;
   }
 };
+
+export const getAllTransactions = async (query: any = {}) =>
+  fetchTransactions(query);
+
+export const getTenantTransactions = async (
+  tenantId: string,
+  query: any = {},
+) => fetchTransactions(query, { tenantId: (tenantId || "").trim() });
 
 export const getFinanceTransactionCardCount = async () => {
   try {

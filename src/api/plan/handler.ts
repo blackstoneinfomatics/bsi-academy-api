@@ -127,22 +127,7 @@ const updateBillingPeriodInputValidation = z.object({
   payload: updateBillingPeriodValidation,
 });
 
-const parseTaxRate = (value: unknown): number => {
-  if (typeof value === "number") {
-    return value;
-  }
 
-  if (typeof value === "string") {
-    const cleaned = value.trim().replace(/%$/, "");
-    const parsed = Number(cleaned);
-
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  throw new Error(planMessages.INVALID_GST_AND_TAX);
-};
 
 
 
@@ -152,12 +137,10 @@ export default {
 async createPlan(req: Request, h: ResponseToolkit) {
     try {
       const payloadInput = (req.payload ?? {}) as Record<string, unknown>;
-      const gstRate = parseTaxRate(payloadInput.gstAndTax);
 
       const { payload } = createInputValidation.parse({
         payload: {
           ...payloadInput,
-          gstAndTax: gstRate,
         },
       });
 

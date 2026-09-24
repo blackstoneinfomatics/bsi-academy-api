@@ -880,7 +880,6 @@ export const getTenantSubscriptionByTenantId  = async (
     })
     .populate({
       path: "planId",
-      select: "planName billingPeriods features planId",
     })
     .lean();
 
@@ -895,11 +894,11 @@ export const getTenantSubscriptionByTenantId  = async (
     billingCycle: subscription.duration,
     status: subscription.status,
     nextRenewalDate: subscription.nextRenewalDate,
-    planName: subscription.planName || plan?.planName,
+    plan,
     price:
       plan?.billingPeriods?.find(
         (billingPeriod: any) => billingPeriod.duration === subscription.duration
       )?.price || 0,
-    features: plan?.features || {},
+    // module: plan?.modules || {},
   };
 };

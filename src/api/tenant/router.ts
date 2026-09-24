@@ -1,6 +1,6 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from './handler';
-import { tenantsMessages } from '../../config/messages'
+import { tenantDashboardMessages, tenantsMessages } from '../../config/messages'
 
 const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
@@ -52,6 +52,43 @@ const register = async (server: Server): Promise<void> => {
     // },
   },
 },
+
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/summary',
+      options: {
+        handler: handler.getTenantDashboardSummary,
+        description: tenantDashboardMessages.SUMMARY,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/growth',
+      options: {
+        handler: handler.getTenantDashboardGrowth,
+        description: tenantDashboardMessages.GROWTH,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
+    {
+      method: 'GET',
+      path: '/tenant/dashboard/activity',
+      options: {
+        handler: handler.getTenantDashboardActivity,
+        description: tenantDashboardMessages.ACTIVITY,
+        tags: ['api', 'tenant'],
+        // auth: {
+        //   strategies: ['jwt']
+        // },
+      },
+    },
 
     {
       method: 'GET',

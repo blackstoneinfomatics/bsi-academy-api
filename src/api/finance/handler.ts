@@ -5,10 +5,12 @@ import {
   getFinanceTransactionCardCount,
   getRevenueDashboardSummary,
   getRevenueGrowth,
+  getTenantTransactions,
 } from "../../operations/finance";
 import { z } from "zod";
 import { SubscriptionInvoiceStatus } from "../../shared/enum";
 import { commonMessages, financeMessages } from "../../config/messages";
+import tenantsubscription from "../../models/tenantsubscription";
 
 
 
@@ -58,6 +60,13 @@ export const getSubscriptionInvoicesValidation = z.object({
   }),
 });
 
+export const getTenantFinanceTransactionsValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+  query: getSubscriptionInvoicesValidation.shape.query,
+});
+
 export default {
 
   async getFinanceTransactions(req: Request, h: ResponseToolkit) {
@@ -72,6 +81,27 @@ export default {
         success: true,
         message: financeMessages.TRANSACTIONS_FETCHED,
         data: reminders,
+      })
+      .code(200);
+  },
+
+  async getTenantFinanceTransactions(req: Request, h: ResponseToolkit) {
+    const { params, query } = getTenantFinanceTransactionsValidation.parse({
+      params: req.params,
+      query: req.query,
+    });
+
+    const result = await getTenantTransactions(params.tenantId, query);
+    const planCycle = await tenantsubscription 
+    .findOne({tenantId:"tenantId"})
+    .select({duration:"duration"})
+    .lean()
+    return h
+      .response({
+        success: true,
+        message: financeMessages.TENANT_TRANSACTIONS_FETCHED,
+        data: result,
+        planCycle
       })
       .code(200);
   },
