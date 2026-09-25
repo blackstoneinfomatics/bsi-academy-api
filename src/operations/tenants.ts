@@ -983,7 +983,7 @@ export const buildComparisonCard = (
 };
 
 
-const ensureTenantExists = async (tenantId: string) => {
+export const ensureTenantExists = async (tenantId: string) => {
   const tenant = await TenantModel.findOne({ tenantCode: tenantId })
     .select("tenantCode createdDate timeZone")
     .lean();
@@ -1312,7 +1312,7 @@ export const getTenantDashboardSummary = async (
 };
 
 // The tenant's own timeZone when it is a valid IANA zone, else the server zone.
-const resolveTenantTimeZone = (timeZone?: string | null): string => {
+export const resolveTenantTimeZone = (timeZone?: string | null): string => {
   if (!timeZone) return SERVER_TIME_ZONE;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone });

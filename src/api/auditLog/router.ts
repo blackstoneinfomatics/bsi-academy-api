@@ -16,6 +16,30 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+    {
+      method: "GET",
+      path: "/audit-log/dashboard/activity-summary",
+      handler: handler.getTenantActivitySummary,
+      options: {
+        description: auditLogMessages.ACTIVITY_SUMMARY,
+        tags: ["api", "AuditLog"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+    {
+      method: "GET",
+      path: "/audit-log/dashboard/activity",
+      handler: handler.getTenantActivityTable,
+      options: {
+        description: auditLogMessages.ACTIVITY_TABLE,
+        tags: ["api", "AuditLog"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
   ];
   server.route(routes);
 };

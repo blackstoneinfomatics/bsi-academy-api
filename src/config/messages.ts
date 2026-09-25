@@ -1126,4 +1126,20 @@ export const auditLogMessages = {
   TENANT_ID_REQUIRED: "TenantId is required",
   INVALID_DATE_RANGE: "fromDate must be before toDate",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
+
+  ACTIVITY_SUMMARY: "Get tenant activity summary cards and status chart",
+  ACTIVITY_SUMMARY_SUCCESS: "Tenant activity summary fetched successfully",
+  ACTIVITY_TABLE: "Get tenant active logs table",
+  ACTIVITY_TABLE_SUCCESS: "Tenant active logs fetched successfully",
+  INVALID_PAGE: "Page must be a positive integer",
+  INVALID_LIMIT: "Limit must be a positive integer up to 100",
+
+  ACTIVITY_STATUS_SUCCESSFUL: "Successful",
+  ACTIVITY_STATUS_WARNING: "Warning",
+  ACTIVITY_STATUS_FAILED: "Failed",
+
+  LOG_STATUS_SUCCESS: "Success",
+  LOG_STATUS_FAILED: "Failed",
+  LOG_STATUS_REDIRECT: "Redirect",
+  LOG_STATUS_INFO: "Info",
 };
