@@ -219,6 +219,7 @@ export const topicHandler: Record<string, (data: any) => Promise<void>> = {
     try{
     const log = new AuditLog({
       userId: data.data.userId ?? 'anonymous', 
+      role: data.data.role,
       logType: data.data.logType,
       action: data.data.action,
       description: data.data.description,

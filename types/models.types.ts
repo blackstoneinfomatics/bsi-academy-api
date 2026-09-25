@@ -2215,6 +2215,7 @@ export interface TeacherMeeting extends Document {
 export interface LogDocument extends Document {
   tenantId: string;
   userId: string;
+  role?: string;
   logType: "SUCCESS" | "REDIRECT" | "ERROR" | "INFO";
   action?: string;
   description?: string;

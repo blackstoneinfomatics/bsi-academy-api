@@ -5,6 +5,7 @@ const logSchema = new Schema<LogDocument>(
 {
   tenantId: { type: String, required: true },
   userId: { type: String, required: true ,default: 'anonymous' },
+  role: { type: String, required: false },
   logType: { type: String, enum: ['SUCCESS' , 'REDIRECT' ,  'ERROR' , 'INFO'], required: true },
   action: { type: String , required : false}, 
   description: { type: String , required : false},

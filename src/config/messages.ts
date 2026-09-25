@@ -1119,3 +1119,11 @@ export const updateMessage = {
   UPDATR_GETBYID : "Get update details by ID",
   UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully"
 }
+
+export const auditLogMessages = {
+  GET_TENANT_AUDIT_LOGS: "Get audit logs by tenantId",
+  GET_TENANT_AUDIT_LOGS_SUCCESS: "Audit logs fetched successfully.",
+  TENANT_ID_REQUIRED: "TenantId is required",
+  INVALID_DATE_RANGE: "fromDate must be before toDate",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};

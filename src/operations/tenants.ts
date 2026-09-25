@@ -1487,13 +1487,7 @@ export const getTenantDashboardActivity = async (
         $project: {
           _id: 0,
           dateTime: "$createdDate",
-          // tenantUsers.role is an array; the first role is the display role.
-          role: {
-            $ifNull: [
-              { $arrayElemAt: [{ $ifNull: [{ $arrayElemAt: ["$user.role", 0] }, []] }, 0] },
-              null,
-            ],
-          },
+          role: { $ifNull: ["$role", null] },
           activity: { $ifNull: ["$route", null] },
           details: { $ifNull: ["$description", null] },
           action: { $ifNull: ["$action", null] },
