@@ -72,38 +72,35 @@ export default
   }
 },
 
-  async  getUpdateDashboardCardsHandler(
-  request: Request,
-  h: ResponseToolkit
-) {
-   try {
-    const result = await getUpdateDashboardCards();
+  async getUpdateDashboardCardsHandler(
+    request: Request,
+    h: ResponseToolkit,
+  ) {
+    try {
+      const result = await getUpdateDashboardCards();
 
-    return h
-      .response({
-        success: true,
-        message: updateMessage.UPDATE_CARDS_SUCCESS,
-        data: result,
-      })
-      .code(200);
+      return h
+        .response({
+          success: true,
+          message: updateMessage.UPDATE_CARDS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: unknown) {
+      const err = error as {
+        message?: string;
+        statusCode?: number;
+      };
 
-  } catch (error: unknown) {
-    const err = error as {
-      message?: string;
-      statusCode?: number;
-    };
-
-    return h
-      .response({
-        success: false,
-        message:
-          err?.message || "Internal Server Error",
-        errorCode:
-          err?.statusCode || 500,
-      })
-      .code(err?.statusCode || 500);
-  }
-},
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 
   async getUpdatesListHandler (
   request: Request,
