@@ -36,6 +36,11 @@ const UpdateSchema = new Schema(
     audienceCount: { type: Number, default: 0 },
     selectedTenantsCount: { type: Number, default: 0 },
 
+    selectedTenantNames: {
+      type: [String],
+      default: [],
+    },
+
     description: { type: String, required: true },
     publishDate: { type: Date, required: true },
     releaseDate: { type: Date },
