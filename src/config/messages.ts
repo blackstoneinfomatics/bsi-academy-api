@@ -448,7 +448,7 @@ export const tenantDashboardMessages = Object.freeze({
   CHANGE_DOWNGRADE: "DOWNGRADE",
   CHANGE_NO_CHANGE: "NO_CHANGE",
 
-  MODULE_MOST_USED: "Most Used Modules",
+  MODULE_MOST_USED: "Entire Used",
 
   PERFORMANCE_EXCELLENT: "Excellent",
   PERFORMANCE_GOOD: "Good",
