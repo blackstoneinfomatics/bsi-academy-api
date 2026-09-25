@@ -1,6 +1,8 @@
 import { sendEmailClient } from "../shared/email";
 import emailTemplates from "../models/emailTemplate";
 import UserModel from "../models/users";
+import SubscriptionTrial from "../models/subcriptionTrial";
+import { SubscriptionTrialStatus } from "../shared/enum";
 
 export async function TrialExpiredMail(tenantDetails: any) {
   try {
@@ -86,7 +88,8 @@ export async function TenantWelcomeMail(tenantDetails: any) {
       tenantDetails.tenantName ||
       "Customer";
 
-    const trialEndDate = new Date(tenantDetails.createdDate);
+    const trialStartDate = new Date(tenantDetails.createdDate);
+    const trialEndDate = new Date(trialStartDate);
     trialEndDate.setDate(trialEndDate.getDate() + 14);
 
     // tenantId on tenantUsers is the owning Tenant's tenantCode (same
@@ -109,9 +112,36 @@ export async function TenantWelcomeMail(tenantDetails: any) {
       .replace(/<loginLink>/g, "https://blackstoneinfomaticstech.com/admin-main/ui/login")
       .replace(/<supportEmail>/g, "support@yourdomain.com");
 
-    await sendEmailClient(emailTo, subject, htmlPart);
+    // sendEmailClient swallows failures and returns undefined.
+    const mailResponse = await sendEmailClient(emailTo, subject, htmlPart);
+
+    if (!mailResponse) {
+      console.log("❌ Tenant welcome mail not sent, trial not recorded");
+      return;
+    }
 
     console.log("✅ Tenant welcome mail sent");
+
+    // Upsert so a re-sent welcome mail never creates a second trial for the tenant.
+    await SubscriptionTrial.findOneAndUpdate(
+      { tenantId: tenantDetails.tenantCode, deletedAt: null },
+      {
+        $setOnInsert: {
+          tenantId: tenantDetails.tenantCode,
+          trialStartDate,
+          trialEndDate,
+          status: SubscriptionTrialStatus.ACTIVE,
+          isConverted: false,
+          convertedAt: null,
+          createdBy: tenantDetails.createdBy || "System",
+          updatedBy: null,
+          deletedAt: null,
+        },
+      },
+      { upsert: true, new: true, runValidators: true },
+    );
+
+    console.log("✅ Subscription trial recorded");
   } catch (error) {
     console.error("❌ Tenant welcome mail failed", error);
   }
