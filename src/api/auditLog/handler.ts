@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auditLogMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import {
+  getAuditLogCard,
   getAuditLogsByTenantService,
   getAuditLogsService,
   getTenantActivitySummaryService,
@@ -83,7 +84,28 @@ export default {
     }
   },
   
-  
+  getAuditLogsCards: async (request: Request, h: ResponseToolkit) => {
+    try {
+     
+      const result = await getAuditLogCard();
+
+      return h
+        .response({
+          success: true,
+          message: auditLogMessages.GET_TENANT_AUDIT_LOGS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || auditLogMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
   
   getAuditLogsByTenant: async (request: Request, h: ResponseToolkit) => {
     try {

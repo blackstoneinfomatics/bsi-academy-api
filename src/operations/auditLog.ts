@@ -4,6 +4,7 @@ import timezone from "dayjs/plugin/timezone";
 import AuditLog from "../models/auditlog";
 import { auditLogMessages } from "../config/messages";
 import { ensureTenantExists, resolveTenantTimeZone } from "./tenants";
+import auditlog from "../models/auditlog";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -134,6 +135,20 @@ export const getAuditLogsByTenantService = async (tenantId: string, query: IAudi
   };
 };
 
+
+export const getAuditLogCard = async () => {
+  const [totalLogs, successLogs, failureLogs] = await Promise.all([
+    AuditLog.countDocuments({}),
+    AuditLog.countDocuments({ logType: "SUCCESS" }),
+    AuditLog.countDocuments({ logType: "ERROR" }),
+  ]);
+
+  return {
+    totalLogs,
+    successLogs,
+    failureLogs,
+  };
+};
 // ---------------------------------------------------------------------------
 // Tenant Active Logs dashboard (summary cards, status donut, logs table)
 // ---------------------------------------------------------------------------
