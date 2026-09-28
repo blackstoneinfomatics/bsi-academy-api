@@ -22,10 +22,80 @@ export interface IAuditLogQuery {
   sortOrder: "asc" | "desc";
 }
 
+export const getAuditLogsService = async (query: any) => {
+  const {
+    logType,
+    action,
+    search,
+    fromDate,
+    toDate,
+    sortOrder,
+  } = query;
+
+  const match: Record<string, any> = {
+    readableDescription: { $exists: true, $nin: [null, ""] },
+  };
+
+  // Log type filter
+  if (logType) {
+    match.logType = logType;
+  }
+
+  // Action filter
+  if (action) {
+    match.action = action;
+  }
+
+  // Date filter
+  if (fromDate || toDate) {
+    match.createdDate = {};
+
+    if (fromDate) {
+      match.createdDate.$gte = new Date(fromDate);
+    }
+
+    if (toDate) {
+      match.createdDate.$lte = new Date(toDate);
+    }
+  }
+
+  // Search filter
+  if (search) {
+    const regex = new RegExp(escapeRegex(search), "i");
+
+    match.$or = [
+      { route: regex },
+      { description: regex },
+      { errorMessage: regex },
+      { action: regex },
+      { logType: regex },
+    ];
+  }
+
+  // Sorting
+  const sortDir = sortOrder === "asc" ? 1 : -1;
+
+  const records = await AuditLog.find(match)
+    .select("-stack -meta.headers")
+    .sort({
+      createdDate: sortDir,
+      _id: sortDir,
+    })
+    .lean();
+
+  return {
+    records,
+    total: records.length,
+  };
+};
+
 export const getAuditLogsByTenantService = async (tenantId: string, query: IAuditLogQuery) => {
   const { page, limit, logType, action, search, fromDate, toDate, sortOrder } = query;
 
-  const match: Record<string, any> = { tenantId };
+  const match: Record<string, any> = {
+    tenantId,
+    readableDescription: { $exists: true, $nin: [null, ""] },
+  };
 
   if (logType) match.logType = logType;
   if (action) match.action = action;

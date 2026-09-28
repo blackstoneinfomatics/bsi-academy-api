@@ -4,6 +4,7 @@ import { auditLogMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import {
   getAuditLogsByTenantService,
+  getAuditLogsService,
   getTenantActivitySummaryService,
   getTenantActivityTableService,
 } from "../../operations/auditLog";
@@ -58,6 +59,32 @@ export const getTenantActivityTableValidation = z.object({
 });
 
 export default {
+  
+  getAuditLogs: async (request: Request, h: ResponseToolkit) => {
+    try {
+     
+      const result = await getAuditLogsService(request.query);
+
+      return h
+        .response({
+          success: true,
+          message: auditLogMessages.GET_TENANT_AUDIT_LOGS_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || auditLogMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+  
+  
+  
   getAuditLogsByTenant: async (request: Request, h: ResponseToolkit) => {
     try {
       const parsed = getAuditLogsByTenantValidation.safeParse({

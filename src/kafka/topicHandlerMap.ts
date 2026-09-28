@@ -18,7 +18,7 @@ import {
   trailClassTeacherList,
 } from "../redis/handler/teacherSlotHander";
 import { emitEventToClient } from "../shared/socket";
-import AuditLog from "../models/auditlog";
+import AuditLog, { generateAuditLogId } from "../models/auditlog";
 import users from "../models/users";
 
 export const topicHandler: Record<string, (data: any) => Promise<void>> = {
@@ -218,11 +218,14 @@ export const topicHandler: Record<string, (data: any) => Promise<void>> = {
   'sendLogsToKafka' : async ( data : any) =>{
     try{
     const log = new AuditLog({
+      logId: await generateAuditLogId(),
+      tenantId: data.data.tenantId ?? null,
       userId: data.data.userId ?? 'anonymous', 
       role: data.data.role,
       logType: data.data.logType,
       action: data.data.action,
       description: data.data.description,
+      readableDescription: data.data.readableDescription,
       route: data.data.route,
       errorMessage: data.data.errorMessage,
       stack: data.data.stack,
