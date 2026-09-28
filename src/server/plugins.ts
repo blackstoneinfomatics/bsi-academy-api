@@ -53,6 +53,7 @@ import PortalAPI from  "../api/portal/router";
 import analyticsAPI from "../api/analytics/router";
 import updateAPI from "../api/update/router"
 import auditLogAPI from "../api/auditLog/router";
+import dashboardsaas from "../api/dashboardsaas/router";
 
 
 export const appPlugins = [
@@ -219,5 +220,8 @@ export const appPlugins = [
   },
   {
     plugin: auditLogAPI
+  },
+  {
+    plugin: dashboardsaas
   }
 ];

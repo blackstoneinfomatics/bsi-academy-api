@@ -1143,3 +1143,10 @@ export const auditLogMessages = {
   LOG_STATUS_REDIRECT: "Redirect",
   LOG_STATUS_INFO: "Info",
 };
+
+export const dashboardsaasMessages = {
+   DASHBOARD_COUNT: "Get dashboard cards",
+   DASHBOARD_COUNT_SUCCESS: "Dashboard cards fetched successfully",
+   EXPIRING_TENANTS: "Get tenants with upcoming subscription renewals",
+   EXPIRING_TENANTS_SUCCESS: "Upcoming tenant renewals fetched successfully"
+}
