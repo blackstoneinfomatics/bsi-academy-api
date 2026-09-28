@@ -8,7 +8,7 @@ import {
   getAllPortalService,
   getPortalDashboardCountService,
 } from "../../operations/portal";
-import {createCustomTenantPortalService,getTenantPortalDashboardService,updateTenantPortalStatusService} from "../../operations/tenantPortal"
+import {createCustomTenantPortalService,getTenantPortalDashboardService,syncTenantSubscriptionToTenantPortal,updateTenantPortalStatusService} from "../../operations/tenantPortal"
 import { PortalStatus, PortalType, RoleType } from "../../shared/enum";
 import { getTenantPortals } from "../../operations/tenantPortal";
 import { TenantPortalBaseValidation } from "../../models/tenantPortal";
@@ -46,6 +46,13 @@ export const getTenantPortalByIdValidation = z.object({
 });
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+
+export const syncTenantPortalValidation= z.object({
+  params :z.object({
+    subscriptionId : objectId
+  })
+})
+
 
 export const updateTenantPortalStatusValidation = z.object({
   params: z.object({
@@ -355,5 +362,42 @@ getTenantPortalDashboard: async (request: Request, h: ResponseToolkit) => {
         .code(err.statusCode || 500);
     }
   },
+
+  createSyncTenantPortal : async(request: Request, h :ResponseToolkit)=>{
+    try{
+       const parsed = syncTenantPortalValidation.safeParse({
+        params : request.params
+       });
+        
+       if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+        const subscriptionId = parsed.data?.params?.subscriptionId;
+
+        if(!subscriptionId){
+          throwError("not found",404);
+          return;
+        }
+         const result = await syncTenantSubscriptionToTenantPortal(subscriptionId);
+
+      return h
+        .response({
+          success: true,
+          message: "Portal sync",
+          data: result,
+        })
+        .code(200);
+        
+    }catch(err:any){
+      return h
+        .response({
+          success: false,
+          message: err.message || portalMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  }
   
 };

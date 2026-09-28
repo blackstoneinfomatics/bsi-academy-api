@@ -96,7 +96,7 @@ export const TenantPortalSchema = new Schema<ITenantPortal>(
   },
 );
 
-TenantPortalSchema.index({ tenantId: 1, portalId: 1 }, { unique: true });
+TenantPortalSchema.index({ tenantId: 1, portalId: 1 , subscriptionId : 1 }, { unique: true });
 TenantPortalSchema.index({ status: 1, isEnabled: 1 });
 
 export default mongoose.model<ITenantPortal>(
