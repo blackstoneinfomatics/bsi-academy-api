@@ -140,6 +140,87 @@ export const getActiveTenantSubscriptionRecord = async (
         {
           $limit: normalizedLimit,
         },
+        {
+          $lookup: {
+            from: "subscriptioninvoice",
+            let: { subscriptionId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$subscriptionId", "$$subscriptionId"],
+                  },
+                },
+              },
+              {
+                $match: {
+                  deletedAt: null,
+                },
+              },
+              {
+                $sort: {
+                  createdAt: -1,
+                },
+              },
+              {
+                $limit: 1,
+              },
+              {
+                $project: {
+                  billingPeriodId: 1,
+                  totalAmount: 1,
+                },
+              },
+            ],
+            as: "subscriptionInvoice",
+          },
+        },
+        {
+          $unwind: {
+            path: "$subscriptionInvoice",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $addFields: {
+            selectedBillingPeriod: {
+              $first: {
+                $filter: {
+                  input: { $ifNull: ["$plan.billingPeriods", []] },
+                  as: "period",
+                  cond: {
+                    $eq: [
+                      "$$period.billingPeriodId",
+                      "$subscriptionInvoice.billingPeriodId",
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            billingPeriodId: {
+              $ifNull: ["$subscriptionInvoice.billingPeriodId", null],
+            },
+            billingPeriod: {
+              $ifNull: [
+                "$selectedBillingPeriod.billingPeriod",
+                "$subscriptionInvoice.billingPeriodId",
+              ],
+            },
+            totalAmount: {
+              $ifNull: ["$subscriptionInvoice.totalAmount", null],
+            },
+          },
+        },
+        {
+          $project: {
+            selectedBillingPeriod: 0,
+            subscriptionInvoice: 0,
+          },
+        },
       ],
       totalCount: [
         {
@@ -152,7 +233,17 @@ export const getActiveTenantSubscriptionRecord = async (
   const result = await tenantsubscription.aggregate(
     pipeline as mongoose.PipelineStage[]
   );
-  const tenants = result[0]?.items || [];
+  const tenants = (result[0]?.items || []).map((subscription: any) => {
+    const selectedBillingPeriod = subscription.plan?.billingPeriods?.find(
+      (period: any) => period.duration === subscription.duration
+    );
+
+    return {
+      ...subscription,
+      billingPeriod: selectedBillingPeriod?.billingPeriod ?? null,
+      totalAmount: selectedBillingPeriod?.totalAmount ?? null,
+    };
+  });
   const totalRecords = result[0]?.totalCount?.[0]?.count || 0;
  
   return {
