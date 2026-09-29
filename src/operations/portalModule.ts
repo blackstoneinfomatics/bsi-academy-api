@@ -1553,7 +1553,7 @@ interface GetAllFeaturesQuery {
 
 interface FeatureRow {
   portal: string;
-
+  type: string;
   parentModuleId: string;
   parentModuleName: string;
 
@@ -1647,7 +1647,7 @@ const paginateFeatureRows = (
 };
 
 export const getAllFeatures = async (
-  query: GetAllFeaturesQuery = {}
+  query: GetAllFeaturesQuery = {},
 ) => {
   // 1. Fetch all parent modules
   const parentModules = await PortalModule.find({
@@ -1663,7 +1663,6 @@ export const getAllFeatures = async (
     const parentId = parent.parentModuleId;
     const parentName = parent.parentModuleName;
 
-    // Parent module row
     rows.push({
       portal: parent.portal,
 
@@ -1676,6 +1675,8 @@ export const getAllFeatures = async (
       featureId: null,
       featureName: null,
 
+      type: parent.type ?? "",
+
       description: parent.description || "",
 
       status: parent.status,
@@ -1684,7 +1685,6 @@ export const getAllFeatures = async (
       createdAt: parent.createdAt,
     });
 
-    // Parent-level feature rows
     for (const feature of parent.features || []) {
       rows.push({
         portal: parent.portal,
@@ -1698,6 +1698,8 @@ export const getAllFeatures = async (
         featureId: feature.featureId,
         featureName: feature.featureName,
 
+        type: feature.type ?? "",
+
         description: feature.description || "",
 
         status: feature.status,
@@ -1707,7 +1709,6 @@ export const getAllFeatures = async (
       });
     }
 
-    // Child module rows
     for (const child of parent.children || []) {
       rows.push({
         portal: parent.portal,
@@ -1721,6 +1722,8 @@ export const getAllFeatures = async (
         featureId: null,
         featureName: null,
 
+        type: child.type ?? "",
+
         description: child.description || "",
 
         status: child.status,
@@ -1728,8 +1731,6 @@ export const getAllFeatures = async (
 
         createdAt: child.createdAt,
       });
-
-      // Child-level feature rows
       for (const feature of child.features || []) {
         rows.push({
           portal: parent.portal,
@@ -1742,6 +1743,8 @@ export const getAllFeatures = async (
 
           featureId: feature.featureId,
           featureName: feature.featureName,
+
+          type: feature.type ?? "",
 
           description: feature.description || "",
 
@@ -1811,7 +1814,7 @@ export const getAllTenantFeatures = async (
 
         featureId: null,
         featureName: null,
-
+         type: module.moduleType ?? "",
         description: module.description || "",
 
         status: module.moduleStatus,
@@ -1831,10 +1834,9 @@ export const getAllTenantFeatures = async (
 
           childModuleId: null,
           childModuleName: null,
-
+           type: feature.featuretype ?? "",
           featureId: feature.featureId,
           featureName: feature.featureName,
-
           description: feature.description || "",
 
           status: feature.featureStatus,
@@ -1858,7 +1860,7 @@ export const getAllTenantFeatures = async (
 
           featureId: null,
           featureName: null,
-
+           type: child.childModuleType ?? "",
           description: child.description || "",
 
           status: child.childModuleStatus,
@@ -1883,7 +1885,7 @@ export const getAllTenantFeatures = async (
             featureName: feature.featureName,
 
             description: feature.description || "",
-
+            type: feature.featuretype ?? "",
             status: feature.featureStatus,
             isEnabled: feature.isEnabled,
 
