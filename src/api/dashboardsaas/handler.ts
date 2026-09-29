@@ -57,11 +57,6 @@ getUpcomingTenantRenewalsHandler: async (
       statusCode?: number;
     };
 
-    console.error(
-      "❌ Get Upcoming Tenant Renewals Error:",
-      err?.message || error
-    );
-
     return h
       .response({
         success: false,
@@ -82,7 +77,7 @@ getRecentlyAddedTenantsHandler : async (
     return h
       .response({
         success: true,
-        message: "Recently added tenants fetched successfully",
+        message: dashboardsaasMessages.RECENT_ACTIVITIES_SUCCESS,
         data: result,
       })
       .code(200);
@@ -91,11 +86,6 @@ getRecentlyAddedTenantsHandler : async (
       message?: string;
       statusCode?: number;
     };
-
-    console.error(
-      "❌ Get Recently Added Tenants Error:",
-      err?.message || error
-    );
 
     return h
       .response({

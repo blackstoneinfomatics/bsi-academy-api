@@ -1,6 +1,6 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from "./handler";
-import { dashboardsaasMessages } from "../../config/messages";
+import { dashboardMessages, dashboardsaasMessages } from "../../config/messages";
 
 const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
@@ -38,7 +38,7 @@ const register = async (server: Server): Promise<void> => {
   path: "/api/tenants/recent",
   options: {
     handler: handler. getRecentlyAddedTenantsHandler,
-    description: "Get recently added tenants",
+    description: dashboardMessages.RECENT_ACTIVITIES,
     tags: ["api", "tenants"],
     // auth: {
     //   strategies: ["jwt"],

@@ -473,6 +473,13 @@ export const getTenantSubscriptionActivities = async () => {
 
           activity: "$status",
 
+          activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " subscribed."
+  ]
+},
+
           tenantId: "$tenantId",
 
           tenantName: "$tenant.tenantName",
@@ -541,6 +548,13 @@ export const getTenantSubscriptionActivities = async () => {
                 type: "Payment Transaction",
 
                 activity: "$paymentStatus",
+
+                activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " made a payment."
+  ]
+},
 
                 tenantId: "$tenantId",
 
@@ -611,15 +625,23 @@ export const getTenantSubscriptionActivities = async () => {
 
                 type: "Subscription Trial",
 
-                activity: {
-                  $cond: [
-                    {
-                      $eq: ["$status", "CONVERTED"],
-                    },
-                    "Trial Converted",
-                    "$status",
-                  ],
-                },
+                activityMessage: {
+  $cond: [
+    { $eq: ["$status", "CONVERTED"] },
+    {
+      $concat: [
+        "$tenant.tenantName",
+        " converted."
+      ]
+    },
+    {
+      $concat: [
+        "$tenant.tenantName",
+        " started a trial."
+      ]
+    }
+  ]
+},
 
                 tenantId: "$tenantId",
 
@@ -693,6 +715,13 @@ export const getTenantSubscriptionActivities = async () => {
 
                 activity: "$refundStatus",
 
+activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " received a refund."
+  ]
+},
+
                 tenantId: "$tenantId",
 
                 tenantName: "$tenant.tenantName",
@@ -735,6 +764,13 @@ export const getTenantSubscriptionActivities = async () => {
                 type: "Tenant",
 
                 activity: "Tenant Created",
+
+activityMessage: {
+  $concat: [
+    "$tenantName",
+    " was created."
+  ]
+},
 
                 tenantId: "$tenantCode",
 

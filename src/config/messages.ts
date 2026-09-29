@@ -1148,5 +1148,7 @@ export const dashboardsaasMessages = {
    DASHBOARD_COUNT: "Get dashboard cards",
    DASHBOARD_COUNT_SUCCESS: "Dashboard cards fetched successfully",
    EXPIRING_TENANTS: "Get tenants with upcoming subscription renewals",
-   EXPIRING_TENANTS_SUCCESS: "Upcoming tenant renewals fetched successfully"
+   EXPIRING_TENANTS_SUCCESS: "Upcoming tenant renewals fetched successfully",
+   RECENT_ACTIVITIES: "Get recently added tenants",
+   RECENT_ACTIVITIES_SUCCESS: "Recently added tenants fetched successfully"
 }
