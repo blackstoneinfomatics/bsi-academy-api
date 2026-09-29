@@ -393,27 +393,49 @@ export const getTenantAnalyticsCards = async () => {
   const now = new Date();
 
   // Current Month
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
 
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const currentMonthEnd = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  );
 
   // Previous Month
-  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  );
 
-  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+  const previousMonthEnd = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
 
   const expiryWindowStart = new Date(
     now.getFullYear(),
     now.getMonth(),
     now.getDate(),
   );
+
   const expiryWindowEnd = new Date(expiryWindowStart);
   expiryWindowEnd.setDate(expiryWindowEnd.getDate() + 3);
 
   // Fetch Analytics Counts
-
   const [
+    // Overall Counts
+    overallTotalTenants,
+    overallActiveTenants,
+    overallTrialTenants,
+    overallInactiveTenants,
+
+    // Monthly Counts
     currentTotalTenants,
     previousTotalTenants,
 
@@ -429,8 +451,44 @@ export const getTenantAnalyticsCards = async () => {
     currentExpiringTenants,
     previousExpiringTenants,
   ] = await Promise.all([
-    // Total Tenants - Current Month
 
+    // Overall Total Tenants
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+    }),
+
+    // Overall Active Tenants
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+      status: "Active",
+    }),
+
+    // Overall Trial Tenants
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+      status: "Trial",
+    }),
+
+    // Overall Inactive Tenants
+    TenantModel.countDocuments({
+      tenantCode: {
+        $exists: true,
+        $ne: "",
+      },
+      status: "Inactive",
+    }),
+
+
+    // Total Tenants - Current Month
     TenantModel.countDocuments({
       tenantCode: {
         $exists: true,
@@ -443,7 +501,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Total Tenants - Previous Month
-
     TenantModel.countDocuments({
       tenantCode: {
         $exists: true,
@@ -456,7 +513,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Active Tenants - Current Month
-
     TenantModel.countDocuments({
       status: "Active",
       createdDate: {
@@ -466,7 +522,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Active Tenants - Previous Month
-
     TenantModel.countDocuments({
       status: "Active",
       createdDate: {
@@ -476,7 +531,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Trial Tenants - Current Month
-
     SubscriptionTrial.countDocuments({
       status: "ACTIVE",
       createdAt: {
@@ -486,7 +540,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Trial Tenants - Previous Month
-
     SubscriptionTrial.countDocuments({
       status: "ACTIVE",
       createdAt: {
@@ -496,7 +549,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Inactive Tenants - Current Month
-
     TenantModel.countDocuments({
       status: "Inactive",
       createdAt: {
@@ -506,7 +558,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Inactive Tenants - Previous Month
-
     TenantModel.countDocuments({
       status: "Inactive",
       createdAt: {
@@ -515,8 +566,7 @@ export const getTenantAnalyticsCards = async () => {
       },
     }),
 
-    // Expiring Tenants - Current Month
-
+    // Expiring Tenants - Current
     SubscriptionTrial.countDocuments({
       status: "ACTIVE",
       isConverted: false,
@@ -527,7 +577,6 @@ export const getTenantAnalyticsCards = async () => {
     }),
 
     // Expiring Tenants - Previous Month
-
     SubscriptionTrial.countDocuments({
       status: "ACTIVE",
       trialEndDate: {
@@ -536,6 +585,7 @@ export const getTenantAnalyticsCards = async () => {
       },
     }),
   ]);
+
 
   const totalTenantsChange = calculatePercentageChange(
     currentTotalTenants,
@@ -562,7 +612,17 @@ export const getTenantAnalyticsCards = async () => {
     previousExpiringTenants,
   );
 
+
   return {
+    // Overall Counts
+    overall: {
+      totalTenants: overallTotalTenants,
+      activeTenants: overallActiveTenants,
+      trialTenants: overallTrialTenants,
+      inactiveTenants: overallInactiveTenants,
+    },
+
+    // Monthly Analytics
     totalTenants: {
       currentCount: currentTotalTenants,
       previousMonthCount: previousTotalTenants,

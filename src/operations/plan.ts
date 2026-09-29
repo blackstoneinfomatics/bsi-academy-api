@@ -15,6 +15,7 @@ import { SubscriptionInvoiceStatus } from "../shared/enum";
 import Boom from "@hapi/boom";
 import { z } from "zod";
 import { planMessages } from "../config/messages";
+import tenantsubscription from "../models/tenantsubscription";
 
 export type PlanAnalyticsPeriod = "monthly" | "quarterly" | "yearly";
 
@@ -427,7 +428,11 @@ export const getPlanDashboard = async () => {
     }),
 
     // Total Tenants
-    TenantModel.countDocuments(),
+    TenantSubscriptionModel.countDocuments({
+      deletedAt: null,
+      status: "ACTIVE",
+paymentStatus: "SUCCESS"
+    }),
 
     // Monthly Revenue
     PlanModel.aggregate([
