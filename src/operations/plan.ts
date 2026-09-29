@@ -10,6 +10,7 @@ import PlanModel, {
 import { BillingPeriodModel } from "../models/billingperiod";
 import TenantModel from "../models/tenants";
 import TenantSubscriptionModel from "../models/tenantsubscription";
+import SubscriptionTrial from "../models/subcriptionTrial";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
 import RefundTransactionModel from "../models/refundTransaction";
 import {
@@ -19,7 +20,6 @@ import {
 import Boom from "@hapi/boom";
 import { z } from "zod";
 import { planMessages } from "../config/messages";
-import tenantsubscription from "../models/tenantsubscription";
 
 export type PlanAnalyticsPeriod = "monthly" | "quarterly" | "yearly";
 
@@ -531,8 +531,9 @@ paymentStatus: "SUCCESS"
     }),
 
     // Trial Subscriptions
-    TenantSubscriptionModel.countDocuments({
-      status: "TRIAL",
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      deletedAt: null,
     }),
 
     // Expired Subscriptions
@@ -822,4 +823,20 @@ export const getPlanAnalytics = async (
     plans,
     popularPlan,
   };
+};
+
+export const getActivePlans = async () => {
+  const plans = await PlanModel.find({
+    status: "Active",
+    deletedAt: null,
+  })
+    .select({
+      _id: 1,
+      planName: 1,
+      status: 1,
+    })
+    .sort({ planName: 1 })
+    .lean();
+
+  return plans;
 };

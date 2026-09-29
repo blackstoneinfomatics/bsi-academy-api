@@ -30,6 +30,7 @@ export const userMessages: Record<string, string> = Object.freeze({
   CREATE: "Create a new user",
   UPDATE: "Update a existing user",
   DELETE: "Delete user by userId",
+  ACTIVE_PLANS: "Get active plans",
   DASHBOARD: "Get plan,Tenants,Revenue count",
   ANALYTICS_COUNT: "Get plan revenue analytics by period",
   BULK_DELETE: "Bulk Delete users by userIds",
@@ -38,6 +39,7 @@ export const userMessages: Record<string, string> = Object.freeze({
   USER_PROFILE_INVALID_FILE_TYPE:
     "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
   ACTIVE_USER_NOT_FOUND: "Active user not found with the provided credentials",
+
 });
 
 export const authMessages: Record<string, string> = Object.freeze({
@@ -206,6 +208,8 @@ export const planMessages: Record<string, string> = Object.freeze({
   BACKUP_NOT_AVAILABLE: "Backup feature is not available for your current subscription.",
   CUSTOM_DOMAIN_REQUIRED: "Please provide the tenant custom domain.",
   DEFAULT_DOMAIN_REQUIRED: "Please provide the default running domain.",
+  ACTIVE_PLANS_SUCCESS: "Active plans fetched successfully",
+  FAILED_PLANS: "Failed to fetch active plans",
 });
 
 export const financeMessages: Record<string, string> = Object.freeze({
@@ -824,6 +828,8 @@ export const tenantSubscriptionMessages = {
   GET_GROWTH_ANALYSTICS: "Get tenant subscription growth analytics",
   GET_ANALYTICS_CARD: "Get tenant subscription analytics card",
   GET_ACTIVITIES: "Get today's tenant subscription activities",
+  GET_TENANTS_BY_PLAN: "Get tenants by selected plan",
+  TENANTS_BY_PLAN_SUCCESS: "Tenants fetched successfully",
 
   // Errors
   VALIDATION_FAILED: "Validation Failed",
@@ -836,6 +842,8 @@ export const tenantSubscriptionMessages = {
     "Failed to fetch tenant subscription growth analytics.",
   TENANTID_FAILED: "Tenant subscription not found",
   INTERNAL_SERVER_ERROR: "Failed to fetch tenant subscription",
+  TENANTS_BY_PLAN_FAILED: "Failed to fetch tenants by plan",
+
 
 };
 

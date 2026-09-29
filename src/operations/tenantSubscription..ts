@@ -1125,3 +1125,50 @@ export const getTenantSubscriptionByTenantId  = async (
     // module: plan?.modules || {},
   };
 };
+
+export const getTenantsByPlan = async (planId: string) => {
+  const tenants = await tenantsubscription.aggregate([
+    {
+      $match: {
+        planId: new mongoose.Types.ObjectId(planId),
+        status: "ACTIVE",
+        paymentStatus: "SUCCESS",
+        deletedAt: null,
+      },
+    },
+
+    {
+      $lookup: {
+        from: "tenants",
+        localField: "tenantId",
+        foreignField: "tenantCode",
+        as: "tenantDetails",
+      },
+    },
+
+    {
+      $unwind: {
+        path: "$tenantDetails",
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        tenantId: 1,
+        tenantName: "$tenantDetails.tenantName",
+        planId: 1,
+        planName: 1,
+      },
+    },
+
+    {
+      $sort: {
+        tenantName: 1,
+      },
+    },
+  ]);
+
+  return tenants;
+};

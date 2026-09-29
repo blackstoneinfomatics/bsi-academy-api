@@ -97,6 +97,19 @@ const register = async (server: Server): Promise<void> => {
   },
 },
 
+{
+  method: "GET",
+  path: "/api/tenant-subscriptions/tenantsbyplan/{planId}",
+  options: {
+    handler: handler.getTenantsByPlanHandler,
+    description: tenantSubscriptionMessages.GET_TENANTS_BY_PLAN,
+    tags: ["api", "tenant-subscriptions"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+}
+
   ];
   server.route(routes);
 };  
