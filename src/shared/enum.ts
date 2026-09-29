@@ -273,6 +273,7 @@ export interface GetPaymentDetailsRecordsParams {
 export enum RevenuePeriod {
   WEEKLY = "weekly",
   MONTHLY = "monthly",
+  YEARLY = "yearly",
 }
 
 export enum TenantGrowthPeriod {
