@@ -27,7 +27,7 @@ import { Types } from "mongoose";
 import { config } from "../config/env";
 import axios from "axios";
 import { generateTenant } from "./rollcounter";
-import { TenantWelcomeMail } from "./trailExperiedMail";
+import { createTrialMember, TenantWelcomeMail } from "./trailExperiedMail";
 import { throwError } from "../helpers/throwError";
 import plan from "../models/plan-model";
 import TenantSubscription from "../models/tenantsubscription";
@@ -68,7 +68,11 @@ export const createTenant = async (
 
   const savedTenant = await newTenant.save();
 
-  await TenantWelcomeMail(savedTenant);
+    const trialMember = await createTrialMember(savedTenant);
+
+  // Send welcome email
+  await TenantWelcomeMail(savedTenant, trialMember);
+
 
   return savedTenant.toObject();
 };

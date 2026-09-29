@@ -3105,3 +3105,18 @@ export interface ILookup extends Document {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export interface ITrialMember {
+  tenantId: string;
+  userId?: string;
+  userName: string;
+  email: string;
+  password: string;
+  role: string[];
+  profileImage?: string | null;
+  status: Status;
+  createdDate?: Date;
+  createdBy: string;
+  lastUpdatedDate?: Date;
+  lastUpdatedBy: string;
+}
