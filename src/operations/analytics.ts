@@ -815,6 +815,7 @@ export const getAnalyticsChart = async () => {
         $match: {
           deletedAt: null,
           status: "ACTIVE",
+          paymentStatus: "SUCCESS"
         },
       },
 
