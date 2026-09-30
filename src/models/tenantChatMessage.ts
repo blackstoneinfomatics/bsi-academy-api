@@ -24,6 +24,7 @@ export const TenantChatMessageSchema = new Schema<ITenantChatMessage>(
 
     senderRole: {
       type: String,
+      required:true,
     },
 
      title: {
@@ -71,6 +72,7 @@ export const ChatMessageValidation = z.object({
 
   senderId: z.string().min(1),
   senderName: z.string().min(1),
+  senderRole:z.string().min(1),
 
   title: z.string().optional(),
   message: z.string().optional(),

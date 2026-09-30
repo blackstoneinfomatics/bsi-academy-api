@@ -5,14 +5,17 @@ import {
   getChatRoomsOperation,
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
+  sendMessageService,
 } from "../../operations/tenantChat";
 import { tenantChatMessages } from "../../config/messages";
 import { z } from "zod";
 import { TenantChatRoomValidation } from "../../models/tenantChatRoom";
+import { ChatMessageValidation } from "../../models/tenantChatMessage";
 
 export const createChatRoomValidation = z.object({
   payload: TenantChatRoomValidation.pick({
     type:true,
+    tenantId:true,
     tenantIds: true,
     name: true,
     planName: true,
@@ -20,6 +23,25 @@ export const createChatRoomValidation = z.object({
     createdBy:true
   }),
 });
+
+export const SendChatMessageValidation = z.object({
+    payload : ChatMessageValidation.pick({
+          roomId: true,
+        
+          senderId: true,
+          senderName: true,
+          senderRole:true,
+        
+          title: true,
+          message:true,
+        
+          messageType: true,
+        
+          attachments: true,
+        
+          replyTo: true
+    })
+})
 
 export const getGroupDetailsValidation = z.object({
   params: z.object({
@@ -55,6 +77,41 @@ export default{
         .response({
           success: true,
           message: tenantChatMessages.CREATE_CHAT_ROOM_SUCCESS,
+          data: result,
+        })
+        .code(200);
+
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || tenantChatMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+  sendMessage: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = SendChatMessageValidation.safeParse({
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+      
+    const payload = parsed?.data?.payload as any;
+
+      const result = await sendMessageService(payload);
+      return h
+        .response({
+          success: true,
+          message:
+            Array.isArray(result)
+              ? tenantChatMessages.SEND_GLOBAL_MESSAGE_SUCCESS
+              : tenantChatMessages.SEND_MESSAGE_SUCCESS,
           data: result,
         })
         .code(200);

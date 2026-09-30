@@ -3129,8 +3129,9 @@ export interface ITenantChatRoom extends Document {
   roomCode: string;
 
   type: ChatRoomType;
-
-  tenantIds : string[];
+  
+  tenantId?: string | null;      
+  tenantIds?: string[]; 
   segmentKey?: string;
 
   name: string;
@@ -3162,7 +3163,7 @@ export interface ITenantChatMessage extends Document {
 
   senderId: string;
   senderName: string;
-  senderRole?: string;
+  senderRole: string;
   
   title?:string;
   message: string;

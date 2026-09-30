@@ -19,6 +19,19 @@ const register = async (server: Server): Promise<void> => {
     },
 
     {
+      method: "POST",
+      path: "/chat/message",
+      options: {
+        handler: handler.sendMessage,
+        description: tenantChatMessages.SEND_MESSAGE,
+        tags: ["api", "portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    {
       method: "GET",
       path: "/chat-room",
       handler: handler.getChatRooms,

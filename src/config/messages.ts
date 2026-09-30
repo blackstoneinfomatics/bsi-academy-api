@@ -1166,6 +1166,7 @@ export const tenantChatMessages = {
   // 🔹 Actions
   CREATE_CHAT_ROOM: "Create Chat Room",
   SEND_MESSAGE: "Send Message",
+  SEND_GLOBAL_MESSAGE_SUCCESS:" Global Message sent successfully.",
   GET_CHAT_ROOMS: "Get Chat Rooms",
   GET_CHAT_ROOM_BY_ID: "Get Chat Room By Id",
   GET_MESSAGES: "Get Messages",

@@ -19,10 +19,15 @@ export const TenantChatRoomSchema = new Schema<ITenantChatRoom>(
       index: true,
     },
 
+    tenantId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
     tenantIds: {
       type: [String],
       default: [],
-      index: true,
     },
 
     segmentKey: {
@@ -105,12 +110,45 @@ export const TenantChatRoomSchema = new Schema<ITenantChatRoom>(
 );
 
 TenantChatRoomSchema.index({ tenantId: 1, type: 1 });
+TenantChatRoomSchema.index({ tenantIds: 1 }); 
+TenantChatRoomSchema.index({ lastMessageAt: -1 });
+
 TenantChatRoomSchema.index(
-  { type: 1, segmentKey: 1 },
-  { unique: true, partialFilterExpression: { deletedAt: null } },
+  { type: 1, tenantId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "TENANT",
+      tenantId: { $exists: true, $ne: null },
+      deletedAt: null,
+    },
+  }
 );
 
-const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+TenantChatRoomSchema.index(
+  { type: 1, segmentKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "SEGMENT",
+      segmentKey: { $exists: true, $ne: null },
+      deletedAt: null,
+    },
+  }
+);
+
+TenantChatRoomSchema.index(
+  { type: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "GLOBAL",
+      deletedAt: null,
+    },
+  }
+);
+
+
 
 export const TenantChatRoomValidation = z.object({
   roomCode: z.string().min(1),
@@ -122,7 +160,9 @@ export const TenantChatRoomValidation = z.object({
     ChatRoomType.USER,
   ]),
 
-  tenantIds: z.array(z.string()),
+   tenantId: z.string().optional().nullable(),
+
+  tenantIds: z.array(z.string()).optional().default([]),
 
   segmentKey: z.string().optional(),
 
