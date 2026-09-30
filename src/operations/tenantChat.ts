@@ -98,13 +98,19 @@ export const getChatRoomsOperation = async ({
   const baseFilter = buildFilter(search);
   const groupFilter = { ...baseFilter, type: TENANT_TYPE };
   const offset = (page - 1) * limit;
-  const [allRooms, allCount, groupRooms, groupCount] = await Promise.all([
+  const [allRooms, allCount, groupRooms, groupCount, roomsWithMessages] = await Promise.all([
     tenantChatRoom.find(baseFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
     tenantChatRoom.countDocuments(baseFilter),
     tenantChatRoom.find(groupFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
     tenantChatRoom.countDocuments(groupFilter),
+    TenantChatMessage.distinct("roomId", { deletedAt: null }),
   ]);
-  const roomIds = [...new Set([...allRooms, ...groupRooms].map((room) => room._id))];
+  const unreadFilter = { ...baseFilter, _id: { $in: roomsWithMessages } };
+  const [unreadRooms, unreadCount] = await Promise.all([
+    tenantChatRoom.find(unreadFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
+    tenantChatRoom.countDocuments(unreadFilter),
+  ]);
+  const roomIds = [...new Set([...allRooms, ...groupRooms, ...unreadRooms].map((room) => room._id))];
   const roomMembers = roomIds.length
     ? await TenantRoomMemberModel.find({
         roomId: { $in: roomIds },
@@ -129,6 +135,43 @@ export const getChatRoomsOperation = async ({
     }));
   const allRoomsWithRole = addRoomRole(allRooms);
   const groupRoomsWithRole = addRoomRole(groupRooms);
+  const unreadRoomsWithRole = addRoomRole(unreadRooms);
+  const latestMessages = roomIds.length
+    ? await TenantChatMessage.aggregate<{
+        _id: Types.ObjectId;
+        lastMessage: {
+          messageId: Types.ObjectId;
+          message?: string;
+          senderId: string;
+          senderName: string;
+          createdAt: Date;
+        };
+      }>([
+        { $match: { roomId: { $in: roomIds }, deletedAt: null } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$roomId",
+            lastMessage: {
+              $first: {
+                messageId: "$_id",
+                message: "$message",
+                senderId: "$senderId",
+                senderName: "$senderName",
+                createdAt: "$createdAt",
+              },
+            },
+          },
+        },
+      ])
+    : [];
+  const lastMessageByRoomId = new Map(
+    latestMessages.map(({ _id, lastMessage }) => [_id.toString(), lastMessage]),
+  );
+  const unreadRoomsWithLastMessage = unreadRoomsWithRole.map((room) => ({
+    ...room,
+    lastMessage: lastMessageByRoomId.get(room._id.toString()) ?? null,
+  }));
   const allPagination = {
     page,
     limit,
@@ -141,10 +184,20 @@ export const getChatRoomsOperation = async ({
     total: groupCount,
     totalPages: Math.ceil(groupCount / limit),
   };
+  const unreadPagination = {
+    page,
+    limit,
+    total: unreadCount,
+    totalPages: Math.ceil(unreadCount / limit),
+  };
 
   return {
     all: { count: allCount, rooms: allRoomsWithRole, pagination: allPagination },
-    unread: { count: allCount, rooms: allRoomsWithRole, pagination: allPagination },
+    unread: {
+      count: unreadCount,
+      rooms: unreadRoomsWithLastMessage,
+      pagination: unreadPagination,
+    },
     group: { count: groupCount, rooms: groupRoomsWithRole, pagination: groupPagination },
   };
 };
