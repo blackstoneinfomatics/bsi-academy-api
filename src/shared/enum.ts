@@ -160,7 +160,7 @@ export enum PortalStatus {
 }
 
 export enum ChatRoomType{
-  TENANT = " TENANT",
+  TENANT = "TENANT",
    GLOBAL= "GLOBAL",
   SEGMENT = "SEGMENT",
   USER ="USER"

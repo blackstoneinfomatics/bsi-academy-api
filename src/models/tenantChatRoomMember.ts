@@ -26,6 +26,11 @@ export const TenantRoomMemberSchema = new Schema<ITenantRoomMember>(
       required: true,
     },
 
+    role:{
+       type: String,
+      required: true,
+    },
+
     lastSeenMessageId: {
       type: Schema.Types.ObjectId,
     },
@@ -75,6 +80,8 @@ export const RoomMemberValidation = z.object({
   tenantId: z.string().min(1),
 
   name: z.string().min(1),
+  role: z.string().min(1),
+
 
   createdBy: z.string().min(1),
 

@@ -26,6 +26,11 @@ export const TenantChatMessageSchema = new Schema<ITenantChatMessage>(
       type: String,
     },
 
+     title: {
+      type: String,
+      trim: true,
+    },
+
     message: {
       type: String,
       trim: true,
@@ -67,6 +72,7 @@ export const ChatMessageValidation = z.object({
   senderId: z.string().min(1),
   senderName: z.string().min(1),
 
+  title: z.string().optional(),
   message: z.string().optional(),
 
   messageType: z.enum([ChatMessageType.TEXT, ChatMessageType.IMAGE, ChatMessageType.FILE]).default(ChatMessageType.TEXT),

@@ -3163,7 +3163,8 @@ export interface ITenantChatMessage extends Document {
   senderId: string;
   senderName: string;
   senderRole?: string;
-
+  
+  title?:string;
   message: string;
 
   messageType: ChatMessageType;
@@ -3189,6 +3190,7 @@ export interface ITenantRoomMember extends Document {
   tenantId: string;
 
   name: string;
+  role:string;
 
   lastSeenMessageId?: Types.ObjectId;
   lastSeenAt?: Date;

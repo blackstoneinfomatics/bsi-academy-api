@@ -6,6 +6,8 @@ import { ChatRoomStatus, ChatRoomType, Status } from "../shared/enum";
 import TenantUsers from "../models/users";
 import TenantModel from "../models/tenants";
 import { appStatus } from "../config/messages";
+import { Lookup } from "../models/lookup";
+import { throwError } from "../helpers/throwError";
 
 interface CreateChatRoomInput {
   type: ChatRoomType;
@@ -21,6 +23,7 @@ interface AddRoomMemberInput {
   userId: string;
   tenantId: string;
   name: string;
+  role: string;
   createdBy: string;
 }
 
@@ -64,10 +67,10 @@ export const createChatRoom = async (
   } = payload;
 
   let existingRoom = null;
-const normalize = (value: string) =>
-  value.trim().toUpperCase().replace(/\s+/g, "_");
+  const normalize = (value: string) =>
+    value.trim().toUpperCase().replace(/\s+/g, "_");
 
-const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
+  const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
 
   if (type === ChatRoomType.TENANT && tenantIds.length === 1) {
     existingRoom = await tenantChatRoom.findOne({
@@ -77,7 +80,7 @@ const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
     });
   }
 
-  if (type === ChatRoomType.SEGMENT && tenantIds.length) {
+  if (type === ChatRoomType.SEGMENT && planName) {
     existingRoom = await tenantChatRoom.findOne({
       type,
       segmentKey,
@@ -101,7 +104,7 @@ const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
     roomCode,
     type,
     tenantIds,
-    segmentKey: segmentKey || null,
+    segmentKey:type === ChatRoomType.SEGMENT ? segmentKey : null,
     planName: planName || null,
     name,
     description,
@@ -114,8 +117,43 @@ const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
       role: "ADMIN",
       status: appStatus.ACTIVE,
     })
-      .select("userId tenantId userName")
-      .lean<{ userId: string; tenantId: string; userName: string }[]>();
+      .select("userId tenantId userName role")
+      .lean<
+        { userId: string; tenantId: string; userName: string; role: string[] }[]
+      >();
+
+    const superAdminTenant = await Lookup.findOne({
+      lookupKey: "SUPER_ADMIN",
+      status: "Active",
+    }).lean();
+
+    if (!superAdminTenant) {
+      throwError("Super admin tenant not found", 404);
+    }
+
+    const superAdminUser = await TenantUsers.findOne({
+      tenantId: superAdminTenant?.tenantId,
+      role: "SUPERADMIN",
+      status: appStatus.ACTIVE,
+    })
+      .select("userId tenantId userName role")
+      .lean<{
+        userId: string;
+        tenantId: string;
+        userName: string;
+        role: string[];
+      }>();
+
+    if (superAdminUser) {
+      await ensureRoomMember({
+        roomId: room._id as Types.ObjectId,
+        userId: superAdminUser.userId,
+        tenantId: superAdminUser.tenantId,
+        name: superAdminUser.userName,
+        role: superAdminUser.role?.[0] || "SUPERADMIN",
+        createdBy,
+      });
+    }
 
     await addBulkRoomMembers(
       room._id as Types.ObjectId,
@@ -123,6 +161,7 @@ const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
         userId: u.userId,
         tenantId: u.tenantId,
         name: u.userName,
+        role: u.role?.[0] || "ADMIN",
       })),
       createdBy,
     );
@@ -132,7 +171,7 @@ const segmentKey = `SEGMENT:${normalize(name)}:${normalize(planName)}`;
 };
 
 export const ensureRoomMember = async (payload: AddRoomMemberInput) => {
-  const { roomId, userId, tenantId, name, createdBy } = payload;
+  const { roomId, userId, tenantId, name, role, createdBy } = payload;
 
   const member = await TenantRoomMemberModel.findOneAndUpdate(
     {
@@ -143,6 +182,7 @@ export const ensureRoomMember = async (payload: AddRoomMemberInput) => {
       $setOnInsert: {
         tenantId,
         name,
+        role: role,
         createdBy,
       },
       $set: {
@@ -161,7 +201,7 @@ export const ensureRoomMember = async (payload: AddRoomMemberInput) => {
 
 export const addBulkRoomMembers = async (
   roomId: Types.ObjectId,
-  users: { userId: string; tenantId: string; name: string }[],
+  users: { userId: string; tenantId: string; name: string; role: string }[],
   createdBy: string,
 ) => {
   const bulkOps = users.map((user) => ({
@@ -174,6 +214,7 @@ export const addBulkRoomMembers = async (
         $setOnInsert: {
           tenantId: user.tenantId,
           name: user.name,
+          role: user.role || "ADMIN",
           createdBy,
         },
         $set: {
@@ -187,7 +228,6 @@ export const addBulkRoomMembers = async (
 
   await TenantRoomMemberModel.bulkWrite(bulkOps);
 };
-
 
 export const seedChatRooms = async () => {
   try {
@@ -206,7 +246,7 @@ export const seedChatRooms = async () => {
     // 🔥 SEGMENT ROOM - PREMIUM PLAN
     await createChatRoom({
       type: ChatRoomType.SEGMENT,
-      tenantIds: ["TEN000010", "T2"], 
+      tenantIds: ["TEN000010", "T2"],
       name: "Finance",
       planName: "Premium",
       description: "Premium finance group",

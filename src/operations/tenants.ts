@@ -16,6 +16,8 @@ import SubscriptionTrial from "../models/subcriptionTrial";
 import { isEmpty, isNil, isEqual } from "lodash";
 import { badRequest, Boom, conflict, notFound } from "@hapi/boom";
 import {
+  ChatMessageType,
+  ChatRoomType,
   GetAllRecordsParams,
   PaymentStatus,
   PortalStatus,
@@ -50,6 +52,7 @@ import PaymentTransaction from "../models/paymenttransaction";
 import RefundTransaction from "../models/refundTransaction";
 import AuditLog from "../models/auditlog";
 import portalModule from "../models/portalModule";
+import { createChatRoom } from "./tenantChat";
 /**
  * Creates a new student.
  *
@@ -73,6 +76,15 @@ export const createTenant = async (
   // Send welcome email
   await TenantWelcomeMail(savedTenant, trialMember);
 
+  const createChatRoomPayload = {
+    type :ChatRoomType.TENANT,
+    tenantIds : [savedTenant.tenantCode],
+    name: savedTenant.tenantName,
+    planName:"Trail",
+    description:"Tenant",
+    createdBy:"SYSTEM"
+  }
+    await createChatRoom(createChatRoomPayload);
 
   return savedTenant.toObject();
 };
