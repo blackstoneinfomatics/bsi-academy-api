@@ -1,13 +1,16 @@
-import tenantChatRoom from "../models/tenantChatRoom";
 import { TenantRoomMemberModel } from "../models/tenantChatRoomMember";
+import { ChatMessageModel as TenantChatMessage } from "../models/tenantChatMessage";
 import { ITenantChatRoom } from "../../types/models.types";
 import { Types } from "mongoose";
 import { ChatRoomStatus, ChatRoomType, Status } from "../shared/enum";
 import TenantUsers from "../models/users";
 import TenantModel from "../models/tenants";
 import { appStatus } from "../config/messages";
+import tenantChatRoom from "../models/tenantChatRoom";
 import { Lookup } from "../models/lookup";
 import { throwError } from "../helpers/throwError";
+
+
 
 interface CreateChatRoomInput {
   type: ChatRoomType;
@@ -28,14 +31,6 @@ interface AddRoomMemberInput {
 }
 
 
-interface IGetChatRoomsOperation {
-  userId: string;
-  tenantId: string;
-  page: number;
-  limit: number;
-  tab: "all" | "read" | "unread" | "group";
-  search?: string;
-}
 
 export interface GroupDetailsMember {
   tenantId: string;
@@ -48,11 +43,126 @@ export interface GroupDetailsResponse {
   roomCode: string;
   groupName: string;
   description: string;
+  role: string;
   planName: string;
   sendAccess: string;
   members: GroupDetailsMember[];
   memberCount: number;
 }
+
+export const getUnreadRoomCodes = async (
+  userId: string,
+  roomFilter: Record<string, any>,
+  roomModel: any
+): Promise<string[]> => {
+  const roomCodes: string[] = await roomModel.distinct("roomCode", roomFilter);
+  if (!roomCodes.length) return [];
+
+  return TenantChatMessage.distinct("roomCode", {
+    roomCode: { $in: roomCodes },
+    senderId: { $ne: userId },
+    readBy: { $ne: userId },
+  });
+};
+
+
+const TENANT_TYPE = /^\s*TENANT\s*$/;
+
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildFilter = (search?: string) => {
+  const filter: Record<string, any> = {
+    status: "ACTIVE",
+    isEnabled: true,
+    deletedAt: null,
+    type: { $in: ["SEGMENT", TENANT_TYPE] },
+  };
+
+  if (search?.trim()) {
+    const rx = { $regex: escapeRegex(search.trim()), $options: "i" };
+    filter.$or = [{ name: rx }, { description: rx }, { segmentKey: rx }, { planName: rx }];
+  }
+
+  return filter;
+};
+
+export const getChatRoomsOperation = async ({
+  search,
+  page = 1,
+  limit = 10,
+}: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const baseFilter = buildFilter(search);
+  const groupFilter = { ...baseFilter, type: TENANT_TYPE };
+  const offset = (page - 1) * limit;
+  const [allRooms, allCount, groupRooms, groupCount] = await Promise.all([
+    tenantChatRoom.find(baseFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
+    tenantChatRoom.countDocuments(baseFilter),
+    tenantChatRoom.find(groupFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
+    tenantChatRoom.countDocuments(groupFilter),
+  ]);
+  const roomIds = [...new Set([...allRooms, ...groupRooms].map((room) => room._id))];
+  const roomMembers = roomIds.length
+    ? await TenantRoomMemberModel.find({
+        roomId: { $in: roomIds },
+        isActive: true,
+        deletedAt: null,
+      })
+        .select("roomId role")
+        .sort({ createdAt: 1 })
+        .lean()
+    : [];
+  const roleByRoomId = new Map<string, string>();
+  for (const roomMember of roomMembers) {
+    const roomId = roomMember.roomId.toString();
+    if (roomMember.role && !roleByRoomId.has(roomId)) {
+      roleByRoomId.set(roomId, roomMember.role);
+    }
+  }
+  const addRoomRole = (rooms: typeof allRooms) =>
+    rooms.map((room) => ({
+      ...room,
+      role: roleByRoomId.get(room._id.toString()) ?? "",
+    }));
+  const allRoomsWithRole = addRoomRole(allRooms);
+  const groupRoomsWithRole = addRoomRole(groupRooms);
+  const allPagination = {
+    page,
+    limit,
+    total: allCount,
+    totalPages: Math.ceil(allCount / limit),
+  };
+  const groupPagination = {
+    page,
+    limit,
+    total: groupCount,
+    totalPages: Math.ceil(groupCount / limit),
+  };
+
+  return {
+    all: { count: allCount, rooms: allRoomsWithRole, pagination: allPagination },
+    unread: { count: allCount, rooms: allRoomsWithRole, pagination: allPagination },
+    group: { count: groupCount, rooms: groupRoomsWithRole, pagination: groupPagination },
+  };
+};
+
+
+
+export const getGlobalChatGroupsOperation = async ({}) => {
+const result = await tenantChatRoom.find({
+    type: ChatRoomType.GLOBAL,
+    status: ChatRoomStatus.ACTIVE,
+    isEnabled: true,
+    deletedAt: null,
+  }).lean();
+
+  return {
+         result
+  };
+};
 
 export const createChatRoom = async (
   payload: CreateChatRoomInput,
@@ -270,195 +380,6 @@ export const seedChatRooms = async () => {
 };
 
 
-
-
-export const getChatRoomsOperation = async ({
-  userId,
-  tenantId,
-  page,
-  limit,
-  tab,
-  search
-}: IGetChatRoomsOperation) => {
-
-  const skip = (page - 1) * limit;
-  const tenantRecord = await TenantModel.findOne({
-    tenantCode: tenantId,
-  })
-    .select("tenantCode tenantName")
-    .lean();
-  const tenant = tenantRecord
-    ? {
-        tenantId: tenantRecord.tenantCode,
-        tenantName: tenantRecord.tenantName,
-      }
-    : null;
-
-
-  const baseFilter: Record<string, any> = {
-    tenantIds: tenantId,
-
-    status: "ACTIVE",
-
-    isEnabled: true,
-
-    deletedAt: null
-  };
-
-
-
-  if (search?.trim()) {
-
-    const searchRegex = {
-      $regex: search.trim(),
-      $options: "i"
-    };
-
-    baseFilter.$or = [
-      {
-        name: searchRegex
-      },
-      {
-        description: searchRegex
-      },
-      {
-        segmentKey: searchRegex
-      },
-      {
-        planName: searchRegex
-      }
-    ];
-  }
-
-  const tenantType = /^\s*TENANT\s*$/;
-
-  if (tab === "all") {
-    baseFilter.type = {
-      $in: ["SEGMENT", tenantType],
-    };
-  } else if (tab === "group") {
-    baseFilter.type = tenantType;
-  } else {
-    baseFilter.type = {
-      $in: [
-        "SEGMENT",
-        tenantType,
-      ]
-    };
-  }
-
-
-  if (
-    tab === "all" ||
-    tab === "group"
-  ) {
-
-    const [rooms, total] =
-      await Promise.all([
-
-        tenantChatRoom
-          .find(baseFilter)
-          .sort({
-            lastMessageAt: -1,
-            updatedAt: -1
-          })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-
-        tenantChatRoom
-          .countDocuments(baseFilter)
-
-      ]);
-
-    const totalPages =
-      Math.ceil(total / limit);
-
-    /**
-     * Get counts for all tabs
-     */
-
-    const tabCounts =
-      await getTabCounts({
-        userId,
-        tenantId,
-        search
-      });
-
-    return {
-
-      rooms: rooms.map((room) => ({
-        ...room,
-        tenant,
-      })),
-
-      tabs: tabCounts,
-
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-
-        hasNextPage:
-          page < totalPages,
-
-        hasPreviousPage:
-          page > 1
-      }
-    };
-  }
-
-
-  const result =
-    await getReadUnreadRooms({
-      userId,
-      tenantId,
-      tab,
-      search,
-      skip,
-      limit
-    });
-
-  const tabCounts =
-    await getTabCounts({
-      userId,
-      tenantId,
-      search
-    });
-
-  const total =
-    tab === "read"
-      ? tabCounts.read
-      : tabCounts.unread;
-
-  const totalPages =
-    Math.ceil(total / limit);
-
-  return {
-
-    rooms: result.map((room) => ({
-      ...room,
-      tenant,
-    })),
-
-    tabs: tabCounts,
-
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages,
-
-      hasNextPage:
-        page < totalPages,
-
-      hasPreviousPage:
-        page > 1
-    }
-  };
-};
-
 export const getGroupDetailsOperation = async (
   roomId: string,
 ): Promise<GroupDetailsResponse | null> => {
@@ -475,8 +396,16 @@ export const getGroupDetailsOperation = async (
     return null;
   }
 
+  const roomMember = await TenantRoomMemberModel.findOne({
+    roomId: room._id,
+    isActive: true,
+    deletedAt: null,
+  })
+    .select("role")
+    .lean();
+
   const tenantIds = [...new Set(room.tenantIds ?? [])];
-  const tenants = tenantIds.length
+  const tenantRecords = tenantIds.length
     ? await TenantModel.find({
         tenantCode: { $in: tenantIds },
         status: Status.ACTIVE,
@@ -486,7 +415,7 @@ export const getGroupDetailsOperation = async (
     : [];
 
   const tenantNamesById = new Map<string, string>();
-  for (const tenant of tenants) {
+  for (const tenant of tenantRecords) {
     tenantNamesById.set(tenant.tenantCode, tenant.tenantName);
   }
 
@@ -501,6 +430,7 @@ export const getGroupDetailsOperation = async (
     roomId: room._id.toString(),
     roomCode: room.roomCode,
     groupName: room.name,
+    role: roomMember?.role ?? "",
     description: String(room.description ?? ""),
     planName: room.planName,
     sendAccess: room.sendAccess,
@@ -509,317 +439,3 @@ export const getGroupDetailsOperation = async (
   };
 };
 
-
-const getTabCounts = async ({
-  userId,
-  tenantId,
-  search,
-}: {
-  userId: string;
-  tenantId: string;
-  search?: string;
-}) => {
-  const searchFilter: Record<string, any> = {};
-
-  if (search?.trim()) {
-    const regex = {
-      $regex: search.trim(),
-      $options: "i",
-    };
-
-    searchFilter.$or = [
-      { name: regex },
-      { description: regex },
-      { segmentKey: regex },
-      { planName: regex },
-    ];
-  }
-
-  const tenantType = /^\s*TENANT\s*$/;
-
-  // ALL = SEGMENT + TENANT
-  const all = await tenantChatRoom.countDocuments({
-    tenantIds: tenantId,
-    type: {
-      $in: ["SEGMENT", tenantType],
-    },
-    status: "ACTIVE",
-    isEnabled: true,
-    deletedAt: null,
-    ...searchFilter,
-  });
-
-  // GROUP = TENANT only
-  const group = await tenantChatRoom.countDocuments({
-    tenantIds: tenantId,
-    type: tenantType,
-    status: "ACTIVE",
-    isEnabled: true,
-    deletedAt: null,
-    ...searchFilter,
-  });
-
-  // READ + UNREAD = SEGMENT + TENANT
-  const readUnread = await tenantChatRoom.aggregate([
-    {
-      $match: {
-        tenantIds: tenantId,
-        type: {
-          $in: ["SEGMENT", tenantType],
-        },
-        status: "ACTIVE",
-        isEnabled: true,
-        deletedAt: null,
-        ...searchFilter,
-      },
-    },
-
-    // Get current user's membership
-    {
-      $lookup: {
-        from: "tenantroommembers",
-        let: {
-          roomId: "$_id",
-        },
-        pipeline: [
-          {
-            $match: {
-              userId,
-              tenantId,
-              isActive: true,
-              deletedAt: null,
-              $expr: {
-                $eq: ["$roomId", "$$roomId"],
-              },
-            },
-          },
-          {
-            $limit: 1,
-          },
-        ],
-        as: "member",
-      },
-    },
-
-    {
-      $unwind: {
-        path: "$member",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-
-    // Calculate unread
-    {
-      $addFields: {
-        isUnread: {
-          $cond: [
-            {
-              $eq: ["$lastMessageAt", null],
-            },
-            false,
-            {
-              $or: [
-                {
-                  $eq: ["$member.lastSeenAt", null],
-                },
-                {
-                  $lt: [
-                    "$member.lastSeenAt",
-                    "$lastMessageAt",
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      },
-    },
-
-    // Count
-    {
-      $group: {
-        _id: null,
-
-        read: {
-          $sum: {
-            $cond: [
-              "$isUnread",
-              0,
-              1,
-            ],
-          },
-        },
-
-        unread: {
-          $sum: {
-            $cond: [
-              "$isUnread",
-              1,
-              0,
-            ],
-          },
-        },
-      },
-    },
-  ]);
-
-  return {
-    all,
-    read: readUnread[0]?.read ?? 0,
-    unread: readUnread[0]?.unread ?? 0,
-    group,
-  };
-};
-
-const getReadUnreadRooms = async ({
-  userId,
-  tenantId,
-  tab,
-  search,
-  skip,
-  limit,
-}: {
-  userId: string;
-  tenantId: string;
-  tab: "read" | "unread";
-  search?: string;
-  skip: number;
-  limit: number;
-}) => {
-  const roomMatch: Record<string, any> = {
-    tenantIds: tenantId,
-    type: {
-      $in: ["SEGMENT", /^\s*TENANT\s*$/],
-    },
-    status: "ACTIVE",
-    isEnabled: true,
-    deletedAt: null,
-  };
-
-  if (search?.trim()) {
-    const regex = {
-      $regex: search.trim(),
-      $options: "i",
-    };
-
-    roomMatch.$or = [
-      { name: regex },
-      { description: regex },
-      { segmentKey: regex },
-      { planName: regex },
-    ];
-  }
-
-  const pipeline: any[] = [
-    {
-      $match: roomMatch,
-    },
-
-    // Get current user's membership for each room
-    {
-      $lookup: {
-        from: "tenantroommembers",
-        let: {
-          roomId: "$_id",
-        },
-        pipeline: [
-          {
-            $match: {
-              userId,
-              tenantId,
-              isActive: true,
-              deletedAt: null,
-              $expr: {
-                $eq: ["$roomId", "$$roomId"],
-              },
-            },
-          },
-          {
-            $limit: 1,
-          },
-        ],
-        as: "member",
-      },
-    },
-
-    {
-      $unwind: {
-        path: "$member",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-
-    // Calculate unread status
-    {
-      $addFields: {
-        isUnread: {
-          $cond: [
-            {
-              $eq: ["$lastMessageAt", null],
-            },
-            false,
-            {
-              $or: [
-                {
-                  $eq: ["$member.lastSeenAt", null],
-                },
-                {
-                  $lt: [
-                    "$member.lastSeenAt",
-                    "$lastMessageAt",
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      },
-    },
-
-    // Read / unread filter
-    {
-      $match:
-        tab === "unread"
-          ? { isUnread: true }
-          : { isUnread: false },
-    },
-
-    {
-      $sort: {
-        lastMessageAt: -1,
-        updatedAt: -1,
-      },
-    },
-
-    {
-      $skip: skip,
-    },
-
-    {
-      $limit: limit,
-    },
-
-    {
-      $project: {
-        _id: 1,
-        roomCode: 1,
-        type: 1,
-        tenantIds: 1,
-        segmentKey: 1,
-        name: 1,
-        description: 1,
-        planName: 1,
-        lastMessage: 1,
-        lastMessageAt: 1,
-        sendAccess: 1,
-        status: 1,
-        isEnabled: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        isUnread: 1,
-      },
-    },
-  ];
-
-  return tenantChatRoom.aggregate(pipeline);
-};

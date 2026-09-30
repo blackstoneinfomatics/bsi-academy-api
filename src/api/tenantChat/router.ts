@@ -39,6 +39,15 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "Chat"],
       },
     },
+    {
+      method: "GET",
+      path: "/chat/global",
+      options: {
+        handler: handler.getGlobalChatGroups,
+        description: "Get global chat group details and tenant members",
+        tags: ["api", "Chat"],
+      },
+    },
   ];
   server.route(routes);
 };
