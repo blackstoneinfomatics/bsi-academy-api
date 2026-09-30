@@ -18,88 +18,27 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-    // {
-    //   method: "GET",
-    //   path: "/portal",
-    //   handler: handler.getAllPortal,
-    //   options: {
-    //     description: portalMessages.GET_PORTALS,
-    //     tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   },
-    // },
-    // {
-    //   method: "GET",
-    //   path: "/portal/dashboard/count",
-    //   handler: handler.getPortalDashboardCountHandler,
-    //   options: {
-    //     description: portalMessages.DASBOARD_CARD_COUNT,
-    //     tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   },
-    // },
-    // {
-    //   method: "POST",
-    //   path:"/portal/tenant",
-    //   handler:handler.createPortalToTenant,
-    //   options:{
-    //     description:portalMessages.CREATE_PORTAL_TO_TENANT,
-    //      tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   }
-    // },
-    // {
-    //   method:"GET",
-    //   path:"/portal/tenant/{tenantId}",
-    //   handler:handler.getAllTenantPortal,
-    //   options:{
-    //     description:portalMessages.GET_TENANT_PORTALS,
-    //      tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   }
-    // },
-    // {
-    //  method:"PUT",
-    //  path:"/portal/tenant/{tenantPortalId}/status",
-    //  handler:handler.updateTenantPortal,
-    //   options:{
-    //     description:portalMessages.UPDATE_PORTAL,
-    //      tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   }
-    // },
-
-    //  {
-    //   method: "GET",
-    //   path: "/tenant-portal-dashboard/{tenantId}",
-    //   handler: handler.getTenantPortalDashboard,
-    //   options: {
-    //     description: portalMessages.GET_TENANT_PORTAL_DASHBOARD,
-    //     tags: ["api", "Portal"],
-    //     // auth: {
-    //     //   strategies: ["jwt"],
-    //     // },
-    //   },
-    // },
-    // {
-    //   method:"POST",
-    //   path:"/tenant-portal/sync/{subscriptionId}",
-    //   handler:handler.createSyncTenantPortal,
-    //   options:{
-    //     description:"test the sync subuscription",
-    //     tags:["api","Portal"],
-    //   }
-    // }
+    {
+      method: "GET",
+      path: "/chat-room",
+      handler: handler.getChatRooms,
+      options: {
+        description: tenantChatMessages.GET_CHAT_ROOMS,
+        tags: ["api", "Chat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+    {
+      method: "GET",
+      path: "/chat/groups/{roomId}",
+      options: {
+        handler: handler.getGroupDetails,
+        description: "Get chat group details and tenant members",
+        tags: ["api", "Chat"],
+      },
+    },
   ];
   server.route(routes);
 };
