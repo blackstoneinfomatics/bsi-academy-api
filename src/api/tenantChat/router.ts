@@ -11,7 +11,7 @@ const register = async (server: Server): Promise<void> => {
       options: {
         handler: handler.createChatRoom,
         description: tenantChatMessages.CREATE_CHAT_ROOM,
-        tags: ["api", "portal"],
+        tags: ["api", "Chat"],
         // auth: {
         //   strategies: ["jwt"],
         // },
@@ -24,7 +24,20 @@ const register = async (server: Server): Promise<void> => {
       options: {
         handler: handler.sendMessage,
         description: tenantChatMessages.SEND_MESSAGE,
-        tags: ["api", "portal"],
+        tags: ["api", "Chat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    {
+       method: "PUT",
+       path: "/chat-room/{roomId}",
+      options: {
+        handler: handler.updateChatRoom,
+        description: tenantChatMessages.ADD_ROOM_MEMBER,
+        tags: ["api", "Chat"],
         // auth: {
         //   strategies: ["jwt"],
         // },

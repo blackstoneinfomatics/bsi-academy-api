@@ -1008,3 +1008,91 @@ console.log("Is valid:", Types.ObjectId.isValid(roomId));
     );
   }
 };
+
+export const updateChatRoomService = async (payload: {
+  roomId: string;
+  addTenantIds?: string[];
+  removeTenantIds?: string[];
+  sendAccess?: string;
+  updatedBy: string;
+}) => {
+  try {
+    const { roomId, addTenantIds = [], removeTenantIds = [], sendAccess, updatedBy } = payload;
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    const room = await tenantChatRoom.findOne({
+      _id: roomId,
+      deletedAt: null,
+    });
+
+    if (!room){ 
+      throwError("Room not found", 404)
+    return;
+    };
+
+    if (room.type === "SEGMENT") {
+   let updatedTenantIds = [...(room.tenantIds || [])];
+
+      if (addTenantIds.length) {
+        updatedTenantIds = Array.from(new Set([...updatedTenantIds, ...addTenantIds]));
+
+        const tenantUsers = await TenantUsers.find({
+          tenantId: { $in: addTenantIds },
+          role: "ADMIN",
+          status: appStatus.ACTIVE,
+        })
+          .select("userId tenantId userName role")
+          .lean();
+
+        await addBulkRoomMembers(
+          room._id as Types.ObjectId,
+          tenantUsers.map((u: any) => ({
+            userId: u.userId,
+            tenantId: u.tenantId,
+            name: u.userName,
+            role: u.role?.[0] || "ADMIN",
+          })),
+          updatedBy
+        );
+      }
+
+      if (removeTenantIds.length) {
+        updatedTenantIds = updatedTenantIds.filter(
+          (id) => !removeTenantIds.includes(id)
+        );
+
+        await TenantRoomMemberModel.updateMany(
+          {
+            roomId: room._id,
+            tenantId: { $in: removeTenantIds },
+          },
+          {
+            $set: {
+              isActive: false,
+              deletedAt: new Date(),
+              updatedBy,
+            },
+          }
+        );
+      }
+
+      room.tenantIds = updatedTenantIds;
+    }
+
+    if (sendAccess) {
+      room.sendAccess = sendAccess as any;
+    }
+
+    room.updatedBy = updatedBy;
+
+    await room.save();
+
+    return room;
+
+  } catch (err: any) {
+    throwError(err.message || "Failed to update chat room", err.statusCode || 500);
+  }
+};

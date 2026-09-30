@@ -6,6 +6,7 @@ import {
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
   sendMessageService,
+  updateChatRoomService,
 } from "../../operations/tenantChat";
 import { tenantChatMessages } from "../../config/messages";
 import { z } from "zod";
@@ -56,6 +57,16 @@ export const getChatRoomsValidation = z.object({
     tab: z.enum(["all", "read", "unread", "group"]).default("all"),
     search: z.string().optional(),
   }),
+});
+
+export const UpdateChatRoomValidation = z.object({
+  payload: z.object({
+    addTenantIds: z.array(z.string()).optional(),
+    removeTenantIds: z.array(z.string()).optional(),
+    sendAccess: z.enum(["ADMIN_ONLY", "EVERYONE"]).optional(),
+    updatedBy: z.string(),
+  }),
+  roomId: z.string(),
 });
 
 export default{
@@ -126,6 +137,40 @@ export default{
         .code(err.statusCode || 500);
     }
   },
+
+  updateChatRoom: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = UpdateChatRoomValidation.safeParse({
+  payload: request.payload,
+  roomId: request.params.roomId,
+});
+
+if (!parsed.success) {
+  throwError(parsed.error.errors[0].message, 400);
+  return;
+}
+
+const { payload, roomId } = parsed?.data;
+
+const result = await updateChatRoomService({
+  ...payload,
+  roomId, 
+});
+
+    return h.response({
+      success: true,
+      message: "Chat room updated successfully",
+      data: result,
+    }).code(200);
+
+  } catch (err: any) {
+    return h.response({
+      success: false,
+      message: err.message,
+      errorCode: err.statusCode || 500,
+    }).code(err.statusCode || 500);
+  }
+},
 
 getChatRooms : async (request: Request, h: ResponseToolkit) => {
   try {
