@@ -15,6 +15,10 @@ import CustomEnumerator, {
   RoleType,
   PortalType,
   PortalStatus,
+  ChatRoomType,
+  ChatRoomStatus,
+  ChatMessageType,
+  ChatSendAccess,
 } from "../src/shared/enum";
 
 enum Status {
@@ -3119,4 +3123,79 @@ export interface ITrialMember {
   createdBy: string;
   lastUpdatedDate?: Date;
   lastUpdatedBy: string;
+}
+
+export interface ITenantChatRoom extends Document {
+  roomCode: string;
+
+  type: ChatRoomType;
+
+  tenantIds : string[];
+  segmentKey?: string;
+
+  name: string;
+  description?: string;
+  planName: string;
+  
+  sendAccess: ChatSendAccess,
+
+  lastMessage?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+    createdAt: Date;
+  };
+
+  lastMessageAt?: Date;
+
+  status: ChatRoomStatus;
+  isEnabled: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+export interface ITenantChatMessage extends Document {
+  roomId: Types.ObjectId;
+
+  senderId: string;
+  senderName: string;
+  senderRole?: string;
+
+  message: string;
+
+  messageType: ChatMessageType;
+
+  attachments?: string[];
+
+  replyTo?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+
+  createdAt: Date;
+
+  deletedAt?: Date | null;
+}
+
+export interface ITenantRoomMember extends Document {
+  roomId: Types.ObjectId;
+
+  userId: string;
+  tenantId: string;
+
+  name: string;
+
+  lastSeenMessageId?: Types.ObjectId;
+  lastSeenAt?: Date;
+
+  isActive: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
 }

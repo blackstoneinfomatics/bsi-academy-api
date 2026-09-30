@@ -1160,3 +1160,70 @@ export const dashboardsaasMessages = {
    RECENT_ACTIVITIES: "Get recently added tenants",
    RECENT_ACTIVITIES_SUCCESS: "Recently added tenants fetched successfully"
 }
+
+
+export const tenantChatMessages = {
+  // 🔹 Actions
+  CREATE_CHAT_ROOM: "Create Chat Room",
+  SEND_MESSAGE: "Send Message",
+  GET_CHAT_ROOMS: "Get Chat Rooms",
+  GET_CHAT_ROOM_BY_ID: "Get Chat Room By Id",
+  GET_MESSAGES: "Get Messages",
+  MARK_AS_READ: "Mark Messages As Read",
+  ADD_ROOM_MEMBER: "Add Room Member",
+  REMOVE_ROOM_MEMBER: "Remove Room Member",
+
+  // 🔹 Success Responses
+  CREATE_CHAT_ROOM_SUCCESS: "Chat room created successfully.",
+  SEND_MESSAGE_SUCCESS: "Message sent successfully.",
+  GET_CHAT_ROOMS_SUCCESS: "Chat room list fetched successfully.",
+  GET_CHAT_ROOM_BY_ID_SUCCESS: "Chat room details fetched successfully.",
+  GET_MESSAGES_SUCCESS: "Messages fetched successfully.",
+  MARK_AS_READ_SUCCESS: "Messages marked as read.",
+  ADD_ROOM_MEMBER_SUCCESS: "Member added to chat room successfully.",
+  REMOVE_ROOM_MEMBER_SUCCESS: "Member removed from chat room successfully.",
+
+  // 🔹 Validation Messages
+  ROOM_ID_REQUIRED: "RoomId is required.",
+  MESSAGE_REQUIRED: "Message is required.",
+  TYPE_REQUIRED: "Chat room type is required.",
+  NAME_REQUIRED: "Chat room name is required.",
+  CREATED_BY_REQUIRED: "CreatedBy is required.",
+  TENANT_ID_REQUIRED: "TenantId is required.",
+  TENANT_IDS_REQUIRED: "TenantIds are required for this operation.",
+  PLAN_NAME_REQUIRED: "Plan name is required for segment rooms.",
+
+  INVALID_ROOM_ID: "Invalid Room Id.",
+  INVALID_MESSAGE_ID: "Invalid Message Id.",
+  INVALID_CHAT_TYPE: "Invalid chat room type.",
+  INVALID_REQUEST: "Invalid chat request.",
+
+  // 🔹 Business Errors
+  CHAT_ROOM_NOT_FOUND: "Chat room not found.",
+  CHAT_ROOM_ALREADY_EXISTS: "Chat room already exists.",
+  MESSAGE_NOT_FOUND: "Message not found.",
+  MEMBER_NOT_FOUND: "Room member not found.",
+
+  // 🔹 Member Errors
+  MEMBER_ALREADY_EXISTS: "User is already a member of this room.",
+  MEMBER_ADD_FAILED: "Failed to add member to room.",
+  MEMBER_REMOVE_FAILED: "Failed to remove member from room.",
+
+  // 🔹 Message Errors
+  MESSAGE_SEND_FAILED: "Failed to send message.",
+  MESSAGE_FETCH_FAILED: "Failed to fetch messages.",
+  MESSAGE_READ_FAILED: "Failed to mark messages as read.",
+
+  // 🔹 Room Errors
+  CHAT_ROOM_CREATION_FAILED: "Failed to create chat room.",
+  CHAT_ROOM_FETCH_FAILED: "Failed to fetch chat rooms.",
+  CHAT_ROOM_UPDATE_FAILED: "Failed to update chat room.",
+
+  // 🔹 Authorization
+  UNAUTHORIZED: "Unauthorized",
+  FORBIDDEN: "Forbidden",
+
+  // 🔹 Generic
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
