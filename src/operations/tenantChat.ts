@@ -275,6 +275,26 @@ const buildReplyChain = async (
   return result;
 };
 
+const getMessageDateLabel = (timestamp: Date): string => {
+  const now = new Date();
+  const messageDate = new Date(timestamp);
+  const toDayNumber = (date: Date) =>
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+  const daysAgo = toDayNumber(now) - toDayNumber(messageDate);
+
+  if (daysAgo === 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo > 1 && daysAgo < 7) {
+    return messageDate.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  return messageDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 
 
 
@@ -1276,6 +1296,7 @@ export const getRoomMessagesOperation = async ({
       ...message,
 
       timestamp: message.createdAt,
+      dateLabel: getMessageDateLabel(message.createdAt),
 
       side:
         tenantUser &&
