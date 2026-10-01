@@ -11,6 +11,8 @@ import { Lookup } from "../models/lookup";
 import { throwError } from "../helpers/throwError";
 import { ChatMessageType } from "../shared/enum";
 import { ChatMessageModel } from "../models/tenantChatMessage";
+import { getTenantsByPlan } from "./tenantSubscription.";
+import planModel from "../models/plan-model";
 
 
 type CreateChatRoomInput = {
@@ -482,10 +484,17 @@ export const getGroupDetailsOperation = async (
     })
     .lean();
 
-  if (!room) {
+  if (!room || room.type !== ChatRoomType.SEGMENT) {
     return null;
   }
+  
+  const plan = await planModel.findOne({
+    planName: room.planName,
+    status: Status.ACTIVE,
+  }).lean();
 
+  const planTenants = await getTenantsByPlan(plan?._id.toString() || "");
+  
   const roomMember = await TenantRoomMemberModel.findOne({
     roomId: room._id,
     isActive: true,
@@ -494,27 +503,30 @@ export const getGroupDetailsOperation = async (
     .select("role")
     .lean();
 
-  const tenantIds = [...new Set(room.tenantIds ?? [])];
-  const tenantRecords = tenantIds.length
-    ? await TenantModel.find({
-        tenantCode: { $in: tenantIds },
-        status: Status.ACTIVE,
-      })
-        .select("tenantCode tenantName")
-        .lean()
-    : [];
+const roomTenantIds = new Set(room.tenantIds ?? []);
 
-  const tenantNamesById = new Map<string, string>();
-  for (const tenant of tenantRecords) {
-    tenantNamesById.set(tenant.tenantCode, tenant.tenantName);
-  }
+const planTenantIds = (planTenants || []).map((t: any) => t.tenantId);
 
-  const members = tenantIds.flatMap((tenantId) => {
-    const tenantName = tenantNamesById.get(tenantId);
-    return tenantName
-      ? [{ tenantId, tenantName, isSelected: true }]
-      : [];
-  });
+const tenantRecords = planTenantIds.length
+  ? await TenantModel.find({
+      tenantCode: { $in: planTenantIds },
+      status: Status.ACTIVE,
+    })
+      .select("tenantCode tenantName")
+      .lean()
+  : [];
+
+const tenantNamesById = new Map<string, string>();
+for (const tenant of tenantRecords) {
+  tenantNamesById.set(tenant.tenantCode, tenant.tenantName);
+}
+
+const members = planTenantIds.map((tenantId: string) => ({
+  tenantId,
+  tenantName: tenantNamesById.get(tenantId) || "",
+  isSelected: roomTenantIds.has(tenantId), 
+}));  
+
 
   return {
     roomId: room._id.toString(),
