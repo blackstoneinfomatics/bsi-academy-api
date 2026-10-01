@@ -33,10 +33,23 @@ export const TenantRoomMemberSchema = new Schema<ITenantRoomMember>(
 
     lastSeenMessageId: {
       type: Schema.Types.ObjectId,
+      default: null,
+
     },
 
     lastSeenAt: {
       type: Date,
+      default: null,
+    },
+
+    lastClearedMessageId: {
+      type: Schema.Types.ObjectId,
+      default: null,
+    },
+
+    lastClearedAt: {
+      type: Date,
+      default: null,
     },
 
     isActive: {

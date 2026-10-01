@@ -3195,6 +3195,9 @@ export interface ITenantRoomMember extends Document {
 
   lastSeenMessageId?: Types.ObjectId;
   lastSeenAt?: Date;
+  
+  lastClearedMessageId?: Types.ObjectId;
+  lastClearedAt?: Date;
 
   isActive: boolean;
 

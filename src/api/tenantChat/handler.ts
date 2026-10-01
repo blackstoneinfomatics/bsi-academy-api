@@ -1,6 +1,7 @@
 import { Request,ResponseToolkit } from "@hapi/hapi";
 import { throwError } from "../../helpers/throwError";
 import {
+  clearChatService,
   createChatRoom,
   deleteChatRoomService,
   getChatRoomsOperation,
@@ -101,6 +102,13 @@ export const DeleteChatRoomValidation = z.object({
   }),
   payload: z.object({
     deletedBy: z.string().min(1),
+  }),
+});
+
+export const ClearChatValidation = z.object({
+  payload: z.object({
+    roomId: objectId,
+    userId: z.string().min(1),
   }),
 });
 
@@ -475,6 +483,37 @@ deleteRoom: async (request: Request, h: ResponseToolkit) => {
         })
         .code(200);
 
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
+
+   clearChat: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = ClearChatValidation.safeParse({
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      const payload = parsed?.data?.payload as any;
+      const result = await clearChatService(payload);
+
+      return h
+        .response({
+          success: true,
+          message: "Chat cleared successfully",
+          data: result,
+        })
+        .code(200);
     } catch (err: any) {
       return h
         .response({

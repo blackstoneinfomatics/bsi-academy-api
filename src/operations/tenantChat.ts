@@ -1222,7 +1222,7 @@ export const getRoomMessagesOperation = async ({
   }
 
   const resolvedRoomId = room._id;
-
+  let member: { userId: string; lastClearedAt?: Date | null } | null = null;
   let tenantUser: { userId: string } | null = null;
 
   if (userId) {
@@ -1236,13 +1236,13 @@ export const getRoomMessagesOperation = async ({
       };
     }
 
-    const member = await TenantRoomMemberModel.findOne({
+     member = await TenantRoomMemberModel.findOne({
       roomId: resolvedRoomId,
       userId: tenantUser.userId,
       isActive: true,
       deletedAt: null,
     })
-      .select("userId")
+      .select("userId lastClearedAt")
       .lean();
 
     if (!member) {
@@ -1260,10 +1260,14 @@ export const getRoomMessagesOperation = async ({
     ).lean();
   }
 
-  const filter = {
+  const filter : any = {
     roomId: resolvedRoomId,
     deletedAt: null,
   };
+  
+  if (member?.lastClearedAt) {
+  filter.createdAt = { $gt: member?.lastClearedAt };
+} 
 
   const total = await TenantChatMessage.countDocuments(filter);
 
@@ -1506,6 +1510,88 @@ export const deleteChatRoomService = async (payload: {
 
     throwError(
       err.message || "Failed to delete chat room",
+      err.statusCode || 500
+    );
+  }
+};
+
+
+export const clearChatService = async (payload: {
+  roomId: string;
+  userId: string;
+}) => {
+  try {
+    const { roomId, userId } = payload;
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    const room = await tenantChatRoom.findOne({
+      _id: roomId,
+      deletedAt: null,
+      isEnabled: true,
+    });
+    if (!room) throwError("Chat room not found", 404);
+
+    const member = await TenantRoomMemberModel.findOne({
+      roomId,
+      userId,
+      isActive: true,
+      deletedAt: null,
+    });
+    if (!member) throwError("User not part of room", 403);
+
+    const lastMessage = await ChatMessageModel.findOne({ roomId })
+      .sort({ createdAt: -1 })
+      .select("_id createdAt")
+      .lean();
+
+    const now = new Date();
+
+    if (
+      member?.lastClearedAt &&
+      lastMessage &&
+      member?.lastClearedAt >= lastMessage.createdAt
+    ) {
+      return {
+        roomId,
+        userId,
+        clearedAt: member.lastClearedAt,
+        alreadyCleared: true,
+      };
+    }
+
+    await TenantRoomMemberModel.updateOne(
+      { roomId, userId },
+      {
+        $set: {
+          lastClearedMessageId: lastMessage?._id || null,
+          lastClearedAt: now,
+          updatedBy: userId,
+        },
+      }
+    );
+
+    // try {
+    //   io.to(roomId.toString()).emit("chat:cleared", {
+    //     roomId,
+    //     userId,
+    //     clearedAt: now,
+    //   });
+    // } catch (e) {
+    //   console.error("Socket emit failed:", e);
+    // }
+
+    return {
+      roomId,
+      userId,
+      clearedAt: now,
+    };
+  } catch (err: any) {
+    console.error("clearChatService Error:", err);
+    throwError(
+      err.message || "Failed to clear chat",
       err.statusCode || 500
     );
   }

@@ -57,6 +57,16 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+     {
+    method: "POST",
+    path: "/chat/clear",
+    handler: handler.clearChat,
+    options: {
+      description: "Clear chat for current user in a room",
+      tags: ["api", "chat"],
+    },
+  },
+
     {
       method: "GET",
       path: "/chat-room",
