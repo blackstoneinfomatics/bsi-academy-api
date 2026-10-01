@@ -1185,6 +1185,8 @@ export const tenantChatMessages = {
   ADD_ROOM_MEMBER_SUCCESS: "Member added to chat room successfully.",
   REMOVE_ROOM_MEMBER_SUCCESS: "Member removed from chat room successfully.",
   MARK_SEEN_SUCCESS: "Messages marked as seen successfully.",
+  GET_SEEN_MESSAGES_SUCCESS: "Seen messages fetched successfully.",
+  GET_SEEN_USERS_SUCCESS: "Seen users fetched successfully.",
 
   // 🔹 Validation Messages
   ROOM_ID_REQUIRED: "RoomId is required.",

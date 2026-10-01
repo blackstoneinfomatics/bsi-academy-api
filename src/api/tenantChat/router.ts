@@ -107,6 +107,16 @@ const register = async (server: Server): Promise<void> => {
         auth: false,
       },
     },
+
+    {
+  method: "GET",
+  path: "/chat/message/{messageId}/seen/{currentUserId}",
+  options: {
+      handler: handler.getSeenUsers,
+      description: "Get users who have seen a specific message",
+     tags: ["api", "chat"],
+  },
+},
     {
     method: "DELETE",
     path: "/chat-room/{roomId}",

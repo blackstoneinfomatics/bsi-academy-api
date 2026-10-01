@@ -1596,3 +1596,69 @@ export const clearChatService = async (payload: {
     );
   }
 };
+
+export const getSeenUsersService = async (
+  messageId: string,
+  currentUserId: string 
+) => {
+  try {
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const message = await ChatMessageModel.findById(messageId)
+      .select("_id roomId createdAt senderId")
+      .lean();
+
+    if (!message){
+       throwError("Message not found", 404);
+       return;
+    }
+
+    const members = await TenantRoomMemberModel.find({
+      roomId: message.roomId,
+      isActive: true,
+      deletedAt: null,
+    })
+      .select("userId name lastSeenAt lastSeenMessageId")
+      .lean();
+
+      console.log("Members fetched for seen users:", members);
+
+    const seenUsers = members
+      .filter((member) => {
+        if (member.userId === currentUserId) return false;
+
+        if (member.lastSeenAt) {
+          return member.lastSeenAt >= message.createdAt;
+        }
+
+        if (member.lastSeenMessageId) {
+          return (
+            member.lastSeenMessageId.toString() >=
+            message._id.toString()
+          );
+        }
+
+        return false;
+      })
+      .map((m) => ({
+        userId: m.userId,
+        name: m.name,
+        seenAt: m.lastSeenAt || null,
+      }));
+
+    return {
+      messageId,
+      roomId: message.roomId,
+      totalSeen: seenUsers.length,
+      seenUsers,
+    };
+
+  } catch (err: any) {
+    throwError(
+      err.message || "Failed to fetch seen users",
+      err.statusCode || 500
+    );
+  }
+};

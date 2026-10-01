@@ -8,6 +8,7 @@ import {
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
   getRoomMessagesOperation,
+  getSeenUsersService,
   markMessageSeenService,
   sendMessageService,
   updateChatRoomService,
@@ -109,6 +110,13 @@ export const ClearChatValidation = z.object({
   payload: z.object({
     roomId: objectId,
     userId: z.string().min(1),
+  }),
+});
+
+export const GetSeenUsersValidation = z.object({
+  params: z.object({
+    messageId: objectId,
+    currentUserId: z.string().min(1),
   }),
 });
 
@@ -452,6 +460,42 @@ getRoomMessages: async (request: Request, h: ResponseToolkit) => {
         message: error?.message || "Internal Server Error",
       })
       .code(500);
+  }
+},
+
+getSeenUsers: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = GetSeenUsersValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+      
+    const payload = parsed?.data?.params as any;
+
+    const result = await getSeenUsersService(
+      payload.messageId,
+      payload.currentUserId
+    );
+
+    return h
+      .response({
+        success: true,
+        message: tenantChatMessages.GET_SEEN_USERS_SUCCESS,
+        data: result,
+      })
+      .code(200);
+
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message: err.message || "Internal Server Error",
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
   }
 },
 deleteRoom: async (request: Request, h: ResponseToolkit) => {
