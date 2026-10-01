@@ -45,6 +45,19 @@ const register = async (server: Server): Promise<void> => {
     },
 
     {
+      method: "POST",
+      path: "/chat/seen",
+      options: {
+        handler: handler.markSeen,
+        description: tenantChatMessages.MARK_SEEN,
+        tags: ["api", "Chat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    {
       method: "GET",
       path: "/chat-room",
       handler: handler.getChatRooms,
@@ -84,6 +97,15 @@ const register = async (server: Server): Promise<void> => {
         auth: false,
       },
     },
+    {
+    method: "DELETE",
+    path: "/chat-room/{roomId}",
+    handler: handler.deleteRoom,
+    options: {
+      description: "Soft delete chat room",
+      tags: ["api", "Chat"],
+    },
+  },
   ];
   server.route(routes);
 };

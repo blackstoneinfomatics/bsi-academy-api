@@ -1173,6 +1173,7 @@ export const tenantChatMessages = {
   MARK_AS_READ: "Mark Messages As Read",
   ADD_ROOM_MEMBER: "Add Room Member",
   REMOVE_ROOM_MEMBER: "Remove Room Member",
+  MARK_SEEN : "Mark Messages As Seen",
 
   // 🔹 Success Responses
   CREATE_CHAT_ROOM_SUCCESS: "Chat room created successfully.",
@@ -1183,6 +1184,7 @@ export const tenantChatMessages = {
   MARK_AS_READ_SUCCESS: "Messages marked as read.",
   ADD_ROOM_MEMBER_SUCCESS: "Member added to chat room successfully.",
   REMOVE_ROOM_MEMBER_SUCCESS: "Member removed from chat room successfully.",
+  MARK_SEEN_SUCCESS: "Messages marked as seen successfully.",
 
   // 🔹 Validation Messages
   ROOM_ID_REQUIRED: "RoomId is required.",

@@ -2,10 +2,12 @@ import { Request,ResponseToolkit } from "@hapi/hapi";
 import { throwError } from "../../helpers/throwError";
 import {
   createChatRoom,
+  deleteChatRoomService,
   getChatRoomsOperation,
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
   getRoomMessagesOperation,
+  markMessageSeenService,
   sendMessageService,
   updateChatRoomService,
 } from "../../operations/tenantChat";
@@ -80,6 +82,26 @@ export const UpdateChatRoomValidation = z.object({
     updatedBy: z.string(),
   }),
   roomId: z.string(),
+});
+
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+export const MarkSeenValidation = z.object({
+  payload: z.object({
+    roomId: objectId,
+    messageId: objectId,
+    userId: z.string().min(1),
+  }),
+});
+
+
+export const DeleteChatRoomValidation = z.object({
+  params: z.object({
+    roomId: objectId,
+  }),
+  payload: z.object({
+    deletedBy: z.string().min(1),
+  }),
 });
 
 export default{
@@ -184,6 +206,38 @@ const result = await updateChatRoomService({
     }).code(err.statusCode || 500);
   }
 },
+  markSeen: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = MarkSeenValidation.safeParse({
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      const payload = parsed?.data?.payload as any;
+
+      const result = await markMessageSeenService(payload);
+
+      return h
+        .response({
+          success: true,
+          message: tenantChatMessages.MARK_SEEN_SUCCESS,
+          data: result,
+        })
+        .code(200);
+
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 
 getChatRooms : async (request: Request, h: ResponseToolkit) => {
   try {
@@ -392,6 +446,45 @@ getRoomMessages: async (request: Request, h: ResponseToolkit) => {
       .code(500);
   }
 },
+deleteRoom: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = DeleteChatRoomValidation.safeParse({
+        params: request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+      
+      const payload = parsed?.data as any;
+
+      const { roomId } = payload.params;
+      const { deletedBy } = payload.payload;
+
+      const result = await deleteChatRoomService({
+        roomId,
+        deletedBy,
+      });
+
+      return h
+        .response({
+          success: true,
+          message: "Chat room deleted successfully",
+          data: result,
+        })
+        .code(200);
+
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 
 }
 

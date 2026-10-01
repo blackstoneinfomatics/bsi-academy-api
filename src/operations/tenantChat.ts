@@ -83,13 +83,19 @@ export const getUnreadRoomCodes = async (
 };
 
 
+interface MarkSeenPayload {
+  roomId: string;
+  messageId: string;
+  userId: string;
+}
+
 const TENANT_TYPE = /^\s*TENANT\s*$/;
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const buildFilter = (search?: string) => {
   const filter: Record<string, any> = {
-    status: "ACTIVE",
+    status: ChatRoomStatus.ACTIVE,
     isEnabled: true,
     deletedAt: null,
     type: { $in: ["SEGMENT", TENANT_TYPE] },
@@ -1338,4 +1344,169 @@ export const getRoomMessagesOperation = async ({
         : Math.ceil(total / limit),
     },
   };
+};
+
+export const markMessageSeenService = async (
+  payload: MarkSeenPayload
+) => {
+  try {
+    const { roomId, messageId, userId } = payload;
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const room = await tenantChatRoom.findOne({
+      _id: roomId,
+      deletedAt: null,
+      isEnabled: true,
+    });
+
+    if (!room) {
+      throwError("Chat room not found", 404);
+    }
+
+    const member = await TenantRoomMemberModel.findOne({
+      roomId,
+      userId,
+      isActive: true,
+      deletedAt: null,
+    });
+
+    if (!member) {
+      throwError("User not part of this room", 403);
+    }
+
+    const message = await ChatMessageModel.findOne({
+      _id: messageId,
+      roomId,
+      deletedAt: null,
+    });
+
+    if (!message) {
+      throwError("Message not found in this room", 404);
+    }
+
+
+    if (
+      member?.lastSeenMessageId &&
+      new Types.ObjectId(member?.lastSeenMessageId).toString() ===
+        messageId
+    ) {
+      return {
+        roomId,
+        userId,
+        messageId,
+        alreadySeen: true,
+      };
+    }
+
+    await TenantRoomMemberModel.updateOne(
+      { roomId, userId },
+      {
+        $set: {
+          lastSeenMessageId: messageId,
+          lastSeenAt: new Date(),
+        },
+      }
+    );
+
+    // // 🔹 7. Socket emit (non-blocking)
+    // try {
+    //   io.to(roomId.toString()).emit("chat:seen", {
+    //     roomId,
+    //     userId,
+    //     messageId,
+    //   });
+    // } catch (socketErr) {
+    //   console.error("Socket emit failed:", socketErr);
+    // }
+
+    return {
+      roomId,
+      userId,
+      messageId,
+      seenAt: new Date(),
+    };
+  } catch (err: any) {
+    console.error("markMessageSeenService Error:", err);
+
+    throwError(
+      err.message || "Failed to update seen status",
+      err.statusCode || 500
+    );
+  }
+};
+
+export const deleteChatRoomService = async (payload: {
+  roomId: string;
+  deletedBy: string;
+}) => {
+  try {
+    const { roomId, deletedBy } = payload;
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    const room = await tenantChatRoom.findOne({
+      _id: roomId,
+      deletedAt: null,
+    });
+
+    if (!room) {
+      throwError("Chat room not found", 404);
+    }
+
+    // 🔹 (optional auth check)
+    // if (room.createdBy !== deletedBy) throwError("Not allowed", 403);
+
+    await tenantChatRoom.updateOne(
+      { _id: roomId },
+      {
+        $set: {
+          deletedAt: new Date(),
+          status: ChatRoomStatus.DELETED,
+          isEnabled: false,
+          updatedBy: deletedBy,
+        },
+      }
+    );
+
+    await TenantRoomMemberModel.updateMany(
+      { roomId },
+      {
+        $set: {
+          deletedAt: new Date(),
+          isActive: false,
+          updatedBy: deletedBy,
+        },
+      }
+    );
+
+    // // 🔹 socket emit
+    // try {
+    //   io.to(roomId.toString()).emit("chat:room-deleted", {
+    //     roomId,
+    //   });
+    // } catch (e) {
+    //   console.error("Socket emit failed:", e);
+    // }
+
+    return {
+      roomId,
+      deletedAt: new Date(),
+    };
+  } catch (err: any) {
+    console.error("deleteChatRoomService Error:", err);
+
+    throwError(
+      err.message || "Failed to delete chat room",
+      err.statusCode || 500
+    );
+  }
 };
