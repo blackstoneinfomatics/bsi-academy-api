@@ -1,7 +1,7 @@
 import { TenantRoomMemberModel } from "../models/tenantChatRoomMember";
 import { ChatMessageModel as TenantChatMessage } from "../models/tenantChatMessage";
 import { ITenantChatRoom } from "../../types/models.types";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { ChatRoomStatus, ChatRoomType, Status } from "../shared/enum";
 import TenantUsers from "../models/users";
 import TenantModel from "../models/tenants";
@@ -233,6 +233,49 @@ const result = await tenantChatRoom.find({
          result
   };
 };
+
+
+const buildReplyChain = async (
+  messageId: Types.ObjectId | string | undefined,
+  visited = new Set<string>()
+): Promise<any | null> => {
+  if (!messageId) {
+    return null;
+  }
+
+  const id = messageId.toString();
+
+  // Prevent infinite loop
+  if (visited.has(id)) {
+    return null;
+  }
+
+  visited.add(id);
+
+  const message = await TenantChatMessage.findById(messageId).lean();
+
+  if (!message) {
+    return null;
+  }
+
+  const result: any = {
+    messageId: message._id,
+    message: message.message,
+    senderId: message.senderId,
+    senderName: message.senderName,
+  };
+
+  if (message.replyTo?.messageId) {
+    result.replyTo = await buildReplyChain(
+      message.replyTo.messageId,
+      visited
+    );
+  }
+
+  return result;
+};
+
+
 
 
 export const createChatRoom = async (
@@ -1107,4 +1150,171 @@ export const updateChatRoomService = async (payload: {
   } catch (err: any) {
     throwError(err.message || "Failed to update chat room", err.statusCode || 500);
   }
+
+};
+
+
+export const getRoomMessagesOperation = async ({
+  roomId,
+  userId,
+  all = false,
+  page = 1,
+  limit = 20,
+}: {
+  roomId: string;
+  userId?: string;
+  all?: boolean;
+  page?: number;
+  limit?: number;
+}) => {
+  const skip = (page - 1) * limit;
+
+  const isObjectId = Types.ObjectId.isValid(roomId);
+
+
+  const room = isObjectId
+    ? await tenantChatRoom
+        .findById(new Types.ObjectId(roomId))
+        .lean()
+    : await tenantChatRoom
+        .findOne({ roomCode: roomId })
+        .lean();
+
+  console.log("ROOM DEBUG", {
+    requestedRoomId: roomId,
+    isObjectId,
+    database: tenantChatRoom.db.name,
+    collection: tenantChatRoom.collection.name,
+    roomFound: Boolean(room),
+    resolvedRoomId: room?._id?.toString(),
+  });
+
+  if (!room) {
+    return {
+      roomNotFound: true as const,
+    };
+  }
+
+  const resolvedRoomId = room._id;
+
+  let tenantUser: { userId: string } | null = null;
+
+  if (userId) {
+    tenantUser = await TenantUsers.findOne({ userId })
+      .select("userId")
+      .lean();
+
+    if (!tenantUser) {
+      return {
+        userNotFound: true as const,
+      };
+    }
+
+    const member = await TenantRoomMemberModel.findOne({
+      roomId: resolvedRoomId,
+      userId: tenantUser.userId,
+      isActive: true,
+      deletedAt: null,
+    })
+      .select("userId")
+      .lean();
+
+    if (!member) {
+      return {
+        forbidden: true as const,
+      };
+    }
+  }
+
+  let lastMessageDetails = null;
+
+  if (room.lastMessage?.messageId) {
+    lastMessageDetails = await TenantChatMessage.findById(
+      room.lastMessage.messageId,
+    ).lean();
+  }
+
+  const filter = {
+    roomId: resolvedRoomId,
+    deletedAt: null,
+  };
+
+  const total = await TenantChatMessage.countDocuments(filter);
+
+  let messageQuery = TenantChatMessage.find(filter).sort({
+    createdAt: 1,
+    _id: 1,
+  });
+
+  if (!all) {
+    messageQuery = messageQuery.skip(skip).limit(limit);
+  }
+
+  const messages = await messageQuery.lean();
+
+  console.log("MESSAGE DEBUG", {
+    database: TenantChatMessage.db.name,
+    collection: TenantChatMessage.collection.name,
+    roomId: resolvedRoomId.toString(),
+    total,
+    returned: messages.length,
+  });
+
+  console.log(
+    "MESSAGE REPLY_TO DB CHECK",
+    messages.map((message) => ({
+      messageId: message._id.toString(),
+      hasReplyTo: Boolean(message.replyTo),
+      replyToMessageId:
+        message.replyTo?.messageId?.toString() ?? null,
+    })),
+  );
+
+
+  const formattedMessages = await Promise.all(
+    messages.map(async (message) => ({
+      ...message,
+
+      timestamp: message.createdAt,
+
+      side:
+        tenantUser &&
+        message.senderId === tenantUser.userId
+          ? "right"
+          : "left",
+
+      replyTo: message.replyTo?.messageId
+        ? await buildReplyChain(message.replyTo.messageId)
+        : null,
+    })),
+  );
+
+  return {
+    room: {
+      ...room,
+
+      // Keep the existing room lastMessage data
+      lastMessage: room.lastMessage
+        ? {
+            ...room.lastMessage,
+
+            // Complete chat message
+            messageDetails: lastMessageDetails,
+          }
+        : null,
+    },
+
+    messages: formattedMessages,
+
+    pagination: {
+      page: all ? 1 : page,
+      limit: all ? total : limit,
+      total,
+      totalPages: all
+        ? total
+          ? 1
+          : 0
+        : Math.ceil(total / limit),
+    },
+  };
 };

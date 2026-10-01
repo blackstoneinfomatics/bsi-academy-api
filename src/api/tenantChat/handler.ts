@@ -5,6 +5,7 @@ import {
   getChatRoomsOperation,
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
+  getRoomMessagesOperation,
   sendMessageService,
   updateChatRoomService,
 } from "../../operations/tenantChat";
@@ -47,6 +48,18 @@ export const SendChatMessageValidation = z.object({
 export const getGroupDetailsValidation = z.object({
   params: z.object({
     roomId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid roomId"),
+  }),
+});
+
+export const getRoomMessagesValidation = z.object({
+  params: z.object({
+    roomId: z.string().regex(/^(?:[a-f\d]{24}|ROOM-\d+)$/i, "Invalid roomId or roomCode"),
+  }),
+  query: z.object({
+    userId: z.string().min(1).optional(),
+    all: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
   }),
 });
 
@@ -277,6 +290,99 @@ getGlobalChatGroups: async (request: Request, h: ResponseToolkit) => {
       .code(200);
   } catch (error: any) {
     console.error("getGroupDetailsHandler error:", error);
+
+    return h
+      .response({
+        statusCode: 500,
+        message: error?.message || "Internal Server Error",
+      })
+      .code(500);
+  }
+},
+
+getRoomMessages: async (request: Request, h: ResponseToolkit) => {
+  const parsed = getRoomMessagesValidation.safeParse({
+    params: request.params,
+    query: request.query,
+  });
+
+  console.log("RAW REQUEST QUERY:", request.query);
+  console.log(
+    "PARSED QUERY:",
+    parsed.success ? parsed.data.query : parsed.error
+  );
+
+  if (!parsed.success) {
+    return h
+      .response({
+        statusCode: 400,
+        message:
+          parsed.error.issues[0]?.message ||
+          "Invalid request parameters",
+      })
+      .code(400);
+  }
+
+  try {
+    const roomId = parsed.data.params.roomId;
+    const page = parsed.data.query.page;
+    const limit = parsed.data.query.limit;
+
+    // Get userId from validated query parameter
+    const userId = parsed.data.query.userId;
+
+    console.log("getRoomMessages request", {
+      roomId,
+      page,
+      limit,
+      userId,
+      hasUserId: Boolean(userId),
+    });
+
+    const data = await getRoomMessagesOperation({
+      roomId,
+      userId,
+      all: parsed.data.query.all,
+      page,
+      limit,
+    });
+
+    if ("userNotFound" in data) {
+      return h
+        .response({
+          statusCode: 404,
+          message: "Tenant user not found",
+        })
+        .code(404);
+    }
+
+    if ("forbidden" in data) {
+      return h
+        .response({
+          statusCode: 403,
+          message: "User is not a member of this room",
+        })
+        .code(403);
+    }
+
+    if ("roomNotFound" in data) {
+      return h
+        .response({
+          statusCode: 404,
+          message: "Chat room not found",
+        })
+        .code(404);
+    }
+
+    return h
+      .response({
+        statusCode: 200,
+        message: "Chat messages fetched successfully",
+        data,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error("getRoomMessagesHandler error:", error);
 
     return h
       .response({
