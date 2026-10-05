@@ -3,6 +3,7 @@ import config from '../config/env';
 import CryptoJS from 'crypto-js';
 import jwt from 'jsonwebtoken';
 import { isNil } from 'lodash';
+import { randomInt } from 'crypto';
 
 interface RedisData {
   jobProfilingId: string;
@@ -13,6 +14,18 @@ interface RedisData {
   tenantId: string;
 }
 
+const ROLE_SHORT: Record<string, string> = {
+  ADMIN: "ADM",
+  SUPERADMIN: "SAD",
+  USER: "USR",
+  MANAGER: "MGR",
+};
+
+const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const LOWER = 'abcdefghijklmnopqrstuvwxyz';
+const NUM = '0123456789';
+const SPECIAL = '!@#$%^&*';
+const ALL = UPPER + LOWER + NUM + SPECIAL;
 
 const secretKey = "my-secret-key";
 
@@ -116,3 +129,42 @@ export const convertHtmlTemplateToString = (value: string): string => value.repl
 
 
 export const generateRandom8Digit = (): number => Math.floor(10000000 + Math.random() * 90000000);
+
+
+export const generateRandomPassword = ( length : number = 12 ) : string =>{
+    if( length < 8 ) {
+        throw new Error("Password length should be at least 8 characters.");
+    }
+
+    let password = '';
+
+    password += UPPER[randomInt(UPPER.length)];
+    password += LOWER[randomInt(LOWER.length)];
+    password += NUM[randomInt(NUM.length)];
+    password += SPECIAL[randomInt(SPECIAL.length)];
+
+    for(let i = password.length; i < length; i++){
+        password += ALL[randomInt(ALL.length)];
+    }
+
+    return shuffle(password);
+}
+
+function shuffle(str: string): string {
+  const arr = str.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+
+export function generateUserId(role: string[]): string {
+  const primaryRole = role?.[0] || "USER";
+
+  const roleShort = ROLE_SHORT[primaryRole] || "USR";
+
+  const number = randomInt(10000, 99999); // ✅ 5-digit number
+
+  return `BSI${roleShort}-${number}`;
+}

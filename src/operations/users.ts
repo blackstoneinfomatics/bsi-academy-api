@@ -2,9 +2,22 @@ import { Types } from "mongoose";
 import UserModel from "../models/users";
 import { IUser, IUserCreate } from "../../types/models.types";
 import { appStatus } from "../config/messages";
-import {  isNil } from "lodash";
-import { GetAllRecordsParams, GetAlluserRecordsParams } from "../shared/enum";
+import { isNil } from "lodash";
+import {
+  GetAllRecordsParams,
+  GetAlluserRecordsParams,
+  Status,
+} from "../shared/enum";
 import RecruitmentModel from "../models/recruitment";
+import TenantModel from "../models/tenants";
+import { throwError } from "../helpers/throwError";
+import {
+  generateRandomPassword,
+  generateUserId,
+  hashPassword,
+} from "../shared/common";
+import emailTemplate from "../models/emailTemplate";
+import { sendEmailClient } from "../shared/email";
 /**
  * Retrieves all user records for a given tenant, with support for search, pagination, sorting, role filtering, and excluding passwords.
  *
@@ -16,7 +29,7 @@ import RecruitmentModel from "../models/recruitment";
  */
 
 export const getAllUserRecords = async (
-  params: GetAlluserRecordsParams
+  params: GetAlluserRecordsParams,
 ): Promise<{ users: IUser[]; totalCount: number }> => {
   const { role } = params;
 
@@ -29,7 +42,6 @@ export const getAllUserRecords = async (
   return { users, totalCount };
 };
 
-
 /**
  * Retrieves a user record by its ID, optionally filtered by role, excluding the password.
  *
@@ -39,7 +51,7 @@ export const getAllUserRecords = async (
  */
 export const getUserRecordById = async (
   id: string,
-  role?: string
+  role?: string,
 ): Promise<any> => {
   const query: any = { userId: new Types.ObjectId(id) };
   if (!isNil(role)) query.role = role;
@@ -58,7 +70,6 @@ export const getUserRecordById = async (
   };
 };
 
-
 /**
  * Fetches an active user record from the database based on the provided query, optionally filtered by role.
  *
@@ -66,7 +77,12 @@ export const getUserRecordById = async (
  * @returns {Promise<IUser | null>} - Returns a promise that resolves to the matched user record or null if no match is found.
  */
 export const getActiveUserRecord = async (
-  query: Partial<{ id: string; userName: string; tenantId: string; role: string }>
+  query: Partial<{
+    id: string;
+    userName: string;
+    tenantId: string;
+    role: string;
+  }>,
 ): Promise<IUser | null> => {
   const { id, userName, tenantId, role } = query;
   console.info("[users:getActiveUserRecord] Looking up active user", {
@@ -101,7 +117,7 @@ export const getActiveUserRecord = async (
  */
 
 export const createUser = async (
-  payload: IUserCreate
+  payload: IUserCreate,
 ): Promise<Omit<IUser, "password">> => {
   // Create a new instance of the UserModel with the provided data
   const newUser = new UserModel(payload);
@@ -128,16 +144,12 @@ export const createUser = async (
 export const updateUser = async (
   id: string,
   payload: Partial<Omit<IUser, "password">>,
-  role?: string
+  role?: string,
 ): Promise<Omit<IUser, "password"> | null> => {
   const query: any = { _id: new Types.ObjectId(id) };
   if (!isNil(role)) query.role = role;
 
-  return UserModel.findOneAndUpdate(
-    query,
-    { $set: payload },
-    { new: true }
-  )
+  return UserModel.findOneAndUpdate(query, { $set: payload }, { new: true })
     .select("-password")
     .lean();
 };
@@ -151,7 +163,7 @@ export const updateUser = async (
  */
 export const deleteUserById = async (
   id: string,
-  role?: string
+  role?: string,
 ): Promise<{ acknowledged: boolean; deletedCount: number }> => {
   const query: any = { _id: new Types.ObjectId(id) };
   if (!isNil(role)) query.role = role;
@@ -168,7 +180,7 @@ export const deleteUserById = async (
  */
 export const bulkDeleteUsers = async (
   ids: string[],
-  role?: string
+  role?: string,
 ): Promise<(Omit<IUser, "password"> | null)[]> => {
   const bulkOps = ids.map((id) => ({
     updateOne: {
@@ -231,15 +243,16 @@ export const getTeacherCardCount = async () => {
     },
   ]);
 
-  return teacherCount[0] || {
-    teacherTotalCount: 0,
-    activeTeacher: 0,
-    inActiveTeacher: 0,
-    leaveOnTeacher: 0,
-    overallCount: 0,
-  };
+  return (
+    teacherCount[0] || {
+      teacherTotalCount: 0,
+      activeTeacher: 0,
+      inActiveTeacher: 0,
+      leaveOnTeacher: 0,
+      overallCount: 0,
+    }
+  );
 };
-
 
 export const getTeacherGenderCountDetails = async () => {
   const teacherCount = await UserModel.aggregate([
@@ -291,8 +304,10 @@ export const getTeacherGenderCountDetails = async () => {
   };
 };
 
-
-export const getOtherEmployeesDetails = async (): Promise<{ users: IUser[]; totalCount: number }> => {
+export const getOtherEmployeesDetails = async (): Promise<{
+  users: IUser[];
+  totalCount: number;
+}> => {
   const users = await UserModel.find({
     role: { $ne: "TEACHER" },
   }).exec();
@@ -302,8 +317,7 @@ export const getOtherEmployeesDetails = async (): Promise<{ users: IUser[]; tota
   return { users, totalCount };
 };
 
-export const getOtherEmpCardCount = async() =>{
-
+export const getOtherEmpCardCount = async () => {
   const otherempCount = await UserModel.aggregate([
     {
       $match: {
@@ -321,30 +335,31 @@ export const getOtherEmpCardCount = async() =>{
       $sort: { count: -1 }, // Optional: sort descending
     },
   ]);
-  
+
   const totalOtherEmpCount = await UserModel.countDocuments({
-     status: "Active", // Optional filter
-     role: { $ne: "TEACHER" },
+    status: "Active", // Optional filter
+    role: { $ne: "TEACHER" },
   }).exec();
-  
+
   const results: any[] = [];
-  
+
   for (const otherempDetails of otherempCount) {
-    let studentCountryPercentage = ((otherempDetails.count / totalOtherEmpCount) * 100).toFixed(2);
+    let studentCountryPercentage = (
+      (otherempDetails.count / totalOtherEmpCount) *
+      100
+    ).toFixed(2);
     results.push({
       country: otherempDetails._id,
       count: otherempDetails.count,
       percentage: parseFloat(studentCountryPercentage),
     });
   }
-  
-  
-  return { totalOtherEmpCount, otherEmpCount: results };
 
+  return { totalOtherEmpCount, otherEmpCount: results };
 };
 
-export const getOtherEmpGender = async() => {
-  const otherEmpCount= await UserModel.aggregate([
+export const getOtherEmpGender = async () => {
+  const otherEmpCount = await UserModel.aggregate([
     {
       $match: {
         role: { $ne: "TEACHER" },
@@ -355,7 +370,9 @@ export const getOtherEmpGender = async() => {
         _id: null,
         otherEmpTotalCount: { $sum: 1 },
         maleEmployee: { $sum: { $cond: [{ $eq: ["$gender", "Male"] }, 1, 0] } },
-        femaleEmployee: { $sum: { $cond: [{ $eq: ["$gender", "Female"] }, 1, 0] } },
+        femaleEmployee: {
+          $sum: { $cond: [{ $eq: ["$gender", "Female"] }, 1, 0] },
+        },
       },
     },
     {
@@ -363,9 +380,91 @@ export const getOtherEmpGender = async() => {
     },
   ]);
   const employeePercentage = otherEmpCount[0].otherEmpTotalCount;
-  const employeeMalePercentage = ((otherEmpCount[0].maleEmployee/ otherEmpCount[0].otherEmpTotalCount)*100).toFixed(2);
-  const employeeFemalePercentage = ((otherEmpCount[0].femaleEmployee/ otherEmpCount[0].otherEmpTotalCount)*100).toFixed(2);
-  
-  return {employeePercentage, employeeMalePercentage, employeeFemalePercentage};
+  const employeeMalePercentage = (
+    (otherEmpCount[0].maleEmployee / otherEmpCount[0].otherEmpTotalCount) *
+    100
+  ).toFixed(2);
+  const employeeFemalePercentage = (
+    (otherEmpCount[0].femaleEmployee / otherEmpCount[0].otherEmpTotalCount) *
+    100
+  ).toFixed(2);
 
-}
+  return {
+    employeePercentage,
+    employeeMalePercentage,
+    employeeFemalePercentage,
+  };
+};
+
+export const createAdminUserByTenantId = async (
+  tenantId: string,
+  createdBy: string,
+) => {
+  const tenant = await TenantModel.findOne({
+    _id: tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenant) {
+    throwError("Tenant not found", 404);
+  }
+
+  const existingAdmin = await UserModel.findOne({
+    tenantId,
+    role: ["ADMIN"],
+    deletedAt: null,
+  });
+
+  if (existingAdmin) {
+    return existingAdmin;
+  }
+
+  const plainPassword = generateRandomPassword(12);
+  const userId = generateUserId(["ADMIN"]);
+  const hashedPassword = await hashPassword(plainPassword);
+  const now = new Date();
+  const payload: IUserCreate = {
+    tenantId,
+    userName: tenant?.tenantName || "Admin",
+    userId: userId,
+    gender: "Male",
+    email: tenant?.emailId || `admin+${tenantId}@example.com`,
+    password: hashedPassword,
+    role: ["ADMIN"],
+    lastLoginDate: undefined,
+    country: tenant?.country || "Unknown",
+    status: appStatus.ACTIVE,
+    profileImage: tenant?.tenantLogo || null,
+    createdDate: now,
+    createdBy,
+    lastUpdatedDate: now,
+    lastUpdatedBy: createdBy,
+  };
+
+  const user = await createUser(payload);
+  const Email = await emailTemplate
+    .findOne({
+      templateKey: `tenant-newadmin-login`,
+    })
+    .exec();
+  const template = Email?.templateContent || "";
+  if (!Email) {
+    throw new Error(`Email template not found.`);
+  }
+  const subject = "Application Created Successfully";
+
+  const message = template
+    .replace(/{{userName}}/g, payload.userName)
+    .replace(/{{tenantName}}/g, tenant?.tenantName || "")
+    .replace(/{{password}}/g, plainPassword);
+
+  const emailTo = [
+    {
+      email: tenant?.emailId || `admin+${tenantId}@example.com`,
+      name: tenant?.tenantName || "Admin",
+    },
+  ];
+
+  await sendEmailClient(emailTo, subject, message);
+  console.log("Application Created Successfully");
+};

@@ -13,6 +13,8 @@ import { ChatMessageType } from "../shared/enum";
 import { ChatMessageModel } from "../models/tenantChatMessage";
 import { getTenantsByPlan } from "./tenantSubscription.";
 import planModel from "../models/plan-model";
+import TrialMembers from "../models/trailmember";
+import { randomInt } from 'crypto';
 
 
 type CreateChatRoomInput = {
@@ -66,6 +68,21 @@ interface SendMessagePayload {
   senderName: string;
   senderRole?: string;
 }
+
+
+const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+async function randomCode(length = 6): Promise<string> {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += CHARSET[randomInt(CHARSET.length)];
+  }
+  return result;
+}
+
+export const generateRoomCode = async (prefix = 'ROOM'): Promise<string> => {
+  return `${prefix}-${await randomCode(6)}`;
+};
 
 export const getUnreadRoomCodes = async (
   userId: string,
@@ -377,8 +394,7 @@ export const createChatRoom = async (
 
     if (existingRoom) return existingRoom;
 
-    const count = await tenantChatRoom.countDocuments();
-    const roomCode = `ROOM-${String(count + 1).padStart(4, "0")}`;
+    const roomCode = await generateRoomCode();
 
     const room = await tenantChatRoom.create({
       roomCode,
@@ -458,6 +474,100 @@ export const createChatRoom = async (
     }
 
     return room;
+};
+
+export const createChatRoomForTrial = async (
+  payload: CreateChatRoomInput,
+): Promise<ITenantChatRoom> => {
+  const { tenantId, name,planName, description, createdBy } = payload;
+
+
+  if (!tenantId) {
+    throwError("tenantId required", 400);
+  }
+
+  const existingRoom = await tenantChatRoom.findOne({
+    type: ChatRoomType.TENANT,
+    tenantId,
+    deletedAt: null,
+  });
+
+  if (existingRoom) return existingRoom;
+
+  const roomCode = await generateRoomCode();
+
+  const room = await tenantChatRoom.create({
+    roomCode,
+    type: ChatRoomType.TENANT,
+    tenantId,
+    tenantIds: [], 
+    segmentKey: null,
+    planName: payload.planName.toLocaleUpperCase(),
+    name,
+    description,
+    createdBy,
+  });
+
+  const tenantUsers = await TrialMembers.find({
+    tenantId,
+    role: "ADMIN",
+    status: appStatus.ACTIVE,
+  })
+    .select("userId tenantId userName role")
+    .lean<{
+      userId: string;
+      tenantId: string;
+      userName: string;
+      role: string[];
+    }[]>();
+
+  const superAdminTenant = await Lookup.findOne({
+    lookupKey: "SUPER_ADMIN",
+    status: "Active",
+  }).lean();
+
+  if (!superAdminTenant) {
+    throwError("Super admin tenant not found", 404);
+  }
+
+  const superAdminUser = await TenantUsers.findOne({
+    tenantId: superAdminTenant?.tenantId,
+    role: "SUPERADMIN",
+    status: appStatus.ACTIVE,
+  })
+    .select("userId tenantId userName role")
+    .lean<{
+      userId: string;
+      tenantId: string;
+      userName: string;
+      role: string[];
+    }>();
+
+  if (superAdminUser) {
+    await ensureRoomMember({
+      roomId: room._id as Types.ObjectId,
+      userId: superAdminUser.userId,
+      tenantId: superAdminUser.tenantId,
+      name: superAdminUser.userName,
+      role: superAdminUser.role?.[0] || "SUPERADMIN",
+      createdBy,
+    });
+  }
+
+  if (tenantUsers.length) {
+    await addBulkRoomMembers(
+      room._id as Types.ObjectId,
+      tenantUsers.map((u) => ({
+        userId: u.userId,
+        tenantId: u.tenantId,
+        name: u.userName,
+        role: u.role?.[0] || "ADMIN",
+      })),
+      createdBy,
+    );
+  }
+
+  return room;
 };
 
 export const ensureRoomMember = async (payload: AddRoomMemberInput) => {
@@ -1458,6 +1568,18 @@ export const markMessageSeenService = async (
     );
   }
 };
+
+export const deleteChatRoomForTrialByTenantId = async (tenantId: string) => {
+   const Room = await tenantChatRoom.findOne({
+    type: ChatRoomType.TENANT,
+    tenantId,
+    planName: "TRIAL",
+    deletedAt: null,
+  }).lean();
+  if (Room) {
+    await deleteChatRoomService({ roomId: Room._id.toString(), deletedBy: "SYSTEM" });
+  }
+}
 
 export const deleteChatRoomService = async (payload: {
   roomId: string;

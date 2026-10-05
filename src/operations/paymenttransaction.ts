@@ -12,11 +12,14 @@ import {
   SubscriptionInvoiceStatus,
   SubscriptionStatus,
   BillingCycle,
+  ChatRoomType,
 } from "../shared/enum";
 import { paymentMessages, customServiceInvoiceMessages } from "../config/messages";
 import { throwError } from "../helpers/throwError";
 import { updateSubscriptionTrial, updateTrailConvertedByTenantId } from "./subscriptiontrial";
 import { syncTenantSubscriptionToTenantPortal } from "./tenantPortal";
+import { createChatRoom } from "./tenantChat";
+import { createAdminUserByTenantId } from "./users";
 
 const stripe = new Stripe(config.stripeKey.stripesecretkey);
 
@@ -249,12 +252,24 @@ export class PaymentService {
         subscription.endDate = endDate;
         subscription.nextRenewalDate = endDate;
 
-        updateTrailConvertedByTenantId(invoice.tenantId);
+        await updateTrailConvertedByTenantId(invoice.tenantId);
 
         await subscription.save();
 
-        await syncTenantSubscriptionToTenantPortal(invoice.subscriptionId.toString());
+        await createAdminUserByTenantId(invoice.tenantId, "SYSTEM");
 
+        const createChatRoomPayload = {
+            type :ChatRoomType.TENANT,
+            tenantId : subscription.tenantId,
+            name: subscription.tenantName,
+            planName:subscription.planName,
+            description:"Tenant Chat Room",
+            createdBy:"SYSTEM"
+          }
+          await createChatRoom(createChatRoomPayload);
+
+        await syncTenantSubscriptionToTenantPortal(invoice.subscriptionId.toString());
+        
         return {
           success: true,
           message: paymentMessages.CONFIRM_PAYMENT_SUCCESS,

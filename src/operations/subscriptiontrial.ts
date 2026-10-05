@@ -10,6 +10,7 @@ import {
   subscriptionTrialMessages,
 } from "../config/messages";
 import Tenants from "../models/tenants";
+import { deleteChatRoomForTrialByTenantId, deleteChatRoomService } from "./tenantChat";
 
 export const getSubscriptionTrials = async (query: any) => {
   try {
@@ -543,13 +544,13 @@ export const updateSubscriptionTrial = async (
   }
 };
 
-export const updateTrailConvertedByTenantId = (tenantId: string) => {
+export const updateTrailConvertedByTenantId = async(tenantId: string) => {
   try {
     if (!tenantId) {
       throwError(subscriptionTrialMessages.TENANT_NOT_FOUND, 404);
       return;
     }
-    SubscriptionTrial.findOneAndUpdate(
+   await SubscriptionTrial.findOneAndUpdate(
       {
         tenantId: tenantId,
       },
@@ -559,6 +560,9 @@ export const updateTrailConvertedByTenantId = (tenantId: string) => {
         status: SubscriptionTrialStatus.CONVERTED,
       },
     );
+     
+    await deleteChatRoomForTrialByTenantId(tenantId);
+
   } catch (error: any) {
     console.log("error in trails update");
   }
