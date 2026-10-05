@@ -97,10 +97,7 @@ export const getSubscriptionTrials = async (query: any) => {
                 { case: { $eq: ["$status", "CANCELLED"] }, then: "CANCELLED" },
                 { case: { $eq: ["$status", "CONVERTED"] }, then: "CONVERTED" },
                 { case: { $eq: ["$status", "COMPLETED"] }, then: "COMPLETED" },
-                {
-                  case: { $lt: ["$trialEndDate", currentDate] },
-                  then: "EXPIRED",
-                },
+        
                 {
                   case: {
                     $and: [
@@ -229,9 +226,7 @@ export const getSubscriptionTrialById = async (trialId: string) => {
       derivedStatus = SubscriptionTrialStatus.INACTIVE;
     } else {
       if (daysLeft !== null) {
-        if (daysLeft < 0) {
-          derivedStatus = SubscriptionTrialStatus.EXPIRED;
-        } else if (daysLeft <= 3) {
+         if (daysLeft <= 3) {
           derivedStatus = SubscriptionTrialStatus.EXPIRING_SOON;
         } else {
           derivedStatus = SubscriptionTrialStatus.ACTIVE;
@@ -294,17 +289,17 @@ export const getSubscriptionTrialDashboardCount = async () => {
           activeTrials: [
             {
               $match: {
-                status: "ACTIVE",
+                status: SubscriptionTrialStatus.ACTIVE,
                 trialEndDate: { $gte: currentDate },
               },
             },
             { $count: "count" },
           ],
 
-          expiredTrials: [
+          completedTrials: [
             {
               $match: {
-                trialEndDate: { $lt: currentDate },
+                status: SubscriptionTrialStatus.COMPLETED,
               },
             },
             { $count: "count" },
@@ -332,8 +327,8 @@ export const getSubscriptionTrialDashboardCount = async () => {
           activeTrials: {
             $ifNull: [{ $arrayElemAt: ["$activeTrials.count", 0] }, 0],
           },
-          expiredTrials: {
-            $ifNull: [{ $arrayElemAt: ["$expiredTrials.count", 0] }, 0],
+          completedTrials: {
+            $ifNull: [{ $arrayElemAt: ["$completedTrials.count", 0] }, 0],
           },
           convertedCount: {
             $ifNull: [{ $arrayElemAt: ["$convertedTrials.count", 0] }, 0],
@@ -345,14 +340,14 @@ export const getSubscriptionTrialDashboardCount = async () => {
     const data = result[0] || {
       totalTrials: 0,
       activeTrials: 0,
-      expiredTrials: 0,
+      completedTrials: 0,
       convertedCount: 0,
     };
 
     return {
       totalTrials: data.totalTrials,
       activeTrials: data.activeTrials,
-      expiredTrials: data.expiredTrials,
+      completedTrials: data.completedTrials,
       convertedTrials: data.convertedCount,
     };
   } catch (error) {
@@ -417,7 +412,7 @@ export const updateSubscriptionTrial = async (
         SubscriptionTrialStatus.INACTIVE,
         SubscriptionTrialStatus.CANCELLED,
         SubscriptionTrialStatus.CONVERTED,
-        SubscriptionTrialStatus.EXPIRED,
+        // SubscriptionTrialStatus.EXPIRED,
         SubscriptionTrialStatus.COMPLETED,
       ];
 
@@ -438,9 +433,9 @@ export const updateSubscriptionTrial = async (
           emailType = "CANCELLED";
           break;
 
-        case SubscriptionTrialStatus.EXPIRED:
-          emailType = "EXPIRED";
-          break;
+        // case SubscriptionTrialStatus.EXPIRED:
+        //   emailType = "EXPIRED";
+        //   break;
 
         case SubscriptionTrialStatus.ACTIVE:
           emailType = "UPDATED";
