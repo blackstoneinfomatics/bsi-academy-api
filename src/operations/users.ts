@@ -401,7 +401,7 @@ export const createAdminUserByTenantId = async (
   createdBy: string,
 ) => {
   const tenant = await TenantModel.findOne({
-    _id: tenantId,
+    tenantCode: tenantId,
     deletedAt: null,
   }).lean();
 
