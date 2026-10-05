@@ -3,11 +3,17 @@ import { LogDocument } from "../../types/models.types";
 
 const logSchema = new Schema<LogDocument>(
 {
-  tenantId: { type: String, required: true },
+  logId: { type: String, required: true },
+  tenantId: { type: String, default: null },
   userId: { type: String, required: true ,default: 'anonymous' },
+  role: { type: String, required: false },
   logType: { type: String, enum: ['SUCCESS' , 'REDIRECT' ,  'ERROR' , 'INFO'], required: true },
   action: { type: String , required : false}, 
   description: { type: String , required : false},
+  readableDescription: {
+  type: String,
+  required: false
+},
   route: { type: String , required : false}, 
   errorMessage: { type: String , required : false},
   stack: { type: String , required : false},
@@ -20,5 +26,25 @@ const logSchema = new Schema<LogDocument>(
     timestamps: false, 
   }
 );
+
+const auditLogCounterSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    sequence: { type: Number, required: true, default: 0 },
+  },
+  { collection: "auditlog_counters", versionKey: false }
+);
+
+const AuditLogCounter = mongoose.model("AuditLogCounter", auditLogCounterSchema);
+
+export const generateAuditLogId = async (): Promise<string> => {
+  const counter = await AuditLogCounter.findOneAndUpdate(
+    { _id: "LOG" },
+    { $inc: { sequence: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `LOG-${String(counter.sequence).padStart(3, "0")}`;
+};
 
 export default mongoose.model<LogDocument>('AuditLog',logSchema);

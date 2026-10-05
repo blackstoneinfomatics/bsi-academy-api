@@ -194,9 +194,28 @@ const resolveAudienceTenantIds = async (
   }
 
   if (payload.audience.includes("Select Tenants")) {
+    const selectedTenants = await Tenants.find({
+      $or: [
+        { tenantCode: { $in: payload.selectedTenants || [] } },
+        { tenantName: { $in: payload.selectedTenants || [] } },
+      ],
+    })
+      .select({ tenantCode: 1, _id: 0 })
+      .lean();
+
+    const selectedTenantCodes = selectedTenants.map(
+      (tenant) => tenant.tenantCode,
+    );
+    const selectedSubscriptionIds = (payload.selectedTenants || [])
+      .filter((tenantId) => mongoose.isValidObjectId(tenantId))
+      .map((tenantId) => new mongoose.Types.ObjectId(tenantId));
+
     const subscriptions = await TenantSubscription.find({
       ...activeFilter,
-      tenantId: { $in: payload.selectedTenants || [] },
+      $or: [
+        { tenantId: { $in: selectedTenantCodes } },
+        { _id: { $in: selectedSubscriptionIds } },
+      ],
     })
       .select({ tenantId: 1, _id: 0 })
       .lean();
@@ -216,6 +235,22 @@ const resolveAudienceTenantIds = async (
   }
 
   return [];
+};
+
+const resolveTenantNames = async (
+  tenantCodes: string[],
+): Promise<string[]> => {
+  if (tenantCodes.length === 0) {
+    return [];
+  }
+
+  const tenants = await Tenants.find({
+    tenantCode: { $in: tenantCodes },
+  })
+    .select({ tenantName: 1, _id: 0 })
+    .lean();
+
+  return tenants.map((tenant) => tenant.tenantName);
 };
 
 const calculatePercentage = (
@@ -256,6 +291,7 @@ const calculatePercentage = (
 
 export const createUpdate = async (payload: CreateUpdateInput) => {
   const selectedTenants = await resolveAudienceTenantIds(payload);
+  const selectedTenantNames = await resolveTenantNames(selectedTenants);
   const resolvedPayload = {
     ...payload,
     selectedTenants,
@@ -271,6 +307,8 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
     selectedTenants,
 
     selectedTenantsCount: selectedTenants.length,
+
+    selectedTenantNames,
 
     description: payload.description,
 
@@ -556,6 +594,7 @@ export const getUpdatesList = async (
         category: 1,
         priority: 1,
         audience: 1,
+        selectedTenantNames: 1,
         createdAt: 1,
         publishDate: 1,
         status: 1,
@@ -604,6 +643,7 @@ export const getUpdateById = async (id: string) => {
       audience: 1,
       selectedTenants: 1,
       selectedTenantsCount: 1,
+      selectedTenantNames: 1,
       publishDate: 1,
       priority: 1,
       createdAt: 1,

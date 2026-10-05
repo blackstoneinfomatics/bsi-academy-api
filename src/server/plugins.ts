@@ -52,7 +52,9 @@ import portalModuleAPI from "../api/portalModule/router";
 import PortalAPI from  "../api/portal/router";
 import analyticsAPI from "../api/analytics/router";
 import updateAPI from "../api/update/router"
-
+import auditLogAPI from "../api/auditLog/router";
+import dashboardsaas from "../api/dashboardsaas/router";
+import tenantchat from "../api/tenantChat/router";
 
 export const appPlugins = [
   {
@@ -215,5 +217,14 @@ export const appPlugins = [
   },
   {
     plugin: updateAPI
+  },
+  {
+    plugin: auditLogAPI
+  },
+  {
+    plugin: dashboardsaas
+  },
+  {
+    plugin:tenantchat
   }
 ];

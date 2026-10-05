@@ -10,8 +10,13 @@ import PlanModel, {
 import { BillingPeriodModel } from "../models/billingperiod";
 import TenantModel from "../models/tenants";
 import TenantSubscriptionModel from "../models/tenantsubscription";
+import SubscriptionTrial from "../models/subcriptionTrial";
 import SubscriptionInvoiceModel from "../models/subscriptionInvoice";
-import { SubscriptionInvoiceStatus } from "../shared/enum";
+import RefundTransactionModel from "../models/refundTransaction";
+import {
+  RefundApprovalStatus,
+  SubscriptionInvoiceStatus,
+} from "../shared/enum";
 import Boom from "@hapi/boom";
 import { z } from "zod";
 import { planMessages } from "../config/messages";
@@ -402,12 +407,19 @@ export const deletePlan =
 
   
 export const getPlanDashboard = async () => {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
   const [
     totalPlans,
     activePlans,
     inactivePlans,
     totalTenants,
     monthlyRevenue,
+    monthlyRefunds,
+    totalRevenue,
+    totalRefunds,
     activeSubscriptions,
     trialSubscriptions,
     expiredSubscriptions,
@@ -427,15 +439,87 @@ export const getPlanDashboard = async () => {
     }),
 
     // Total Tenants
-    TenantModel.countDocuments(),
+    TenantSubscriptionModel.countDocuments({
+      deletedAt: null,
+      status: "ACTIVE",
+paymentStatus: "SUCCESS"
+    }),
 
     // Monthly Revenue
-    PlanModel.aggregate([
+    SubscriptionInvoiceModel.aggregate([
+      {
+        $match: {
+          status: SubscriptionInvoiceStatus.PAID,
+          deletedAt: null,
+          invoiceDate: {
+            $gte: monthStart,
+            $lt: nextMonthStart,
+          },
+        },
+      },
       {
         $group: {
           _id: null,
           total: {
-            $sum: "$amountPaid",
+            $sum: "$totalAmount",
+          },
+        },
+      },
+    ]),
+
+    // Approved Refunds This Month
+    RefundTransactionModel.aggregate([
+      {
+        $match: {
+          status: RefundApprovalStatus.APPROVED,
+          deletedAt: null,
+          refundedAt: {
+            $gte: monthStart,
+            $lt: nextMonthStart,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]),
+
+    // Total Revenue
+    SubscriptionInvoiceModel.aggregate([
+      {
+        $match: {
+          status: SubscriptionInvoiceStatus.PAID,
+          deletedAt: null,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$totalAmount",
+          },
+        },
+      },
+    ]),
+
+    // All Approved Refunds
+    RefundTransactionModel.aggregate([
+      {
+        $match: {
+          status: RefundApprovalStatus.APPROVED,
+          deletedAt: null,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: "$amount",
           },
         },
       },
@@ -447,8 +531,9 @@ export const getPlanDashboard = async () => {
     }),
 
     // Trial Subscriptions
-    TenantSubscriptionModel.countDocuments({
-      status: "TRIAL",
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      deletedAt: null,
     }),
 
     // Expired Subscriptions
@@ -494,15 +579,90 @@ export const getPlanDashboard = async () => {
         },
       },
       {
+        $lookup: {
+          from: "subscriptioninvoice",
+          let: { planId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                status: SubscriptionInvoiceStatus.PAID,
+                deletedAt: null,
+              },
+            },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$planId", "$$planId"],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "refundtransaction",
+                let: { invoiceId: "$_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      status: RefundApprovalStatus.APPROVED,
+                      deletedAt: null,
+                    },
+                  },
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$invoiceId", "$$invoiceId"],
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      amount: {
+                        $sum: "$amount",
+                      },
+                    },
+                  },
+                ],
+                as: "approvedRefunds",
+              },
+            },
+            {
+              $addFields: {
+                netAmount: {
+                  $subtract: [
+                    "$totalAmount",
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$approvedRefunds.amount", 0] },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                revenue: {
+                  $sum: "$netAmount",
+                },
+              },
+            },
+          ],
+          as: "paidInvoiceRevenue",
+        },
+      },
+      {
         $project: {
           _id: 0,
           planId: "$plan.planId",
           planName: "$plan.planName",
           subscribedTenants: 1,
           revenue: {
-            $multiply: [
-              "$subscribedTenants",
-              "$plan.monthlyPrice",
+            $ifNull: [
+              { $arrayElemAt: ["$paidInvoiceRevenue.revenue", 0] },
+              0,
             ],
           },
         },
@@ -522,7 +682,12 @@ export const getPlanDashboard = async () => {
 
     totalTenants,
 
-    monthlyRevenue: monthlyRevenue[0]?.total ?? 0,
+    monthlyRevenue:
+      (monthlyRevenue[0]?.total ?? 0) - (monthlyRefunds[0]?.total ?? 0),
+    monthlyRefundAmount: monthlyRefunds[0]?.total ?? 0,
+    totalRevenue:
+      (totalRevenue[0]?.total ?? 0) - (totalRefunds[0]?.total ?? 0),
+    totalRefundAmount: totalRefunds[0]?.total ?? 0,
 
     planSummary: {
       active: {
@@ -658,4 +823,20 @@ export const getPlanAnalytics = async (
     plans,
     popularPlan,
   };
+};
+
+export const getActivePlans = async () => {
+  const plans = await PlanModel.find({
+    status: "Active",
+    deletedAt: null,
+  })
+    .select({
+      _id: 1,
+      planName: 1,
+      status: 1,
+    })
+    .sort({ planName: 1 })
+    .lean();
+
+  return plans;
 };

@@ -16,6 +16,7 @@ import {
   deletePlan,
   getPlanDashboard,
   getPlanAnalytics,
+  getActivePlans,
 } from "../../operations/plan";
 import planModel, {
   createPlanValidation,
@@ -458,4 +459,35 @@ async updateBillingPeriod(
     }
   },
 
+ async getActivePlansHandler(
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const plans = await getActivePlans();
+
+    return h
+      .response({
+        success: true,
+        message: planMessages.ACTIVE_PLANS_SUCCESS,
+        data: plans,
+      })
+      .code(200);
+  } catch (error: unknown) {
+    const err = error as {
+      message?: string;
+      statusCode?: number;
+    };
+
+    return h
+      .response({
+        success: false,
+        message: err?.message || planMessages.FAILED_PLANS,
+        errorCode: err?.statusCode || 500,
+      })
+      .code(err?.statusCode || 500);
+  }
+}
+
 };
+

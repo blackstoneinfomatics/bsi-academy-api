@@ -55,7 +55,7 @@ const register = async (server: Server): Promise<void> => {
 
     {
       method: 'GET',
-      path: '/tenant/dashboard/summary',
+      path: '/tenant/analytics/dashboard/summary',
       options: {
         handler: handler.getTenantDashboardSummary,
         description: tenantDashboardMessages.SUMMARY,
@@ -67,7 +67,7 @@ const register = async (server: Server): Promise<void> => {
     },
     {
       method: 'GET',
-      path: '/tenant/dashboard/growth',
+      path: '/tenant/analytics/dashboard/growth',
       options: {
         handler: handler.getTenantDashboardGrowth,
         description: tenantDashboardMessages.GROWTH,
@@ -79,7 +79,7 @@ const register = async (server: Server): Promise<void> => {
     },
     {
       method: 'GET',
-      path: '/tenant/dashboard/activity',
+      path: '/tenant/analytics/dashboard/activity',
       options: {
         handler: handler.getTenantDashboardActivity,
         description: tenantDashboardMessages.ACTIVITY,

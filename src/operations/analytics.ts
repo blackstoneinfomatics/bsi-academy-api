@@ -473,6 +473,13 @@ export const getTenantSubscriptionActivities = async () => {
 
           activity: "$status",
 
+          activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " subscribed."
+  ]
+},
+
           tenantId: "$tenantId",
 
           tenantName: "$tenant.tenantName",
@@ -541,6 +548,13 @@ export const getTenantSubscriptionActivities = async () => {
                 type: "Payment Transaction",
 
                 activity: "$paymentStatus",
+
+                activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " made a payment."
+  ]
+},
 
                 tenantId: "$tenantId",
 
@@ -611,15 +625,23 @@ export const getTenantSubscriptionActivities = async () => {
 
                 type: "Subscription Trial",
 
-                activity: {
-                  $cond: [
-                    {
-                      $eq: ["$status", "CONVERTED"],
-                    },
-                    "Trial Converted",
-                    "$status",
-                  ],
-                },
+                activityMessage: {
+  $cond: [
+    { $eq: ["$status", "CONVERTED"] },
+    {
+      $concat: [
+        "$tenant.tenantName",
+        " converted."
+      ]
+    },
+    {
+      $concat: [
+        "$tenant.tenantName",
+        " started a trial."
+      ]
+    }
+  ]
+},
 
                 tenantId: "$tenantId",
 
@@ -693,6 +715,13 @@ export const getTenantSubscriptionActivities = async () => {
 
                 activity: "$refundStatus",
 
+activityMessage: {
+  $concat: [
+    "$tenant.tenantName",
+    " received a refund."
+  ]
+},
+
                 tenantId: "$tenantId",
 
                 tenantName: "$tenant.tenantName",
@@ -735,6 +764,13 @@ export const getTenantSubscriptionActivities = async () => {
                 type: "Tenant",
 
                 activity: "Tenant Created",
+
+activityMessage: {
+  $concat: [
+    "$tenantName",
+    " was created."
+  ]
+},
 
                 tenantId: "$tenantCode",
 
@@ -779,6 +815,7 @@ export const getAnalyticsChart = async () => {
         $match: {
           deletedAt: null,
           status: "ACTIVE",
+          paymentStatus: "SUCCESS"
         },
       },
 
@@ -864,19 +901,25 @@ export const getRevenueOverview = async (
   try {
     const now = new Date();
 
-    if (period !== "weekly" && period !== "monthly") {
+    if (
+      period !== "weekly" &&
+      period !== "monthly" &&
+      period !== "yearly"
+    ) {
       throw {
         statusCode: 400,
-        message: "Period must be weekly or monthly",
+        message: "Period must be weekly, monthly or yearly",
       };
     }
 
+    // =========================
+    // WEEKLY
+    // =========================
     if (period === "weekly") {
       const currentDay = now.getDay();
 
       // Sunday = 0
       // Monday = 1
-      // Calculate Monday
       const monday = new Date(now);
 
       const daysFromMonday =
@@ -888,7 +931,7 @@ export const getRevenueOverview = async (
 
       monday.setHours(0, 0, 0, 0);
 
-      // Sunday
+      // Next Monday
       const sunday = new Date(monday);
 
       sunday.setDate(
@@ -900,9 +943,7 @@ export const getRevenueOverview = async (
           {
             $match: {
               deletedAt: null,
-
               paymentStatus: "SUCCESS",
-
               createdAt: {
                 $gte: monday,
                 $lt: sunday,
@@ -916,7 +957,7 @@ export const getRevenueOverview = async (
                 $dateToString: {
                   format: "%Y-%m-%d",
                   date: "$createdAt",
-                  timezone: "Asia/Kolkata"
+                  timezone: "Asia/Kolkata",
                 },
               },
 
@@ -932,9 +973,7 @@ export const getRevenueOverview = async (
           {
             $match: {
               deletedAt: null,
-
               refundStatus: "SUCCESS",
-
               createdAt: {
                 $gte: monday,
                 $lt: sunday,
@@ -948,7 +987,7 @@ export const getRevenueOverview = async (
                 $dateToString: {
                   format: "%Y-%m-%d",
                   date: "$createdAt",
-                  timezone: "Asia/Kolkata"
+                  timezone: "Asia/Kolkata",
                 },
               },
 
@@ -991,8 +1030,9 @@ export const getRevenueOverview = async (
         const refundAmount =
           Number(refund?.revenue || 0);
 
-        const revenue =
-          paymentAmount - refundAmount;
+        const revenue = Math.round(
+  paymentAmount - refundAmount
+);
 
         weeklyRevenue.push({
           date: dateKey,
@@ -1030,11 +1070,165 @@ export const getRevenueOverview = async (
       };
     }
 
+    // =========================
+    // MONTHLY
+    // =========================
+
+    if (period === "monthly") {
+      const currentYear =
+        now.getFullYear();
+
+      const yearStart = new Date(
+        currentYear,
+        0,
+        1
+      );
+
+      const nextYearStart = new Date(
+        currentYear + 1,
+        0,
+        1
+      );
+
+      const paymentRevenue =
+        await PaymentTransaction.aggregate([
+          {
+            $match: {
+              deletedAt: null,
+
+              paymentStatus: "SUCCESS",
+
+              createdAt: {
+                $gte: yearStart,
+                $lt: nextYearStart,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $month: "$createdAt",
+              },
+
+              revenue: {
+                $sum: "$netAmount",
+              },
+            },
+          },
+        ]);
+
+      const refundRevenue =
+        await RefundTransaction.aggregate([
+          {
+            $match: {
+              deletedAt: null,
+
+              refundStatus: "SUCCESS",
+
+              createdAt: {
+                $gte: yearStart,
+                $lt: nextYearStart,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $month: "$createdAt",
+              },
+
+              revenue: {
+                $sum: "$netAmount",
+              },
+            },
+          },
+        ]);
+
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+
+      const monthlyRevenue = [];
+
+      for (let month = 1; month <= 12; month++) {
+        const payment =
+          paymentRevenue.find(
+            (item) =>
+              item._id === month
+          );
+
+        const refund =
+          refundRevenue.find(
+            (item) =>
+              item._id === month
+          );
+
+        const paymentAmount =
+          Number(payment?.revenue || 0);
+
+        const refundAmount =
+          Number(refund?.revenue || 0);
+
+        const revenue = Math.round(
+  paymentAmount - refundAmount
+);
+
+        monthlyRevenue.push({
+          month:
+            monthNames[month - 1],
+
+          monthNumber: month,
+
+          revenue,
+        });
+      }
+
+      const totalRevenue =
+        monthlyRevenue.reduce(
+          (total, item) =>
+            total + item.revenue,
+          0
+        );
+
+      return {
+        period: "monthly",
+
+        year: currentYear,
+
+        totalRevenue,
+
+        revenue: monthlyRevenue,
+      };
+    }
+
+    // =========================
+    // YEARLY
+    // =========================
+
     const currentYear =
       now.getFullYear();
 
+    // Current year + previous 4 years
+    // Example:
+    // 2026 => 2022, 2023, 2024, 2025, 2026
+    const startYear =
+      currentYear - 4;
+
     const yearStart = new Date(
-      currentYear,
+      startYear,
       0,
       1
     );
@@ -1063,12 +1257,18 @@ export const getRevenueOverview = async (
         {
           $group: {
             _id: {
-              $month: "$createdAt",
+              $year: "$createdAt",
             },
 
             revenue: {
               $sum: "$netAmount",
             },
+          },
+        },
+
+        {
+          $sort: {
+            _id: 1,
           },
         },
       ]);
@@ -1091,7 +1291,7 @@ export const getRevenueOverview = async (
         {
           $group: {
             _id: {
-              $month: "$createdAt",
+              $year: "$createdAt",
             },
 
             revenue: {
@@ -1099,36 +1299,31 @@ export const getRevenueOverview = async (
             },
           },
         },
+
+        {
+          $sort: {
+            _id: 1,
+          },
+        },
       ]);
 
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
+    const yearlyRevenue = [];
 
-    const monthlyRevenue = [];
-
-    for (let month = 1; month <= 12; month++) {
+    for (
+      let year = startYear;
+      year <= currentYear;
+      year++
+    ) {
       const payment =
         paymentRevenue.find(
           (item) =>
-            item._id === month
+            item._id === year
         );
 
       const refund =
         refundRevenue.find(
           (item) =>
-            item._id === month
+            item._id === year
         );
 
       const paymentAmount =
@@ -1137,33 +1332,33 @@ export const getRevenueOverview = async (
       const refundAmount =
         Number(refund?.revenue || 0);
 
-      const revenue =
-        paymentAmount - refundAmount;
+      const revenue = Math.round(
+  paymentAmount - refundAmount
+);
 
-      monthlyRevenue.push({
-        month: monthNames[month - 1],
-
-        monthNumber: month,
-
+      yearlyRevenue.push({
+        year,
         revenue,
       });
     }
 
     const totalRevenue =
-      monthlyRevenue.reduce(
+      yearlyRevenue.reduce(
         (total, item) =>
           total + item.revenue,
         0
       );
 
     return {
-      period: "monthly",
+      period: "yearly",
 
-      year: currentYear,
+      startYear,
+
+      endYear: currentYear,
 
       totalRevenue,
 
-      revenue: monthlyRevenue,
+      revenue: yearlyRevenue,
     };
   } catch (error) {
     throw error;

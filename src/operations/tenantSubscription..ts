@@ -140,6 +140,87 @@ export const getActiveTenantSubscriptionRecord = async (
         {
           $limit: normalizedLimit,
         },
+        {
+          $lookup: {
+            from: "subscriptioninvoice",
+            let: { subscriptionId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$subscriptionId", "$$subscriptionId"],
+                  },
+                },
+              },
+              {
+                $match: {
+                  deletedAt: null,
+                },
+              },
+              {
+                $sort: {
+                  createdAt: -1,
+                },
+              },
+              {
+                $limit: 1,
+              },
+              {
+                $project: {
+                  billingPeriodId: 1,
+                  totalAmount: 1,
+                },
+              },
+            ],
+            as: "subscriptionInvoice",
+          },
+        },
+        {
+          $unwind: {
+            path: "$subscriptionInvoice",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $addFields: {
+            selectedBillingPeriod: {
+              $first: {
+                $filter: {
+                  input: { $ifNull: ["$plan.billingPeriods", []] },
+                  as: "period",
+                  cond: {
+                    $eq: [
+                      "$$period.billingPeriodId",
+                      "$subscriptionInvoice.billingPeriodId",
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            billingPeriodId: {
+              $ifNull: ["$subscriptionInvoice.billingPeriodId", null],
+            },
+            billingPeriod: {
+              $ifNull: [
+                "$selectedBillingPeriod.billingPeriod",
+                "$subscriptionInvoice.billingPeriodId",
+              ],
+            },
+            totalAmount: {
+              $ifNull: ["$subscriptionInvoice.totalAmount", null],
+            },
+          },
+        },
+        {
+          $project: {
+            selectedBillingPeriod: 0,
+            subscriptionInvoice: 0,
+          },
+        },
       ],
       totalCount: [
         {
@@ -152,7 +233,17 @@ export const getActiveTenantSubscriptionRecord = async (
   const result = await tenantsubscription.aggregate(
     pipeline as mongoose.PipelineStage[]
   );
-  const tenants = result[0]?.items || [];
+  const tenants = (result[0]?.items || []).map((subscription: any) => {
+    const selectedBillingPeriod = subscription.plan?.billingPeriods?.find(
+      (period: any) => period.duration === subscription.duration
+    );
+
+    return {
+      ...subscription,
+      billingPeriod: selectedBillingPeriod?.billingPeriod ?? null,
+      totalAmount: selectedBillingPeriod?.totalAmount ?? null,
+    };
+  });
   const totalRecords = result[0]?.totalCount?.[0]?.count || 0;
  
   return {
@@ -666,52 +757,138 @@ export const getTenantSubscriptionActivities = async () => {
 export const getTenantSubscriptionDashboard = async () => {
   const now = new Date();
 
-  // Current month start
+  // =========================
+  // Current Month
+  // =========================
   const currentMonthStart = new Date(
     now.getFullYear(),
     now.getMonth(),
-    1
+    1,
   );
 
-  // Next month start
   const nextMonthStart = new Date(
     now.getFullYear(),
     now.getMonth() + 1,
-    1
+    1,
   );
 
-  // Previous month start
+  // =========================
+  // Previous Month
+  // =========================
   const previousMonthStart = new Date(
     now.getFullYear(),
     now.getMonth() - 1,
-    1
+    1,
   );
 
   const [
-    totalSubscriptions,
-    activeSubscriptions,
-    inactiveSubscriptions,
-    expiringThisMonth,
+    // ============================================
+    // OVERALL COUNTS
+    // ============================================
 
-    // Previous month
+    totalSubscriptions,
+
+    activeSubscriptions,
+
+    inactiveSubscriptions,
+
+    // Total ACTIVE trials
+    totalTrials,
+
+    // ============================================
+    // CURRENT MONTH
+    // ============================================
+
+    currentTotalSubscriptions,
+
+    currentActiveSubscriptions,
+
+    currentInactiveSubscriptions,
+
+    currentTrials,
+
+    currentExpiringThisMonth,
+
+    // ============================================
+    // PREVIOUS MONTH
+    // ============================================
+
     previousTotalSubscriptions,
+
     previousActiveSubscriptions,
+
     previousInactiveSubscriptions,
+
+    previousTrials,
+
     previousExpiringSubscriptions,
   ] = await Promise.all([
+    // ============================================
+    // OVERALL
+    // ============================================
 
-
+    // Total subscriptions
     tenantsubscription.countDocuments(),
 
+    // Total active subscriptions
     tenantsubscription.countDocuments({
       status: "Active",
       paymentStatus: "PAID",
     }),
 
+    // Total inactive subscriptions
     tenantsubscription.countDocuments({
       status: "Inactive",
     }),
 
+    // Total active trials
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      isConverted: false,
+    }),
+
+    // ============================================
+    // CURRENT MONTH
+    // ============================================
+
+    // Subscriptions created this month
+    tenantsubscription.countDocuments({
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    // Active subscriptions created this month
+    tenantsubscription.countDocuments({
+      status: "Active",
+      paymentStatus: "PAID",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    // Inactive subscriptions created this month
+    tenantsubscription.countDocuments({
+      status: "Inactive",
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    // Active trials created this month
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      isConverted: false,
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    // Subscriptions expiring this month
     tenantsubscription.countDocuments({
       status: "Active",
       endDate: {
@@ -720,6 +897,11 @@ export const getTenantSubscriptionDashboard = async () => {
       },
     }),
 
+    // ============================================
+    // PREVIOUS MONTH
+    // ============================================
+
+    // Subscriptions created previous month
     tenantsubscription.countDocuments({
       createdAt: {
         $gte: previousMonthStart,
@@ -727,14 +909,17 @@ export const getTenantSubscriptionDashboard = async () => {
       },
     }),
 
+    // Active subscriptions created previous month
     tenantsubscription.countDocuments({
       status: "Active",
+      paymentStatus: "PAID",
       createdAt: {
         $gte: previousMonthStart,
         $lt: currentMonthStart,
       },
     }),
 
+    // Inactive subscriptions created previous month
     tenantsubscription.countDocuments({
       status: "Inactive",
       createdAt: {
@@ -743,6 +928,17 @@ export const getTenantSubscriptionDashboard = async () => {
       },
     }),
 
+    // Active trials created previous month
+    SubscriptionTrial.countDocuments({
+      status: "ACTIVE",
+      isConverted: false,
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    // Subscriptions expiring previous month
     tenantsubscription.countDocuments({
       status: "Active",
       endDate: {
@@ -752,57 +948,84 @@ export const getTenantSubscriptionDashboard = async () => {
     }),
   ]);
 
+  // =========================
+  // Percentage Calculation
+  // =========================
+
   const calculatePercentage = (
     current: number,
-    previous: number
+    previous: number,
   ) => {
     if (previous === 0) {
       return current === 0 ? 0 : 100;
     }
 
     return Math.round(
-      ((current - previous) / previous) * 100
+      ((current - previous) / previous) * 100,
     );
   };
 
   const totalPercentage = calculatePercentage(
-    totalSubscriptions,
-    previousTotalSubscriptions
+    currentTotalSubscriptions,
+    previousTotalSubscriptions,
   );
 
   const activePercentage = calculatePercentage(
-    activeSubscriptions,
-    previousActiveSubscriptions
+    currentActiveSubscriptions,
+    previousActiveSubscriptions,
   );
 
   const inactivePercentage = calculatePercentage(
-    inactiveSubscriptions,
-    previousInactiveSubscriptions
+    currentInactiveSubscriptions,
+    previousInactiveSubscriptions,
+  );
+
+  const trialPercentage = calculatePercentage(
+    currentTrials,
+    previousTrials,
   );
 
   const expiringPercentage = calculatePercentage(
-    expiringThisMonth,
-    previousExpiringSubscriptions
+    currentExpiringThisMonth,
+    previousExpiringSubscriptions,
   );
+
+  // =========================
+  // RESPONSE
+  // =========================
 
   return {
     totalSubscriptions: {
-      count: totalSubscriptions,
+      totalCount: totalSubscriptions,
+      currentMonthCount: currentTotalSubscriptions,
+      previousMonthCount: previousTotalSubscriptions,
       percentage: totalPercentage,
     },
 
     activeSubscriptions: {
-      count: activeSubscriptions,
+      totalCount: activeSubscriptions,
+      currentMonthCount: currentActiveSubscriptions,
+      previousMonthCount: previousActiveSubscriptions,
       percentage: activePercentage,
     },
 
     inactiveSubscriptions: {
-      count: inactiveSubscriptions,
+      totalCount: inactiveSubscriptions,
+      currentMonthCount: currentInactiveSubscriptions,
+      previousMonthCount: previousInactiveSubscriptions,
       percentage: inactivePercentage,
     },
 
+    trials: {
+      totalCount: totalTrials,
+      currentMonthCount: currentTrials,
+      previousMonthCount: previousTrials,
+      percentage: trialPercentage,
+    },
+
     expiringThisMonth: {
-      count: expiringThisMonth,
+      currentMonthCount: currentExpiringThisMonth,
+      previousMonthCount: previousExpiringSubscriptions,
       percentage: expiringPercentage,
     },
   };
@@ -901,4 +1124,51 @@ export const getTenantSubscriptionByTenantId  = async (
       )?.price || 0,
     // module: plan?.modules || {},
   };
+};
+
+export const getTenantsByPlan = async (planId: string) => {
+  const tenants = await tenantsubscription.aggregate([
+    {
+      $match: {
+        planId: new mongoose.Types.ObjectId(planId),
+        status: "ACTIVE",
+        paymentStatus: "SUCCESS",
+        deletedAt: null,
+      },
+    },
+
+    {
+      $lookup: {
+        from: "tenants",
+        localField: "tenantId",
+        foreignField: "tenantCode",
+        as: "tenantDetails",
+      },
+    },
+
+    {
+      $unwind: {
+        path: "$tenantDetails",
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        tenantId: 1,
+        tenantName: "$tenantDetails.tenantName",
+        planId: 1,
+        planName: 1,
+      },
+    },
+
+    {
+      $sort: {
+        tenantName: 1,
+      },
+    },
+  ]);
+
+  return tenants;
 };

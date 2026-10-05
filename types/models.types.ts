@@ -15,6 +15,10 @@ import CustomEnumerator, {
   RoleType,
   PortalType,
   PortalStatus,
+  ChatRoomType,
+  ChatRoomStatus,
+  ChatMessageType,
+  ChatSendAccess,
 } from "../src/shared/enum";
 
 enum Status {
@@ -2213,11 +2217,14 @@ export interface TeacherMeeting extends Document {
 }
 
 export interface LogDocument extends Document {
-  tenantId: string;
+  logId: string;
+  tenantId: string | null;
   userId: string;
+  role?: string;
   logType: "SUCCESS" | "REDIRECT" | "ERROR" | "INFO";
   action?: string;
   description?: string;
+  readableDescription?: string;
   route?: string;
   errorMessage?: string;
   stack?: string;
@@ -3101,4 +3108,106 @@ export interface ILookup extends Document {
   lastUpdatedBy: string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface ITrialMember {
+  tenantId: string;
+  userId?: string;
+  userName: string;
+  email: string;
+  password: string;
+  role: string[];
+  profileImage?: string | null;
+  status: Status;
+  createdDate?: Date;
+  createdBy: string;
+  lastUpdatedDate?: Date;
+  lastUpdatedBy: string;
+}
+
+export interface ITenantChatRoom extends Document {
+  roomCode: string;
+
+  type: ChatRoomType;
+  
+  tenantId?: string | null;      
+  tenantIds?: string[]; 
+  segmentKey?: string;
+
+  name: string;
+  description?: string;
+  planName: string;
+  
+  sendAccess: ChatSendAccess,
+
+  lastMessage?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+    createdAt: Date;
+  };
+
+  lastMessageAt?: Date;
+
+  status: ChatRoomStatus;
+  isEnabled: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+export interface ITenantChatMessage extends Document {
+  roomId: Types.ObjectId;
+
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  
+  title?:string;
+  message: string;
+
+  messageType: ChatMessageType;
+
+  attachments?: string[];
+
+  replyTo?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+
+  createdAt: Date;
+
+  deletedForEveryone?: Boolean;
+
+deletedForEveryoneAt?: Date | null,
+
+deletedForEveryoneBy?: String | null,
+
+  deletedAt?: Date | null;
+}
+
+export interface ITenantRoomMember extends Document {
+  roomId: Types.ObjectId;
+
+  userId: string;
+  tenantId: string;
+
+  name: string;
+  role:string;
+
+  lastSeenMessageId?: Types.ObjectId;
+  lastSeenAt?: Date;
+  
+  lastClearedMessageId?: Types.ObjectId;
+  lastClearedAt?: Date;
+
+  isActive: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
 }

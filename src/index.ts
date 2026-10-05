@@ -39,6 +39,7 @@ const start = async () => {
 
   // Register plugins
   await server.register(appPlugins);
+  await server.register([loggerPlugin]);
 
   // MongoDB Connection Establishment
   await initializeMongoDatabase();
@@ -52,11 +53,10 @@ const start = async () => {
   // Initialize Socket.IO service
   initializeSocket(server.listener);
    await connectProducer();
-   startInvoiceConsumer();
+    await startInvoiceConsumer();
   // Initialize and Start the Application
   await server.initialize();
   await server.start();
-  await server.register([loggerPlugin]);
 
   AppLogger.info(
     `Application is running on ${config.server.host}:${config.server.port}`

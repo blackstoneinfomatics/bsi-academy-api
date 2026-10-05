@@ -181,6 +181,19 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+    {
+  method: "GET",
+  path: "/api/plans/active",
+  options: {
+    handler: handler.getActivePlansHandler,
+    description: userMessages.ACTIVE_PLANS,
+    tags: ["api", "plans"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
   ];
 
   server.route(routes);

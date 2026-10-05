@@ -30,6 +30,8 @@ const getRevenueOverviewValidation = z.object({
       .enum([
         RevenuePeriod.WEEKLY,
         RevenuePeriod.MONTHLY,
+        RevenuePeriod.YEARLY,
+
       ])
       .default(RevenuePeriod.WEEKLY),
   }),

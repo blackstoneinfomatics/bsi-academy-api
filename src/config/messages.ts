@@ -30,6 +30,7 @@ export const userMessages: Record<string, string> = Object.freeze({
   CREATE: "Create a new user",
   UPDATE: "Update a existing user",
   DELETE: "Delete user by userId",
+  ACTIVE_PLANS: "Get active plans",
   DASHBOARD: "Get plan,Tenants,Revenue count",
   ANALYTICS_COUNT: "Get plan revenue analytics by period",
   BULK_DELETE: "Bulk Delete users by userIds",
@@ -38,6 +39,7 @@ export const userMessages: Record<string, string> = Object.freeze({
   USER_PROFILE_INVALID_FILE_TYPE:
     "Invalid file type. Only .png , .jpg or jpeg files are allowed.",
   ACTIVE_USER_NOT_FOUND: "Active user not found with the provided credentials",
+
 });
 
 export const authMessages: Record<string, string> = Object.freeze({
@@ -206,6 +208,8 @@ export const planMessages: Record<string, string> = Object.freeze({
   BACKUP_NOT_AVAILABLE: "Backup feature is not available for your current subscription.",
   CUSTOM_DOMAIN_REQUIRED: "Please provide the tenant custom domain.",
   DEFAULT_DOMAIN_REQUIRED: "Please provide the default running domain.",
+  ACTIVE_PLANS_SUCCESS: "Active plans fetched successfully",
+  FAILED_PLANS: "Failed to fetch active plans",
 });
 
 export const financeMessages: Record<string, string> = Object.freeze({
@@ -448,7 +452,7 @@ export const tenantDashboardMessages = Object.freeze({
   CHANGE_DOWNGRADE: "DOWNGRADE",
   CHANGE_NO_CHANGE: "NO_CHANGE",
 
-  MODULE_MOST_USED: "Most Used Modules",
+  MODULE_MOST_USED: "Entire Used",
 
   PERFORMANCE_EXCELLENT: "Excellent",
   PERFORMANCE_GOOD: "Good",
@@ -824,6 +828,8 @@ export const tenantSubscriptionMessages = {
   GET_GROWTH_ANALYSTICS: "Get tenant subscription growth analytics",
   GET_ANALYTICS_CARD: "Get tenant subscription analytics card",
   GET_ACTIVITIES: "Get today's tenant subscription activities",
+  GET_TENANTS_BY_PLAN: "Get tenants by selected plan",
+  TENANTS_BY_PLAN_SUCCESS: "Tenants fetched successfully",
 
   // Errors
   VALIDATION_FAILED: "Validation Failed",
@@ -836,6 +842,8 @@ export const tenantSubscriptionMessages = {
     "Failed to fetch tenant subscription growth analytics.",
   TENANTID_FAILED: "Tenant subscription not found",
   INTERNAL_SERVER_ERROR: "Failed to fetch tenant subscription",
+  TENANTS_BY_PLAN_FAILED: "Failed to fetch tenants by plan",
+
 
 };
 
@@ -975,6 +983,7 @@ export const tenantPortalConfigMessages = {
   UPDATE_FEATURE_ACCESS_SUCCESS: "Feature access updated successfully",
 
   TENANT_NOT_FOUND: "Tenant not found",
+  TENANT_PORTAL_NOT_FOUND: "Active and enabled tenant portal not found for this tenant and portal",
   TENANT_CONFIG_NOT_FOUND: "Tenant portal config not found for this tenant and portal",
   MODULE_NOT_FOUND: "Module not found",
   CHILD_MODULE_NOT_FOUND: "Child module not found",
@@ -1118,3 +1127,108 @@ export const updateMessage = {
   UPDATR_GETBYID : "Get update details by ID",
   UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully"
 }
+
+export const auditLogMessages = {
+  GET_TENANT_AUDIT_LOGS: "Get audit logs by tenantId",
+  GET_TENANT_AUDIT_LOGS_SUCCESS: "Audit logs fetched successfully.",
+  TENANT_ID_REQUIRED: "TenantId is required",
+  INVALID_DATE_RANGE: "fromDate must be before toDate",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+
+  ACTIVITY_SUMMARY: "Get tenant activity summary cards and status chart",
+  ACTIVITY_SUMMARY_SUCCESS: "Tenant activity summary fetched successfully",
+  ACTIVITY_TABLE: "Get tenant active logs table",
+  ACTIVITY_TABLE_SUCCESS: "Tenant active logs fetched successfully",
+  INVALID_PAGE: "Page must be a positive integer",
+  INVALID_LIMIT: "Limit must be a positive integer up to 100",
+
+  ACTIVITY_STATUS_SUCCESSFUL: "Successful",
+  ACTIVITY_STATUS_WARNING: "Warning",
+  ACTIVITY_STATUS_FAILED: "Failed",
+
+  LOG_STATUS_SUCCESS: "Success",
+  LOG_STATUS_FAILED: "Failed",
+  LOG_STATUS_REDIRECT: "Redirect",
+  LOG_STATUS_INFO: "Info",
+};
+
+export const dashboardsaasMessages = {
+   DASHBOARD_COUNT: "Get dashboard cards",
+   DASHBOARD_COUNT_SUCCESS: "Dashboard cards fetched successfully",
+   EXPIRING_TENANTS: "Get tenants with upcoming subscription renewals",
+   EXPIRING_TENANTS_SUCCESS: "Upcoming tenant renewals fetched successfully",
+   RECENT_ACTIVITIES: "Get recently added tenants",
+   RECENT_ACTIVITIES_SUCCESS: "Recently added tenants fetched successfully"
+}
+
+
+export const tenantChatMessages = {
+  // 🔹 Actions
+  CREATE_CHAT_ROOM: "Create Chat Room",
+  SEND_MESSAGE: "Send Message",
+  SEND_GLOBAL_MESSAGE_SUCCESS:" Global Message sent successfully.",
+  GET_CHAT_ROOMS: "Get Chat Rooms",
+  GET_CHAT_ROOM_BY_ID: "Get Chat Room By Id",
+  GET_MESSAGES: "Get Messages",
+  MARK_AS_READ: "Mark Messages As Read",
+  ADD_ROOM_MEMBER: "Add Room Member",
+  REMOVE_ROOM_MEMBER: "Remove Room Member",
+  MARK_SEEN : "Mark Messages As Seen",
+
+  // 🔹 Success Responses
+  CREATE_CHAT_ROOM_SUCCESS: "Chat room created successfully.",
+  SEND_MESSAGE_SUCCESS: "Message sent successfully.",
+  GET_CHAT_ROOMS_SUCCESS: "Chat room list fetched successfully.",
+  GET_CHAT_ROOM_BY_ID_SUCCESS: "Chat room details fetched successfully.",
+  GET_MESSAGES_SUCCESS: "Messages fetched successfully.",
+  MARK_AS_READ_SUCCESS: "Messages marked as read.",
+  ADD_ROOM_MEMBER_SUCCESS: "Member added to chat room successfully.",
+  REMOVE_ROOM_MEMBER_SUCCESS: "Member removed from chat room successfully.",
+  MARK_SEEN_SUCCESS: "Messages marked as seen successfully.",
+  GET_SEEN_MESSAGES_SUCCESS: "Seen messages fetched successfully.",
+  GET_SEEN_USERS_SUCCESS: "Seen users fetched successfully.",
+
+  // 🔹 Validation Messages
+  ROOM_ID_REQUIRED: "RoomId is required.",
+  MESSAGE_REQUIRED: "Message is required.",
+  TYPE_REQUIRED: "Chat room type is required.",
+  NAME_REQUIRED: "Chat room name is required.",
+  CREATED_BY_REQUIRED: "CreatedBy is required.",
+  TENANT_ID_REQUIRED: "TenantId is required.",
+  TENANT_IDS_REQUIRED: "TenantIds are required for this operation.",
+  PLAN_NAME_REQUIRED: "Plan name is required for segment rooms.",
+
+  INVALID_ROOM_ID: "Invalid Room Id.",
+  INVALID_MESSAGE_ID: "Invalid Message Id.",
+  INVALID_CHAT_TYPE: "Invalid chat room type.",
+  INVALID_REQUEST: "Invalid chat request.",
+
+  // 🔹 Business Errors
+  CHAT_ROOM_NOT_FOUND: "Chat room not found.",
+  CHAT_ROOM_ALREADY_EXISTS: "Chat room already exists.",
+  MESSAGE_NOT_FOUND: "Message not found.",
+  MEMBER_NOT_FOUND: "Room member not found.",
+
+  // 🔹 Member Errors
+  MEMBER_ALREADY_EXISTS: "User is already a member of this room.",
+  MEMBER_ADD_FAILED: "Failed to add member to room.",
+  MEMBER_REMOVE_FAILED: "Failed to remove member from room.",
+
+  // 🔹 Message Errors
+  MESSAGE_SEND_FAILED: "Failed to send message.",
+  MESSAGE_FETCH_FAILED: "Failed to fetch messages.",
+  MESSAGE_READ_FAILED: "Failed to mark messages as read.",
+
+  // 🔹 Room Errors
+  CHAT_ROOM_CREATION_FAILED: "Failed to create chat room.",
+  CHAT_ROOM_FETCH_FAILED: "Failed to fetch chat rooms.",
+  CHAT_ROOM_UPDATE_FAILED: "Failed to update chat room.",
+
+  // 🔹 Authorization
+  UNAUTHORIZED: "Unauthorized",
+  FORBIDDEN: "Forbidden",
+
+  // 🔹 Generic
+  VALIDATION_FAILED: "Validation Failed",
+  INTERNAL_SERVER_ERROR: "Internal Server Error",
+};

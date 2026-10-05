@@ -7,6 +7,7 @@ import {
   getTenantSubscriptionGrowthAnalytics,
   getTenantSubscriptionanalyticsCard,
   getTenantSubscriptionActivities,
+  getTenantsByPlan,
 } from "../../operations/tenantSubscription.";
 import {
   BillingCycle,
@@ -221,6 +222,50 @@ async getTenantSubscriptionByTenantId(req: Request, h: ResponseToolkit) {
           error?.message || tenantSubscriptionMessages.INTERNAL_SERVER_ERROR,
       })
       .code(500);
+  }
+},
+
+async getTenantsByPlanHandler (
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const { planId } = request.params as {
+      planId: string;
+    };
+
+    if (!planId) {
+      return h
+        .response({
+          success: false,
+          message: tenantSubscriptionMessages.TENANTS_BY_PLAN_FAILED,
+          errorCode: 400,
+        })
+        .code(400);
+    }
+
+    const tenants = await getTenantsByPlan(planId);
+
+    return h
+      .response({
+        success: true,
+        message: tenantSubscriptionMessages.TENANTS_BY_PLAN_SUCCESS,
+        data: tenants,
+      })
+      .code(200);
+  } catch (error: unknown) {
+    const err = error as {
+      message?: string;
+      statusCode?: number;
+    };
+
+    return h
+      .response({
+        success: false,
+        message: err?.message || tenantSubscriptionMessages.TENANTS_BY_PLAN_FAILED,
+        errorCode: err?.statusCode || 500,
+      })
+      .code(err?.statusCode || 500);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from "./handler";
 import { portalMessages } from "../../config/messages";
+import hanlder from "../adminMeeting/hanlder";
 
 const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
@@ -91,6 +92,15 @@ const register = async (server: Server): Promise<void> => {
         // },
       },
     },
+    {
+      method:"POST",
+      path:"/tenant-portal/sync/{subscriptionId}",
+      handler:handler.createSyncTenantPortal,
+      options:{
+        description:"test the sync subuscription",
+        tags:["api","Portal"],
+      }
+    }
   ];
   server.route(routes);
 };

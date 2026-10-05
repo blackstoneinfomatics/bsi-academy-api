@@ -3,7 +3,9 @@
 import { kafka } from './client';
 import { topicHandler } from './topicHandlerMap';
 
-const consumer = kafka.consumer({ groupId: 'Alfurqan' });
+const consumer = kafka.consumer({
+  groupId: process.env.KAFKA_CONSUMER_GROUP_ID ?? 'bsi-academy-api',
+});
 
 export const startInvoiceConsumer = async () => {
   await consumer.connect();

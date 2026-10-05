@@ -159,6 +159,31 @@ export enum PortalStatus {
   ARCHIVED = "ARCHIVED",
 }
 
+export enum ChatRoomType{
+  TENANT = "TENANT",
+   GLOBAL= "GLOBAL",
+  SEGMENT = "SEGMENT",
+  USER ="USER"
+}
+
+export enum ChatMessageType{
+  TEXT ="TEXT",
+  IMAGE ="IMAGE",
+  FILE ="FILE"
+}
+
+export enum ChatRoomStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  ARCHIVED = "ARCHIVED",
+  DELETED = "DELETED"
+}
+
+export enum ChatSendAccess {
+  EVERYONE = "EVERYONE",
+  ADMIN_ONLY = "ADMIN_ONLY",
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;
@@ -273,6 +298,7 @@ export interface GetPaymentDetailsRecordsParams {
 export enum RevenuePeriod {
   WEEKLY = "weekly",
   MONTHLY = "monthly",
+  YEARLY = "yearly",
 }
 
 export enum TenantGrowthPeriod {

@@ -470,19 +470,17 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     }
   },
 
-  async getTenantAnalyticsCards(
+ async getTenantAnalyticsCards(
   req: Request,
   h: ResponseToolkit
 ) {
   try {
-    const result =
-      await getTenantAnalyticsCards();
+    const result = await getTenantAnalyticsCards();
 
     return h
       .response({
         success: true,
-        message:
-          "Tenant analytics cards fetched successfully.",
+        message: "Tenant analytics cards fetched successfully.",
         data: result,
       })
       .code(200);
