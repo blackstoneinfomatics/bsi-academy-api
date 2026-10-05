@@ -296,7 +296,14 @@ export const getTenantSubscriptionanalyticsCard = async () => {
     );
   };
 
+  const getChangeType = (current: number, previous: number) => {
+    if (current > previous) return "UPGRADE";
+    if (current < previous) return "DOWNGRADE";
+    return "NO_CHANGE";
+  };
+
   const [
+    overallTotalSubscriptions,
     currentTotalSubscriptions,
     currentActiveSubscriptions,
     currentMonthlyRevenue,
@@ -307,6 +314,9 @@ export const getTenantSubscriptionanalyticsCard = async () => {
     previousMonthlyRevenue,
     previousConvertedSubscriptions,
   ] = await Promise.all([
+    tenantsubscription.countDocuments({
+      deletedAt: null,
+    }),
 
     // CURRENT MONTH - TOTAL SUBSCRIPTIONS
 
@@ -388,43 +398,25 @@ export const getTenantSubscriptionanalyticsCard = async () => {
       },
     }),
 
-    // Previous Monthly Revenue
+    // PREVIOUS MONTH - MONTHLY REVENUE
 
-    tenantsubscription.aggregate([
+    SubscriptionInvoice.aggregate([
       {
         $match: {
           deletedAt: null,
-          status: "ACTIVE",
-          createdAt: {
+          status: SubscriptionInvoiceStatus.PAID,
+          invoiceDate: {
             $gte: previousMonthStart,
             $lt: currentMonthStart,
           },
         },
       },
-
-      {
-        $lookup: {
-          from: "plan",
-          localField: "planId",
-          foreignField: "_id",
-          as: "plan",
-        },
-      },
-
-      {
-        $unwind: {
-          path: "$plan",
-          preserveNullAndEmptyArrays: false,
-        },
-      },
-
       {
         $group: {
           _id: null,
-
           total: {
             $sum: {
-              $ifNull: ["$plan.monthlyPrice", 0],
+              $ifNull: ["$totalAmount", 0],
             },
           },
         },
@@ -486,22 +478,46 @@ export const getTenantSubscriptionanalyticsCard = async () => {
   return {
     totalSubscriptions: {
       count: currentTotalSubscriptions,
+      overallCount: overallTotalSubscriptions,
+      currentMonthCount: currentTotalSubscriptions,
+      previousMonthCount: previousTotalSubscriptions,
       percentage: totalSubscriptionsPercentage,
+      changeType: getChangeType(
+        currentTotalSubscriptions,
+        previousTotalSubscriptions,
+      ),
     },
 
     activeSubscriptions: {
       count: currentActiveSubscriptions,
+      currentMonthCount: currentActiveSubscriptions,
+      previousMonthCount: previousActiveSubscriptions,
       percentage: activeSubscriptionsPercentage,
+      changeType: getChangeType(
+        currentActiveSubscriptions,
+        previousActiveSubscriptions,
+      ),
     },
 
     monthlyRevenue: {
       amount: monthlyRevenue,
+      previousMonthAmount: previousMonthlyRevenueTotal,
       percentage: monthlyRevenuePercentage,
+      changeType: getChangeType(
+        monthlyRevenue,
+        previousMonthlyRevenueTotal,
+      ),
     },
 
     convertedSubscriptions: {
       amount: convertedSubscriptions,
+      currentMonthCount: convertedSubscriptions,
+      previousMonthCount: previousConvertedTotal,
       percentage: convertedSubscriptionsPercentage,
+      changeType: getChangeType(
+        convertedSubscriptions,
+        previousConvertedTotal,
+      ),
     },
   };
 };
