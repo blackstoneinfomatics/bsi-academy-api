@@ -4,6 +4,7 @@ import { Status, SubscriptionTrialStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
 import { throwError } from "../helpers/throwError";
+import TrialMemberModel from "../models/trailmember";
 import {
   subscriptionInvoiceMessages,
   subscriptionTrialMessages,
@@ -194,7 +195,6 @@ export const getSubscriptionTrialById = async (trialId: string) => {
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
-      status: "Active",
     }).lean();
 
     if (!tenant) {
@@ -386,7 +386,6 @@ export const updateSubscriptionTrial = async (
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
-      status: "Active",
     }).lean();
 
     if (!tenant) {
@@ -439,6 +438,29 @@ export const updateSubscriptionTrial = async (
 
         case SubscriptionTrialStatus.ACTIVE:
           emailType = "UPDATED";
+          await TrialMemberModel.updateMany(
+            { tenantId: trial.tenantId },
+            {
+              $set: {
+                status: Status.ACTIVE,
+                lastUpdatedDate: new Date(),
+                lastUpdatedBy: payload.updatedBy,
+              },
+            },
+          );
+          await Tenants.updateOne(
+            {
+              tenantCode: trial.tenantId,
+              deletedAt: null,
+              status: Status.COMPLETED,
+            },
+            {
+              $set: {
+                status: Status.TRIAL,
+                updatedAt: new Date(),
+              },
+            },
+          );
           break;
 
         case SubscriptionTrialStatus.INACTIVE:
@@ -447,6 +469,17 @@ export const updateSubscriptionTrial = async (
 
         case SubscriptionTrialStatus.COMPLETED:
           emailType = "COMPLETED";
+
+          await TrialMemberModel.updateMany(
+            { tenantId: trial.tenantId },
+            {
+              $set: {
+                status: Status.IN_ACTIVE,
+                lastUpdatedDate: new Date(),
+                lastUpdatedBy: payload.updatedBy,
+              },
+            },
+          );
 
           const updatedTenant = await Tenants.findOneAndUpdate(
             {
@@ -610,6 +643,17 @@ export const processTrialExpiry = async () => {
       {
         $set: {
           status: Status.COMPLETED,
+        },
+      },
+    );
+
+    await TrialMemberModel.updateMany(
+      { tenantId: { $in: tenantIds } },
+      {
+        $set: {
+          status: Status.IN_ACTIVE,
+          lastUpdatedDate: now,
+          lastUpdatedBy: "System",
         },
       },
     );

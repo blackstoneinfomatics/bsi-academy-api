@@ -69,6 +69,12 @@ export const getActiveUserRecord = async (
   query: Partial<{ id: string; userName: string; tenantId: string; role: string }>
 ): Promise<IUser | null> => {
   const { id, userName, tenantId, role } = query;
+  console.info("[users:getActiveUserRecord] Looking up active user", {
+    userName,
+    tenantId,
+    role,
+    hasId: !isNil(id),
+  });
 
   const dbQuery: any = {
     status: appStatus.ACTIVE,
@@ -79,7 +85,12 @@ export const getActiveUserRecord = async (
   if (!isNil(tenantId)) dbQuery.tenantId = tenantId;
   if (!isNil(role)) dbQuery.role = role;
 
-  return UserModel.findOne(dbQuery).lean();
+  const user = await UserModel.findOne(dbQuery).lean();
+  console.info("[users:getActiveUserRecord] Lookup completed", {
+    found: !!user,
+  });
+
+  return user;
 };
 
 /**
