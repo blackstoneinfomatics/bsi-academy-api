@@ -4,6 +4,7 @@ import {
   clearChatService,
   createChatRoom,
   deleteChatRoomService,
+  deleteMessageForEveryoneService,
   getChatRoomsOperation,
   getGlobalChatGroupsOperation,
   getGroupDetailsOperation,
@@ -117,6 +118,13 @@ export const GetSeenUsersValidation = z.object({
   params: z.object({
     messageId: objectId,
     currentUserId: z.string().min(1),
+  }),
+});
+
+export const GetDeleteMessageValidation = z.object({
+  params: z.object({
+    messageId: objectId,
+    userId: z.string().min(1),
   }),
 });
 
@@ -568,6 +576,38 @@ deleteRoom: async (request: Request, h: ResponseToolkit) => {
         .code(err.statusCode || 500);
     }
   },
+  deleteForEveryone: async (request: Request, h: ResponseToolkit) => {
+  try {
+   
+      const parsed = GetDeleteMessageValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+      
+    const payload = parsed?.data?.params as any;
+
+    const result = await deleteMessageForEveryoneService({
+      messageId: payload.messageId,
+      userId: payload.userId
+    });
+
+    return h.response({
+      success: true,
+      message: "Message deleted for everyone",
+      data: result,
+    }).code(200);
+
+  } catch (err: any) {
+    return h.response({
+      success: false,
+      message: err.message,
+      errorCode: err.statusCode || 500,
+    }).code(err.statusCode || 500);
+  }
+}
 
 }
 

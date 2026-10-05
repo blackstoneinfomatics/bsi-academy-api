@@ -24,10 +24,10 @@ export const TenantChatMessageSchema = new Schema<ITenantChatMessage>(
 
     senderRole: {
       type: String,
-      required:true,
+      required: true,
     },
 
-     title: {
+    title: {
       type: String,
       trim: true,
     },
@@ -52,6 +52,21 @@ export const TenantChatMessageSchema = new Schema<ITenantChatMessage>(
       senderName: String,
     },
 
+    deletedForEveryone: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedForEveryoneAt: {
+      type: Date,
+      default: null,
+    },
+
+    deletedForEveryoneBy: {
+      type: String,
+      default: null,
+    },
+
     deletedAt: {
       type: Date,
       default: null,
@@ -60,7 +75,7 @@ export const TenantChatMessageSchema = new Schema<ITenantChatMessage>(
   {
     collection: "tenantchatmessages",
     timestamps: true,
-  }
+  },
 );
 
 TenantChatMessageSchema.index({ roomId: 1, createdAt: -1 });
@@ -72,12 +87,14 @@ export const ChatMessageValidation = z.object({
 
   senderId: z.string().min(1),
   senderName: z.string().min(1),
-  senderRole:z.string().min(1),
+  senderRole: z.string().min(1),
 
   title: z.string().optional(),
   message: z.string().optional(),
 
-  messageType: z.enum([ChatMessageType.TEXT, ChatMessageType.IMAGE, ChatMessageType.FILE]).default(ChatMessageType.TEXT),
+  messageType: z
+    .enum([ChatMessageType.TEXT, ChatMessageType.IMAGE, ChatMessageType.FILE])
+    .default(ChatMessageType.TEXT),
 
   attachments: z.array(z.string()).optional(),
 
@@ -93,5 +110,5 @@ export const ChatMessageValidation = z.object({
 
 export const ChatMessageModel = mongoose.model<ITenantChatMessage>(
   "tenantChatMessages",
-  TenantChatMessageSchema
+  TenantChatMessageSchema,
 );

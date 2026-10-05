@@ -3181,6 +3181,12 @@ export interface ITenantChatMessage extends Document {
 
   createdAt: Date;
 
+  deletedForEveryone?: Boolean;
+
+deletedForEveryoneAt?: Date | null,
+
+deletedForEveryoneBy?: String | null,
+
   deletedAt?: Date | null;
 }
 

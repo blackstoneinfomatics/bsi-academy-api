@@ -1262,7 +1262,6 @@ export const getRoomMessagesOperation = async ({
 
   const filter : any = {
     roomId: resolvedRoomId,
-    deletedAt: null,
   };
   
   if (member?.lastClearedAt) {
@@ -1301,24 +1300,39 @@ export const getRoomMessagesOperation = async ({
   );
 
 
-  const formattedMessages = await Promise.all(
-    messages.map(async (message) => ({
+ const formattedMessages = await Promise.all(
+  messages.map(async (message) => {
+    const isMine =
+      tenantUser && message.senderId === tenantUser.userId;
+
+    const isDeleted = message.deletedForEveryone === true;
+
+    // 🔥 message display logic
+    const displayMessage = isDeleted
+      ? isMine
+        ? "You deleted this message"
+        : `${message.senderName} deleted this message`
+      : message.message;
+
+    return {
       ...message,
+
+      message: displayMessage,
+
+      isDeleted,
 
       timestamp: message.createdAt,
       dateLabel: getMessageDateLabel(message.createdAt),
 
-      side:
-        tenantUser &&
-        message.senderId === tenantUser.userId
-          ? "right"
-          : "left",
+      side: isMine ? "right" : "left",
 
-      replyTo: message.replyTo?.messageId
-        ? await buildReplyChain(message.replyTo.messageId)
-        : null,
-    })),
-  );
+      replyTo:
+        !isDeleted && message.replyTo?.messageId
+          ? await buildReplyChain(message.replyTo.messageId)
+          : null,
+    };
+  })
+);
 
   return {
     room: {
@@ -1388,7 +1402,6 @@ export const markMessageSeenService = async (
     const message = await ChatMessageModel.findOne({
       _id: messageId,
       roomId,
-      deletedAt: null,
     });
 
     if (!message) {
@@ -1660,5 +1673,63 @@ export const getSeenUsersService = async (
       err.message || "Failed to fetch seen users",
       err.statusCode || 500
     );
+  }
+};
+
+export const deleteMessageForEveryoneService = async (payload: {
+  messageId: string;
+  userId: string;
+}) => {
+  try {
+    const { messageId, userId } = payload;
+
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const message = await ChatMessageModel.findById(messageId);
+
+    if (!message){
+       throwError("Message not found", 404)
+       return;
+      };
+
+    if (message.senderId !== userId) {
+      throwError("Only sender can delete this message", 403);
+    }
+
+    // // ⏱ optional time limit (recommended)
+    // const diff = Date.now() - new Date(message.createdAt).getTime();
+    // if (diff > 15 * 60 * 1000) {
+    //   throwError("Delete time expired", 400);
+    // }
+
+    const deletedAt = new Date();
+
+    await ChatMessageModel.updateOne(
+      { _id: messageId },
+      {
+        $set: {
+          deletedForEveryone: true,
+          deletedForEveryoneAt: deletedAt,
+          deletedForEveryoneBy: userId,
+          message: "deleted this message",
+          attachments: [],
+        },
+      }
+    );
+
+    // // 🔥 socket
+    // io.to(message.roomId.toString()).emit("chat:message-deleted", {
+    //   messageId,
+    //   roomId: message.roomId,
+    // });
+
+    return {
+      messageId,
+      roomId: message.roomId,
+    };
+  } catch (err: any) {
+    throwError(err.message || "Delete failed", err.statusCode || 500);
   }
 };

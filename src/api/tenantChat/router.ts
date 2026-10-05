@@ -114,7 +114,7 @@ const register = async (server: Server): Promise<void> => {
   options: {
       handler: handler.getSeenUsers,
       description: "Get users who have seen a specific message",
-     tags: ["api", "chat"],
+     tags: ["api", "Chat"],
   },
 },
     {
@@ -126,6 +126,16 @@ const register = async (server: Server): Promise<void> => {
       tags: ["api", "Chat"],
     },
   },
+
+  {
+  method: "DELETE",
+  path: "/chat/message/{messageId}/everyone/{userId}",
+  handler: handler.deleteForEveryone,
+  options: {
+      description: "Soft delete message for everyone",
+    tags: ["api", "Chat"],
+  },
+}
   ];
   server.route(routes);
 };
