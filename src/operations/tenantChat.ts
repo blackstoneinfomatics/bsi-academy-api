@@ -126,119 +126,331 @@ const buildFilter = (search?: string) => {
   return filter;
 };
 
-export const getChatRoomsOperation = async ({
-  search,
-  page = 1,
-  limit = 10,
-}: {
+export const getChatRoomsOperation = async (payload: {
+  userId: string;
+  tenantId: string;
+  tab: "ALL" | "UNREAD" | "GROUP";
   search?: string;
   page?: number;
   limit?: number;
 }) => {
-  const baseFilter = buildFilter(search);
-  const groupFilter = { ...baseFilter, type: TENANT_TYPE };
-  const offset = (page - 1) * limit;
-  const [allRooms, allCount, groupRooms, groupCount, roomsWithMessages] = await Promise.all([
-    tenantChatRoom.find(baseFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
-    tenantChatRoom.countDocuments(baseFilter),
-    tenantChatRoom.find(groupFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
-    tenantChatRoom.countDocuments(groupFilter),
-    TenantChatMessage.distinct("roomId", { deletedAt: null }),
-  ]);
-  const unreadFilter = { ...baseFilter, _id: { $in: roomsWithMessages } };
-  const [unreadRooms, unreadCount] = await Promise.all([
-    tenantChatRoom.find(unreadFilter).sort({ updatedAt: -1 }).skip(offset).limit(limit).lean(),
-    tenantChatRoom.countDocuments(unreadFilter),
-  ]);
-  const roomIds = [...new Set([...allRooms, ...groupRooms, ...unreadRooms].map((room) => room._id))];
-  const roomMembers = roomIds.length
-    ? await TenantRoomMemberModel.find({
-        roomId: { $in: roomIds },
-        isActive: true,
-        deletedAt: null,
-      })
-        .select("roomId role")
-        .sort({ createdAt: 1 })
-        .lean()
-    : [];
-  const roleByRoomId = new Map<string, string>();
-  for (const roomMember of roomMembers) {
-    const roomId = roomMember.roomId.toString();
-    if (roomMember.role && !roleByRoomId.has(roomId)) {
-      roleByRoomId.set(roomId, roomMember.role);
-    }
+  const {
+    userId,
+    tenantId,
+    tab,
+    search = "",
+    page = 1,
+    limit = 10,
+  } = payload;
+
+  const skip = (page - 1) * limit;
+
+  // --------------------------------------------------
+  // 1. Get current user's room memberships
+  // --------------------------------------------------
+  const members = await TenantRoomMemberModel.find({
+    userId,
+    tenantId,
+    isActive: true,
+    deletedAt: null,
+  })
+    .select(
+      "roomId lastSeenAt lastSeenMessageId lastClearedAt role"
+    )
+    .lean();
+
+  if (!members.length) {
+    return {
+      counts: {
+        all: 0,
+        unread: 0,
+        group: 0,
+      },
+      data: [],
+      pagination: {
+        page,
+        limit,
+        totalRecords: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevious: false,
+      },
+    };
   }
-  const addRoomRole = (rooms: typeof allRooms) =>
-    rooms.map((room) => ({
-      ...room,
-      role: roleByRoomId.get(room._id.toString()) ?? "",
-    }));
-  const allRoomsWithRole = addRoomRole(allRooms);
-  const groupRoomsWithRole = addRoomRole(groupRooms);
-  const unreadRoomsWithRole = addRoomRole(unreadRooms);
-  const latestMessages = roomIds.length
-    ? await TenantChatMessage.aggregate<{
-        _id: Types.ObjectId;
-        lastMessage: {
-          messageId: Types.ObjectId;
-          message?: string;
-          senderId: string;
-          senderName: string;
-          createdAt: Date;
-        };
-      }>([
-        { $match: { roomId: { $in: roomIds }, deletedAt: null } },
-        { $sort: { createdAt: -1 } },
-        {
-          $group: {
-            _id: "$roomId",
-            lastMessage: {
-              $first: {
-                messageId: "$_id",
-                message: "$message",
-                senderId: "$senderId",
-                senderName: "$senderName",
-                createdAt: "$createdAt",
-              },
-            },
-          },
-        },
-      ])
-    : [];
-  const lastMessageByRoomId = new Map(
-    latestMessages.map(({ _id, lastMessage }) => [_id.toString(), lastMessage]),
+
+  const memberMap = new Map(
+    members.map((member) => [
+      member.roomId.toString(),
+      member,
+    ])
   );
-  const unreadRoomsWithLastMessage = unreadRoomsWithRole.map((room) => ({
-    ...room,
-    lastMessage: lastMessageByRoomId.get(room._id.toString()) ?? null,
-  }));
-  const allPagination = {
-    page,
-    limit,
-    total: allCount,
-    totalPages: Math.ceil(allCount / limit),
-  };
-  const groupPagination = {
-    page,
-    limit,
-    total: groupCount,
-    totalPages: Math.ceil(groupCount / limit),
-  };
-  const unreadPagination = {
-    page,
-    limit,
-    total: unreadCount,
-    totalPages: Math.ceil(unreadCount / limit),
+
+  const roomIds = members.map((member) => member.roomId);
+
+
+  const roomFilter: any = {
+    _id: {
+      $in: roomIds,
+    },
+    status: ChatRoomStatus.ACTIVE,
+    isEnabled: true,
+    deletedAt: null,
   };
 
+  if (search.trim()) {
+    roomFilter.$or = [
+      {
+        name: {
+          $regex: search.trim(),
+          $options: "i",
+        },
+      },
+      {
+        planName: {
+          $regex: search.trim(),
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  const rooms = await tenantChatRoom
+    .find(roomFilter)
+    .sort({
+      lastMessageAt: -1,
+      createdAt: -1,
+    })
+    .lean();
+
+
+  const roomData = await Promise.all(
+    rooms.map(async (room) => {
+      const member = memberMap.get(
+        room._id.toString()
+      );
+
+      if (!member) return null;
+
+      let effectiveSeenAt: Date | null = null;
+
+      if (
+        member.lastSeenAt &&
+        member.lastClearedAt
+      ) {
+        effectiveSeenAt =
+          new Date(member.lastSeenAt) >
+          new Date(member.lastClearedAt)
+            ? member.lastSeenAt
+            : member.lastClearedAt;
+      } else {
+        effectiveSeenAt =
+          member.lastSeenAt ||
+          member.lastClearedAt ||
+          null;
+      }
+
+      const unreadFilter: any = {
+        roomId: room._id,
+        senderId: {
+          $ne: userId,
+        },
+        deletedAt: null,
+      };
+
+      if (effectiveSeenAt) {
+        unreadFilter.createdAt = {
+          $gt: effectiveSeenAt,
+        };
+      }
+
+      const unreadCount =
+        await TenantChatMessage.countDocuments(
+          unreadFilter
+        );
+
+      const lastMessage =
+        room.lastMessage?.messageId
+          ? await TenantChatMessage.findById(
+              room.lastMessage.messageId
+            )
+              .select(
+                "message senderId senderName senderRole messageType attachments createdAt deletedForEveryone"
+              )
+              .lean()
+          : null;
+
+      return {
+        roomId: room._id.toString(),
+
+        roomCode: room.roomCode,
+
+        type: room.type,
+
+        name: room.name,
+
+        description:
+          room.description ?? "",
+
+        planName: room.planName,
+
+        sendAccess: room.sendAccess,
+
+        lastMessage: lastMessage
+          ? {
+              messageId:
+                lastMessage._id.toString(),
+
+              message:
+                lastMessage.deletedForEveryone
+                  ? lastMessage.senderId ===
+                    userId
+                    ? "You deleted this message"
+                    : `${lastMessage.senderName} deleted this message`
+                  : lastMessage.message,
+
+              senderId:
+                lastMessage.senderId,
+
+              senderName:
+                lastMessage.senderName,
+
+              senderRole:
+                lastMessage.senderRole,
+
+              messageType:
+                lastMessage.messageType,
+
+              createdAt:
+                lastMessage.createdAt,
+
+              isDeleted:
+                lastMessage.deletedForEveryone ??
+                false,
+            }
+          : null,
+
+        lastMessageAt:
+          room.lastMessageAt ?? null,
+
+        unreadCount,
+
+        isUnread:
+          unreadCount > 0,
+      };
+    })
+  );
+
+  const validRooms = roomData.filter(
+    Boolean
+  ) as any[];
+
+  
+  const counts = {
+    // Unread TENANT rooms
+    all: validRooms.filter(
+      (room) =>
+        room.type === ChatRoomType.TENANT &&
+        room.unreadCount > 0
+    ).length,
+
+    // Unread TENANT + SEGMENT rooms
+    unread: validRooms.filter(
+      (room) =>
+        room.unreadCount > 0
+    ).length,
+
+    // Unread SEGMENT rooms
+    group: validRooms.filter(
+      (room) =>
+        room.type === ChatRoomType.SEGMENT &&
+        room.unreadCount > 0
+    ).length,
+  };
+
+
+  let filteredRooms = validRooms;
+
+  if (tab === "ALL") {
+    filteredRooms = validRooms.filter(
+      (room) =>
+        room.type === ChatRoomType.TENANT
+    );
+  }
+
+  if (tab === "UNREAD") {
+    filteredRooms = validRooms.filter(
+      (room) =>
+        room.unreadCount > 0
+    );
+  }
+
+  if (tab === "GROUP") {
+    filteredRooms = validRooms.filter(
+      (room) =>
+        room.type === ChatRoomType.SEGMENT
+    );
+  }
+
+  filteredRooms.sort((a, b) => {
+    if (
+      a.unreadCount > 0 &&
+      b.unreadCount === 0
+    ) {
+      return -1;
+    }
+
+    if (
+      a.unreadCount === 0 &&
+      b.unreadCount > 0
+    ) {
+      return 1;
+    }
+
+    const aTime = a.lastMessageAt
+      ? new Date(
+          a.lastMessageAt
+        ).getTime()
+      : 0;
+
+    const bTime = b.lastMessageAt
+      ? new Date(
+          b.lastMessageAt
+        ).getTime()
+      : 0;
+
+    return bTime - aTime;
+  });
+
+  const totalRecords =
+    filteredRooms.length;
+
+  const totalPages =
+    Math.ceil(
+      totalRecords / limit
+    );
+
+  const paginatedRooms =
+    filteredRooms.slice(
+      skip,
+      skip + limit
+    );
+
+
   return {
-    all: { count: allCount, rooms: allRoomsWithRole, pagination: allPagination },
-    unread: {
-      count: unreadCount,
-      rooms: unreadRoomsWithLastMessage,
-      pagination: unreadPagination,
+    counts,
+
+    data: paginatedRooms,
+
+    pagination: {
+      page,
+      limit,
+      totalRecords,
+      totalPages,
+      hasNext:
+        page < totalPages,
+      hasPrevious:
+        page > 1,
     },
-    group: { count: groupCount, rooms: groupRoomsWithRole, pagination: groupPagination },
   };
 };
 

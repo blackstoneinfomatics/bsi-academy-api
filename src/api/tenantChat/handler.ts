@@ -70,10 +70,25 @@ export const getRoomMessagesValidation = z.object({
 
 export const getChatRoomsValidation = z.object({
   query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(10),
-    tab: z.enum(["all", "unread", "group"]).default("all"),
-    search: z.string().optional(),
+    userId: z.string().min(1, "User ID is required"),
+    tenantId: z.string().min(1, "Tenant ID is required"),
+
+    tab: z.enum(["ALL", "UNREAD", "GROUP"]),
+
+    search: z.string().optional().default(""),
+
+    page: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(1),
+
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(10),
   }),
 });
 
@@ -263,39 +278,50 @@ const result = await updateChatRoomService({
     }
   },
 
-getChatRooms : async (request: Request, h: ResponseToolkit) => {
+getChatRooms: async (request: Request, h: ResponseToolkit) => {
   try {
-    const parsed = getChatRoomsValidation.safeParse({ query: request.query });
+    const parsed = getChatRoomsValidation.safeParse({
+      query: request.query,
+    });
 
     if (!parsed.success) {
-      return h
-        .response({
-          statusCode: 400,
-          message: parsed.error.issues[0]?.message || "Invalid query parameters",
-        })
-        .code(400);
-    }
+        throwError(parsed.error.errors[0].message, 400);
+      }
 
-    const { search, page, limit, tab } = parsed.data.query;
+    const {
+      userId,
+      tenantId,
+      search,
+      page,
+      limit,
+      tab,
+    } = parsed?.data?.query as any;
 
-    const data = await getChatRoomsOperation({ search, page, limit });
-    const selectedData = data[tab];
+    const data = await getChatRoomsOperation({
+      userId,
+      tenantId,
+      tab,
+      search,
+      page,
+      limit,
+    });
 
     return h
       .response({
         statusCode: 200,
         message: "Chat rooms fetched successfully",
-        data: selectedData,
+        data,
       })
       .code(200);
   } catch (error: any) {
     console.error("getChatRoomsHandler error:", error);
+
     return h
       .response({
-        statusCode: 500,
+        statusCode: error?.statusCode || 500,
         message: error?.message || "Internal Server Error",
       })
-      .code(500);
+      .code(error?.statusCode || 500);
   }
 },
 
