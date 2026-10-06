@@ -631,6 +631,7 @@ export const getRevenueNetRevenueOverviewService = async (
       tax: 0,
       Fee: 0,
       refunds: 0,
+      collected: 0,
       netRevenue: 0,
     };
 
@@ -640,6 +641,7 @@ export const getRevenueNetRevenueOverviewService = async (
       tax: 0,
       Fee: 0,
       refunds: 0,
+      collected: 0,
       netRevenue: 0,
     };
 
@@ -664,6 +666,10 @@ export const getRevenueNetRevenueOverviewService = async (
       refunds: {
         amount: formatAmount(currentPeriodData.refunds),
         rawAmount: safeNumber(currentPeriodData.refunds).toFixed(2),
+      },
+      collected: {
+        amount: formatAmount(currentPeriodData.collectedRevenue),
+        rawAmount: safeNumber(currentPeriodData.collectedRevenue).toFixed(2),
       },
       netRevenue: {
         amount: formatAmount(currentPeriodData.netRevenue),
