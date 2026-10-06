@@ -72,7 +72,7 @@ export const getChatRoomsValidation = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
-    tab: z.enum(["all", "read", "unread", "group"]).default("all"),
+    tab: z.enum(["all", "unread", "group"]).default("all"),
     search: z.string().optional(),
   }),
 });
@@ -276,15 +276,16 @@ getChatRooms : async (request: Request, h: ResponseToolkit) => {
         .code(400);
     }
 
-    const { search, page, limit } = parsed.data.query;
+    const { search, page, limit, tab } = parsed.data.query;
 
     const data = await getChatRoomsOperation({ search, page, limit });
+    const selectedData = data[tab];
 
     return h
       .response({
         statusCode: 200,
         message: "Chat rooms fetched successfully",
-        data,
+        data: selectedData,
       })
       .code(200);
   } catch (error: any) {
