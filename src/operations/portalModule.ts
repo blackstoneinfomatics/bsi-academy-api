@@ -570,12 +570,40 @@ const getFeatureTrend = (current: number, previous: number) => {
 };
 
 const countFeatures = async (match: Record<string, unknown>): Promise<number> => {
+  const directMatch = Object.fromEntries(
+    Object.entries(match).map(([key, value]) => [
+      key.replace(/^children\.features\./, "features."),
+      value,
+    ])
+  );
+
   const result = await PortalModule.aggregate([
     { $match: { deletedAt: null } },
-    { $unwind: "$children" },
-    { $unwind: "$children.features" },
-    { $match: match },
-    { $count: "count" },
+    {
+      $facet: {
+        nested: [
+          { $unwind: "$children" },
+          { $unwind: "$children.features" },
+          { $match: match },
+          { $count: "count" },
+        ],
+        direct: [
+          { $unwind: "$features" },
+          { $match: directMatch },
+          { $count: "count" },
+        ],
+      },
+    },
+    {
+      $project: {
+        count: {
+          $add: [
+            { $ifNull: [{ $arrayElemAt: ["$nested.count", 0] }, 0] },
+            { $ifNull: [{ $arrayElemAt: ["$direct.count", 0] }, 0] },
+          ],
+        },
+      },
+    },
   ]);
 
   return result[0]?.count ?? 0;
