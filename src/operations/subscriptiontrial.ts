@@ -370,10 +370,14 @@ export const updateSubscriptionTrial = async (
       throwError(subscriptionTrialMessages.VALIDATION_FAILED, 400);
     }
 
+    console.log("Updating trial with ID:", trialId, "Payload:", payload);
+
     const trial = await SubscriptionTrial.findOne({
       _id: trialId,
       deletedAt: null,
     });
+
+    console.log("trial", trial);
 
     if (trial?.status === payload.status) {
       throwError(subscriptionTrialMessages.STATUS_UNCHANGED, 400);
@@ -388,6 +392,8 @@ export const updateSubscriptionTrial = async (
       tenantCode: trial.tenantId,
       deletedAt: null,
     }).lean();
+
+    console.log("tenant", tenant);
 
     if (!tenant) {
       throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
