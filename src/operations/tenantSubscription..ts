@@ -1148,7 +1148,7 @@ export const getTenantsByPlan = async (planId: string) => {
       $match: {
         planId: new mongoose.Types.ObjectId(planId),
         status: "ACTIVE",
-        paymentStatus: "SUCCESS",
+        paymentStatus: "PAID",
         deletedAt: null,
       },
     },
