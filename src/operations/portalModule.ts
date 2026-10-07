@@ -1021,46 +1021,45 @@ export const getTenantConfigs = async (
   };
 };
 
-// Gets a single tenant + portal configuration with tenant and subscription details.
+type TenantPortalConfigSummary = {
+  tenantId: string;
+  portalName: string;
+  modules: ITenantPortalConfig["modules"];
+};
+
+// Gets every portal and its module configuration for a tenant.
 export const getTenantConfig = async (
-  tenantId: string,
-  portalId: string
-): Promise<TenantConfigWithDetails> => {
-  const [tenant, subscription, tenantPortal] = await Promise.all([
-    Tenants.findOne({ tenantCode: tenantId }),
-    TenantSubscription.findOne({ tenantId, deletedAt: null }),
-    TenantPortal.findOne({
-      tenantId,
-      portalId,
-      status: PortalStatus.ACTIVE,
-      isEnabled: true,
-      deletedAt: null,
-    }),
-  ]);
+  tenantId: string
+): Promise<TenantPortalConfigSummary[]> => {
+  const tenant = await Tenants.findOne({ tenantCode: tenantId });
 
   if (!tenant) {
     return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
   }
 
-  if (!tenantPortal) {
-    return throwError(tenantPortalConfigMessages.TENANT_PORTAL_NOT_FOUND, 404);
-  }
+  const [tenantPortals, configs] = await Promise.all([
+    TenantPortal.find({ tenantId, deletedAt: null })
+      .sort({ createdAt: 1 })
+      .lean(),
+    TenantPortalConfig.find({
+      tenantId,
+      deletedAt: null,
+    }).lean(),
+  ]);
 
-  const config = await TenantPortalConfig.findOne({
-    tenantId,
-    tenantPortalId: tenantPortal._id,
-    deletedAt: null,
+  const configByTenantPortalId = new Map(
+    configs.map((config) => [config.tenantPortalId.toString(), config])
+  );
+
+  return tenantPortals.map((portal) => {
+    const config = configByTenantPortalId.get(portal._id.toString());
+
+    return {
+      tenantId,
+      portalName: portal.portalName,
+      modules: config?.modules ?? [],
+    };
   });
-
-  if (!config) {
-    return throwError(tenantPortalConfigMessages.TENANT_CONFIG_NOT_FOUND, 404);
-  }
-
-  return {
-    ...config.toObject(),
-    tenantDetails: buildTenantDetails(tenant),
-    subscriptionDetails: buildSubscriptionDetails(subscription),
-  };
 };
 
 
