@@ -23,6 +23,11 @@ import ActiveSessionModel from "../../models/active_session";
 import { getActiveStudentRecord } from "../../operations/alstudents";
 import UserModel from "../../models/users";
 import AlStudentsModel from "../../models/alstudents";
+import TrialMemberModel from "../../models/trailmember";
+import SubscriptionTrial from "../../models/subcriptionTrial";
+import Tenants from "../../models/tenants";
+import { appStatus } from "../../config/messages";
+import { Status, SubscriptionTrialStatus } from "../../shared/enum";
 
 // Input validation for user signin
 const signInInputValidation = z.object({
@@ -44,66 +49,141 @@ const checkEmailInputValidation = z.object({
   }),
 });
 export default {
-  async signIn(req: Request, h: ResponseToolkit) {
-    const { payload } = signInInputValidation.parse({
-      payload: req.payload,
+ async signIn(req: Request, h: ResponseToolkit) {
+  const { payload } = signInInputValidation.parse({
+    payload: req.payload,
+  });
+
+  const { username, password } = payload;
+  console.info("[auth:signIn] Sign-in request received", { username });
+
+  // 1. Check normal UserModel first
+  const mainUser = await getActiveUserRecord({
+    userName: username,
+  });
+  console.info("[auth:signIn] Regular user lookup completed", {
+    found: !!mainUser,
+  });
+
+  let user: any = mainUser;
+  let isTrialMember = false;
+
+  // 2. If normal user doesn't exist, check TrialMemberModel
+  if (!mainUser) {
+    const now = new Date();
+
+    const trialMember = await TrialMemberModel.findOne({
+      userName: username,
+      status: appStatus.ACTIVE,
+    }).lean();
+
+    const activeTrial = trialMember
+      ? await SubscriptionTrial.findOne({
+          tenantId: trialMember.tenantId,
+          status: SubscriptionTrialStatus.ACTIVE,
+          trialEndDate: { $gt: now },
+          deletedAt: null,
+        }).lean()
+      : null;
+
+    user = activeTrial ? trialMember : null;
+    isTrialMember = !!activeTrial;
+    console.info("[auth:signIn] Trial member lookup completed", {
+      memberFound: !!trialMember,
+      activeTrialFound: !!activeTrial,
     });
-
-    const { username, password } = payload;
-    let user: any = await getActiveUserRecord({ userName: username });    // Validate the user exists in the DB
-    if (isNil(user)) {
-      return badRequest(userMessages.USER_NOT_FOUND);
-    }
-
-    if (!(await verifyPassword(decryptPassword(password), user.password))) {
-      return unauthorized(authMessages.INCORRECT_PASSWORD);
-    }
-
-       // Determine which record to use
-    const activeRecord = user;
-  // 🔎 Step 1: Find latest session for this user (by loginDate)
-  const latestSession = await ActiveSessionModel.findOne({ userId: String(activeRecord._id) })
-    .sort({ loginDate: -1 }) // most recent first
-    .exec();
-
-  if (latestSession) {
-    console.log("Latest session:", latestSession.loginDate);
-
-    // Step 2: If latest session is still active, block login
-    // if (latestSession.isActive) {
-    //   return unauthorized("User already logged in on another device/session");
-    // }
   }
 
-    const jwtPayload = {
-      userName: user.userName,
-      sub: String(user._id),
-      tenantId: user.tenantId,
-    };
-    const accessToken = generateAuthToken(jwtPayload);
-    const userWithoutPassword = omit(user, ["password"]);
-
-    await updateUser(String(user._id), { lastLoginDate: new Date() });
-
-    // Save the session for logout activity
-    await createActiveSessionRecord({
-      tenantId: user.tenantId,
-      userId: String(user._id),
-      loginDate: new Date(),
-      isActive: true,
-      accessToken,
+  // 3. No user found
+  if (isNil(user)) {
+    console.warn("[auth:signIn] Sign-in rejected: account not found or trial unavailable", {
+      username,
     });
+    return badRequest(userMessages.USER_NOT_FOUND);
+  }
 
-    const tenantData: any = await getActiveTenantRecordByCode(user.tenantId);
+  // 4. Verify password
+  const decryptedPassword = decryptPassword(password);
 
-    // Return user details with auth token for successfull login
-    return {
-      ...userWithoutPassword,
-      accessToken,
-      organizationName: tenantData.organizationName ?? null,
-      tenantJobCode: tenantData.tenantJobCode ?? null
-    };
-  },
+  const isPasswordValid = await verifyPassword(
+    decryptedPassword,
+    user.password
+  );
+
+  if (!isPasswordValid) {
+    console.warn("[auth:signIn] Sign-in rejected: password mismatch", {
+      username,
+      accountType: isTrialMember ? "trialMember" : "user",
+    });
+    return unauthorized(authMessages.INCORRECT_PASSWORD);
+  }
+
+  // 5. Generate token
+  const jwtPayload = {
+    userName: user.userName,
+    sub: String(user._id),
+    tenantId: user.tenantId,
+  };
+
+  const accessToken = generateAuthToken(jwtPayload);
+
+  // 6. Remove password
+  const userWithoutPassword = omit(user, ["password"]);
+
+  // 7. Update last login only for normal users
+  if (!isTrialMember) {
+    await updateUser(String(user._id), {
+      lastLoginDate: new Date(),
+    });
+  }
+
+  // 8. Create session
+  await createActiveSessionRecord({
+    tenantId: user.tenantId,
+    userId: String(user._id),
+    loginDate: new Date(),
+    isActive: true,
+    accessToken,
+  });
+
+  // 9. Get tenant
+  const tenantData = isTrialMember
+    ? await Tenants.findOne({
+        tenantCode: user.tenantId,
+        status: Status.TRIAL,
+      }).lean()
+    : await getActiveTenantRecordByCode(user.tenantId);
+
+  if (!tenantData) {
+    console.warn("[auth:signIn] Sign-in rejected: tenant unavailable", {
+      tenantId: user.tenantId,
+      accountType: isTrialMember ? "trialMember" : "user",
+    });
+    return badRequest(userMessages.USER_NOT_FOUND);
+  }
+
+  // 10. Return response
+  console.info("[auth:signIn] Sign-in successful", {
+    tenantId: user.tenantId,
+    accountType: isTrialMember ? "trialMember" : "user",
+  });
+  return {
+    ...userWithoutPassword,
+
+    ...(isTrialMember
+      ? {
+          role: ["ADMIN"],
+          isTrialMember: true,
+        }
+      : {
+          isTrialMember: false,
+        }),
+
+    accessToken,
+    organizationName: tenantData.organizationName ?? null,
+    tenantJobCode: tenantData.tenantJobCode ?? null,
+  };
+},
 
   async studentSignIn(req: Request, h: ResponseToolkit) {
     const { payload } = signInInputValidation.parse({

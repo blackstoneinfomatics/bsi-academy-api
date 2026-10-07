@@ -52,7 +52,7 @@ import PaymentTransaction from "../models/paymenttransaction";
 import RefundTransaction from "../models/refundTransaction";
 import AuditLog from "../models/auditlog";
 import portalModule from "../models/portalModule";
-import { createChatRoom } from "./tenantChat";
+import { createChatRoom, createChatRoomForTrial } from "./tenantChat";
 /**
  * Creates a new student.
  *
@@ -78,13 +78,13 @@ export const createTenant = async (
 
   const createChatRoomPayload = {
     type :ChatRoomType.TENANT,
-    tenantIds : [savedTenant.tenantCode],
+    tenantId : savedTenant.tenantCode,
     name: savedTenant.tenantName,
-    planName:"Trail",
-    description:"Tenant",
+    planName:"Trial",
+    description:"Trial Tenant",
     createdBy:"SYSTEM"
   }
-    await createChatRoom(createChatRoomPayload);
+  await createChatRoomForTrial(createChatRoomPayload);
 
   return savedTenant.toObject();
 };
@@ -715,6 +715,7 @@ export const updateTenantPlanService = async (
 
       const newSub = await TenantSubscription.create({
         tenantId,
+        tenantName: tenant.tenantName,
         planId,
         planName,
         subscriptionCode: subscriptionCode,

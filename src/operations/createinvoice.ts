@@ -92,7 +92,7 @@ export const createCustomServiceInvoice = async (
     _id: payload.subscriptionId,
     tenantId: payload.tenantId,
     status: "ACTIVE",
-    paymentStatus : "SUCCESS",
+    paymentStatus : "PAID",
     deletedAt: null,
   });
   console.log("createCustomServiceInvoice: subscription =", subscription);

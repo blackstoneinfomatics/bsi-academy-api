@@ -2687,6 +2687,8 @@ export interface IBilling extends Document {
 export interface ITenantSubscription extends Document {
   tenantId: string;
 
+  tenantName: string;
+
   planId: Types.ObjectId;
 
   planName: string;

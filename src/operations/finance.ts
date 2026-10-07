@@ -1139,48 +1139,58 @@ export const getRevenueGrowth = async (query: {
           },
           { $sort: { "_id.month": 1 } },
         ])
-      : SubscriptionInvoiceModel.aggregate([
-          {
-            $match: {
-              deletedAt: null,
-              invoiceDate: {
-                $gte: new Date(selectedYear - 7, 0, 1),
-                $lt: new Date(selectedYear + 1, 0, 1),
-              },
-            },
-          },
-          {
-            $group: {
-              _id: { year: { $year: "$invoiceDate" } },
-              totalRevenue: { $sum: "$totalAmount" },
-            },
-          },
-          { $sort: { "_id.year": 1 } },
-        ]),
+: SubscriptionInvoiceModel.aggregate([
+    {
+      $match: {
+        deletedAt: null,
+        invoiceDate: {
+          $gte: new Date(selectedYear - 4, 0, 1),
+          $lt: new Date(selectedYear + 1, 0, 1),
+        },
+      },
+    },
+    {
+      $group: {
+        _id: { year: { $year: "$invoiceDate" } },
+        totalRevenue: { $sum: "$totalAmount" },
+      },
+    },
+    { $sort: { "_id.year": 1 } },
+  ]),
   ]);
 
-  const data =
-    selectedView === "monthly"
-      ? Array.from({ length: 12 }, (_, index) => {
-          const monthNumber = index + 1;
-          const item = trendSeries.find(
-            (entry: any) => entry._id.month === monthNumber,
-          );
-          return {
-            month: monthNumber,
-            monthName: new Date(selectedYear, index, 1).toLocaleString(
-              "en-US",
-              {
-                month: "short",
-              },
-            ),
-            amount: item?.totalRevenue || 0,
-          };
-        })
-      : trendSeries.map((item: any) => ({
-          year: Number(item._id.year),
-          amount: item.totalRevenue || 0,
-        }));
+const data =
+  selectedView === "monthly"
+    ? Array.from({ length: 12 }, (_, index) => {
+        const monthNumber = index + 1;
+
+        const item = trendSeries.find(
+          (entry: any) => entry._id.month === monthNumber,
+        );
+
+        return {
+          month: monthNumber,
+          monthName: new Date(selectedYear, index, 1).toLocaleString(
+            "en-US",
+            {
+              month: "short",
+            },
+          ),
+          amount: item?.totalRevenue || 0,
+        };
+      })
+    : Array.from({ length: 5 }, (_, index) => {
+        const year = selectedYear - 4 + index;
+
+        const item = trendSeries.find(
+          (entry: any) => Number(entry._id.year) === year,
+        );
+
+        return {
+          year,
+          amount: item?.totalRevenue || 0,
+        };
+      });
 
   return {
     view: selectedView,

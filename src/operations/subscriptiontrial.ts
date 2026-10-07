@@ -4,11 +4,13 @@ import { Status, SubscriptionTrialStatus } from "../shared/enum";
 import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
 import { throwError } from "../helpers/throwError";
+import TrialMemberModel from "../models/trailmember";
 import {
   subscriptionInvoiceMessages,
   subscriptionTrialMessages,
 } from "../config/messages";
 import Tenants from "../models/tenants";
+import { deleteChatRoomForTrialByTenantId, deleteChatRoomService } from "./tenantChat";
 
 export const getSubscriptionTrials = async (query: any) => {
   try {
@@ -97,10 +99,7 @@ export const getSubscriptionTrials = async (query: any) => {
                 { case: { $eq: ["$status", "CANCELLED"] }, then: "CANCELLED" },
                 { case: { $eq: ["$status", "CONVERTED"] }, then: "CONVERTED" },
                 { case: { $eq: ["$status", "COMPLETED"] }, then: "COMPLETED" },
-                {
-                  case: { $lt: ["$trialEndDate", currentDate] },
-                  then: "EXPIRED",
-                },
+        
                 {
                   case: {
                     $and: [
@@ -197,7 +196,6 @@ export const getSubscriptionTrialById = async (trialId: string) => {
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
-      status: "Active",
     }).lean();
 
     if (!tenant) {
@@ -229,9 +227,7 @@ export const getSubscriptionTrialById = async (trialId: string) => {
       derivedStatus = SubscriptionTrialStatus.INACTIVE;
     } else {
       if (daysLeft !== null) {
-        if (daysLeft < 0) {
-          derivedStatus = SubscriptionTrialStatus.EXPIRED;
-        } else if (daysLeft <= 3) {
+         if (daysLeft <= 3) {
           derivedStatus = SubscriptionTrialStatus.EXPIRING_SOON;
         } else {
           derivedStatus = SubscriptionTrialStatus.ACTIVE;
@@ -294,17 +290,17 @@ export const getSubscriptionTrialDashboardCount = async () => {
           activeTrials: [
             {
               $match: {
-                status: "ACTIVE",
+                status: SubscriptionTrialStatus.ACTIVE,
                 trialEndDate: { $gte: currentDate },
               },
             },
             { $count: "count" },
           ],
 
-          expiredTrials: [
+          completedTrials: [
             {
               $match: {
-                trialEndDate: { $lt: currentDate },
+                status: SubscriptionTrialStatus.COMPLETED,
               },
             },
             { $count: "count" },
@@ -332,8 +328,8 @@ export const getSubscriptionTrialDashboardCount = async () => {
           activeTrials: {
             $ifNull: [{ $arrayElemAt: ["$activeTrials.count", 0] }, 0],
           },
-          expiredTrials: {
-            $ifNull: [{ $arrayElemAt: ["$expiredTrials.count", 0] }, 0],
+          completedTrials: {
+            $ifNull: [{ $arrayElemAt: ["$completedTrials.count", 0] }, 0],
           },
           convertedCount: {
             $ifNull: [{ $arrayElemAt: ["$convertedTrials.count", 0] }, 0],
@@ -345,14 +341,14 @@ export const getSubscriptionTrialDashboardCount = async () => {
     const data = result[0] || {
       totalTrials: 0,
       activeTrials: 0,
-      expiredTrials: 0,
+      completedTrials: 0,
       convertedCount: 0,
     };
 
     return {
       totalTrials: data.totalTrials,
       activeTrials: data.activeTrials,
-      expiredTrials: data.expiredTrials,
+      completedTrials: data.completedTrials,
       convertedTrials: data.convertedCount,
     };
   } catch (error) {
@@ -374,10 +370,14 @@ export const updateSubscriptionTrial = async (
       throwError(subscriptionTrialMessages.VALIDATION_FAILED, 400);
     }
 
+    console.log("Updating trial with ID:", trialId, "Payload:", payload);
+
     const trial = await SubscriptionTrial.findOne({
       _id: trialId,
       deletedAt: null,
     });
+
+    console.log("trial", trial);
 
     if (trial?.status === payload.status) {
       throwError(subscriptionTrialMessages.STATUS_UNCHANGED, 400);
@@ -391,8 +391,9 @@ export const updateSubscriptionTrial = async (
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
-      status: "Active",
     }).lean();
+
+    console.log("tenant", tenant);
 
     if (!tenant) {
       throwError(subscriptionInvoiceMessages.TENANT_NOT_FOUND, 404);
@@ -417,7 +418,7 @@ export const updateSubscriptionTrial = async (
         SubscriptionTrialStatus.INACTIVE,
         SubscriptionTrialStatus.CANCELLED,
         SubscriptionTrialStatus.CONVERTED,
-        SubscriptionTrialStatus.EXPIRED,
+        // SubscriptionTrialStatus.EXPIRED,
         SubscriptionTrialStatus.COMPLETED,
       ];
 
@@ -438,12 +439,35 @@ export const updateSubscriptionTrial = async (
           emailType = "CANCELLED";
           break;
 
-        case SubscriptionTrialStatus.EXPIRED:
-          emailType = "EXPIRED";
-          break;
+        // case SubscriptionTrialStatus.EXPIRED:
+        //   emailType = "EXPIRED";
+        //   break;
 
         case SubscriptionTrialStatus.ACTIVE:
           emailType = "UPDATED";
+          await TrialMemberModel.updateMany(
+            { tenantId: trial.tenantId },
+            {
+              $set: {
+                status: Status.ACTIVE,
+                lastUpdatedDate: new Date(),
+                lastUpdatedBy: payload.updatedBy,
+              },
+            },
+          );
+          await Tenants.updateOne(
+            {
+              tenantCode: trial.tenantId,
+              deletedAt: null,
+              status: Status.COMPLETED,
+            },
+            {
+              $set: {
+                status: Status.TRIAL,
+                updatedAt: new Date(),
+              },
+            },
+          );
           break;
 
         case SubscriptionTrialStatus.INACTIVE:
@@ -452,6 +476,17 @@ export const updateSubscriptionTrial = async (
 
         case SubscriptionTrialStatus.COMPLETED:
           emailType = "COMPLETED";
+
+          await TrialMemberModel.updateMany(
+            { tenantId: trial.tenantId },
+            {
+              $set: {
+                status: Status.IN_ACTIVE,
+                lastUpdatedDate: new Date(),
+                lastUpdatedBy: payload.updatedBy,
+              },
+            },
+          );
 
           const updatedTenant = await Tenants.findOneAndUpdate(
             {
@@ -515,13 +550,13 @@ export const updateSubscriptionTrial = async (
   }
 };
 
-export const updateTrailConvertedByTenantId = (tenantId: string) => {
+export const updateTrailConvertedByTenantId = async(tenantId: string) => {
   try {
     if (!tenantId) {
       throwError(subscriptionTrialMessages.TENANT_NOT_FOUND, 404);
       return;
     }
-    SubscriptionTrial.findOneAndUpdate(
+   await SubscriptionTrial.findOneAndUpdate(
       {
         tenantId: tenantId,
       },
@@ -531,6 +566,9 @@ export const updateTrailConvertedByTenantId = (tenantId: string) => {
         status: SubscriptionTrialStatus.CONVERTED,
       },
     );
+     
+    await deleteChatRoomForTrialByTenantId(tenantId);
+
   } catch (error: any) {
     console.log("error in trails update");
   }
@@ -615,6 +653,17 @@ export const processTrialExpiry = async () => {
       {
         $set: {
           status: Status.COMPLETED,
+        },
+      },
+    );
+
+    await TrialMemberModel.updateMany(
+      { tenantId: { $in: tenantIds } },
+      {
+        $set: {
+          status: Status.IN_ACTIVE,
+          lastUpdatedDate: now,
+          lastUpdatedBy: "System",
         },
       },
     );

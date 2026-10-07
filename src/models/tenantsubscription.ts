@@ -16,6 +16,12 @@ export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
       index: true,
     },
 
+    tenantName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     planId: {
       type: Schema.Types.ObjectId,
       ref: "plan",
@@ -107,6 +113,7 @@ const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
 export const TenantSubscriptionBaseValidation = z.object({
   tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  tenantName: z.string().trim().min(1, "Tenant Name is required"),
 
   planId: objectId,
 

@@ -7,10 +7,10 @@ export const serverSettings: ServerOptions = {
   },
   routes: {
     cors: {
-      origin: ["*"],
-      headers: ["Accept", "Authorization", "Content-Type", "If-None-Match", "tenantid"],
+    origin: ["*"], // Add your deployed frontend origin too
+      headers: ["Accept", "Authorization", "Content-Type", "If-None-Match", "tenantId", "tenantcode"],
       exposedHeaders: ["WWW-Authenticate", "Server-Authorization"],
-      additionalExposedHeaders: ["Accept", "tenantid"],
+      additionalExposedHeaders: ["Accept", "tenantId"],
       maxAge: 60,
       credentials: true,
     },

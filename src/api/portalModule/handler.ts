@@ -26,7 +26,6 @@ import {
   getTenantChildFeatures,
   getTenantChildModules,
   getTenantConfig,
-  getTenantConfigs,
   getTenantModuleFeatures,
   getTenantModules,
   updateChildModule,
@@ -696,56 +695,26 @@ getParentModules: async (
   
  getTenantConfig: async (request: Request, h: ResponseToolkit) => {
   try {
-    const {
-      tenantId,
-      portalId,
-      page,
-      limit,
-    } = request.query as {
+    const { tenantId } = request.query as {
       tenantId?: string;
-      portalId?: string;
-      page?: string;
-      limit?: string;
     };
 
-    // Get all tenant configurations with pagination
-    if (page !== undefined || limit !== undefined) {
-      const result = await getTenantConfigs(
-        Number(page) || 1,
-        Number(limit) || 10,
-        {
-          tenantId,
-          portalId,
-        }
-      );
-
-      return h
-        .response({
-          success: true,
-          message: tenantPortalConfigMessages.GET_CONFIGS_SUCCESS,
-          data: result.data,
-          pagination: result.pagination,
-        })
-        .code(200);
-    }
-
-    // Get a single tenant configuration
-    if (!tenantId || !portalId) {
+    if (!tenantId) {
       return h
         .response({
           success: false,
-          message: "tenantId and portalId are required",
+          message: "tenantId is required",
           errorCode: 400,
         })
         .code(400);
     }
 
-    const result = await getTenantConfig(tenantId, portalId);
+    const result = await getTenantConfig(tenantId);
 
     return h
       .response({
         success: true,
-        message: tenantPortalConfigMessages.GET_CONFIG_SUCCESS,
+        message: tenantPortalConfigMessages.GET_CONFIGS_SUCCESS,
         data: result,
       })
       .code(200);

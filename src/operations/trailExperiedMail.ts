@@ -74,7 +74,7 @@ export const createTrialMember = async (tenantDetails: any) => {
     userName: tenantDetails.tenantCode,
     email: tenantDetails.emailId,
     password: hashedPassword,
-    role: ["TRIAL_TENANT"],
+    role: ["ADMIN"],
     status: CustomEnumerator.Status.ACTIVE,
     createdBy: tenantDetails.createdBy || "System",
     lastUpdatedBy: tenantDetails.createdBy || "System",

@@ -29,7 +29,7 @@ import { tenantPortalConfigMessages } from "../../config/messages";
 // routes only add/update a Custom entry inside that existing document, or
 // enable/disable an existing Default or Custom entry - they never create a
 // second config document.
-//   GET    /modules/tenant/config                                           get the full tenant config (Portal -> Modules -> Children/Features)
+//   GET    /modules/tenant/config                                           list a tenant's portals with their modules/features
 //   GET    /modules/tenant/configs                                          list tenant configs across tenants/portals (paginated)
 //   GET    /modules/tenant/config/{tenantId}                                plan details + payable amount of the tenant
 //   POST   /modules/tenant                                                  add a custom tenant module (and enable it)
@@ -229,7 +229,7 @@ const register = async (server: Server): Promise<void> => {
       path: "/modules/tenant/config",
       options: {
         handler: handler.getTenantConfig,
-        description: "Get the full tenant portal configuration (Portal -> Modules -> Children/Features)",
+        description: "List all tenant portals with their modules, children, and features",
         tags: ["api", "module", "tenant"],
       },
     },
