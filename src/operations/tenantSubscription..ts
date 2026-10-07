@@ -848,13 +848,13 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Total active subscriptions
     tenantsubscription.countDocuments({
-      status: "Active",
+      status: "ACTIVE",
       paymentStatus: "PAID",
     }),
 
     // Total inactive subscriptions
     tenantsubscription.countDocuments({
-      status: "Inactive",
+      status: "INACTIVE",
     }),
 
     // Total active trials
@@ -877,7 +877,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Active subscriptions created this month
     tenantsubscription.countDocuments({
-      status: "Active",
+      status: "ACTIVE",
       paymentStatus: "PAID",
       createdAt: {
         $gte: currentMonthStart,
@@ -887,7 +887,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Inactive subscriptions created this month
     tenantsubscription.countDocuments({
-      status: "Inactive",
+      status: "INACTIVE",
       createdAt: {
         $gte: currentMonthStart,
         $lt: nextMonthStart,
@@ -906,7 +906,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Subscriptions expiring this month
     tenantsubscription.countDocuments({
-      status: "Active",
+      status: "ACTIVE",
       endDate: {
         $gte: currentMonthStart,
         $lt: nextMonthStart,
@@ -927,7 +927,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Active subscriptions created previous month
     tenantsubscription.countDocuments({
-      status: "Active",
+      status: "ACTIVE",
       paymentStatus: "PAID",
       createdAt: {
         $gte: previousMonthStart,
@@ -937,7 +937,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Inactive subscriptions created previous month
     tenantsubscription.countDocuments({
-      status: "Inactive",
+      status: "INACTIVE",
       createdAt: {
         $gte: previousMonthStart,
         $lt: currentMonthStart,
@@ -956,7 +956,7 @@ export const getTenantSubscriptionDashboard = async () => {
 
     // Subscriptions expiring previous month
     tenantsubscription.countDocuments({
-      status: "Active",
+      status: "ACTIVE",
       endDate: {
         $gte: previousMonthStart,
         $lt: currentMonthStart,
