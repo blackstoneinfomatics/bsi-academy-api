@@ -8,7 +8,7 @@ import {
   getAllPortalService,
   getPortalDashboardCountService,
 } from "../../operations/portal";
-import {createCustomTenantPortalService,getTenantPortalDashboardService,syncTenantSubscriptionToTenantPortal,updateTenantPortalStatusService} from "../../operations/tenantPortal"
+import {createCustomTenantPortalService,getTenantPortalAccessService,getTenantPortalDashboardService,syncTenantSubscriptionToTenantPortal,updateTenantPortalStatusService} from "../../operations/tenantPortal"
 import { PortalStatus, PortalType, RoleType } from "../../shared/enum";
 import { getTenantPortals } from "../../operations/tenantPortal";
 import { TenantPortalBaseValidation } from "../../models/tenantPortal";
@@ -126,6 +126,19 @@ export const getTenantPortalValidation = z.object({
       .default("createdAt"),
 
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }),
+});
+export const getTenantPortalAccessValidation = z.object({
+  params: z.object({
+    tenantId: z.string()
+      .trim()
+      .min(1, "Tenant ID is required"),
+  }),
+
+  query: z.object({
+    roleName: z.string()
+      .trim()
+      .min(1, "Role name is required"),
   }),
 });
 
@@ -362,6 +375,43 @@ getTenantPortalDashboard: async (request: Request, h: ResponseToolkit) => {
         .code(err.statusCode || 500);
     }
   },
+  getTenantPortalAccess: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = getTenantPortalAccessValidation.safeParse({
+      params: request.params,
+      query: request.query,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+
+    const tenantId = parsed.data?.params.tenantId as string;
+    const roleName = parsed.data?.query.roleName as string;
+
+    const result = await getTenantPortalAccessService(
+      tenantId,
+      roleName,
+    );
+
+    return h
+      .response({
+        success: true,
+        message: portalMessages.GETTENANT_PORTAL_ACCESS_SUCCESS,
+        data: result,
+      })
+      .code(200);
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message:
+          err.message || portalMessages.INTERNAL_SERVER_ERROR,
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
+  }
+},
 
   createSyncTenantPortal : async(request: Request, h :ResponseToolkit)=>{
     try{

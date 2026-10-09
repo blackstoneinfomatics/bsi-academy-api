@@ -1038,6 +1038,7 @@ export const portalMessages = {
   DASBOARD_CARD_COUNT_SUCCESS : "Portal dashboard card count fetched successfully",
  CREATE_PORTAL_TO_TENANT_SUCCESS:
     "Portal assigned to tenant successfully.",
+    GETTENANT_PORTAL_ACCESS_SUCCESS: "Tenant portal access fetched successfully.",
 
   UPDATE_TENANT_PORTAL_SUCCESS:
     "Tenant portal updated successfully.",

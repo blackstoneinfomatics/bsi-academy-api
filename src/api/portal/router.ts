@@ -100,6 +100,18 @@ const register = async (server: Server): Promise<void> => {
         description:"test the sync subuscription",
         tags:["api","Portal"],
       }
+    },
+    {
+      method: "GET",
+      path: "/tenant-portal/{tenantId}/access",
+      handler: handler.getTenantPortalAccess,
+      options: {
+        description: portalMessages.GETTENANT_PORTAL_ACCESS_SUCCESS,
+        tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
     }
   ];
   server.route(routes);
