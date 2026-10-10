@@ -1545,42 +1545,67 @@ export interface IMeeting extends Document {
   updatedBy?: string;
 }
 
-export interface INotification {
-  messages?: string;
-  isRead?: boolean;
+// export interface INotification {
+//   messages?: string;
+//   isRead?: boolean;
+//   senderId: string;
+//   senderName: string;
+//   senderEmail: string;
+//   receiverId: string;
+//   receiverName: string;
+//   receiverEmail: string;
+//   notificationType?: string;
+//   notificationStatus?: string;
+//   status: string;
+//   createdDate: Date;
+//   createdBy: string;
+//   updatedDate?: Date;
+//   updatedBy?: string;
+// }
+
+// export interface INotification extends Document {
+//   tenantId: string;
+//   messages?: string;
+//   isRead?: boolean;
+//   senderId: string;
+//   senderName: string;
+//   senderEmail: string;
+//   receiverId: string;
+//   receiverName: string;
+//   receiverEmail: string;
+//   notificationType?: string;
+//   notificationStatus?: string;
+//   status: string;
+//   createdDate: Date;
+//   createdBy: string;
+//   updatedDate?: Date;
+//   updatedBy?: string;
+// }
+
+
+export interface INotification extends Document {
+  tenantId?: string;
+  title?: string;
+  messages: string;
   senderId: string;
-  senderName: string;
-  senderEmail: string;
+  senderName?: string;
+  senderEmail?: string;
   receiverId: string;
-  receiverName: string;
-  receiverEmail: string;
-  notificationType?: string;
+  receiverName?: string;
+  receiverEmail?: string;
+  notificationType: string;
   notificationStatus?: string;
-  status: string;
-  createdDate: Date;
-  createdBy: string;
+  isRead: boolean;
+  readAt?: Date;
+  actionUrl?: string;
+  metadata?: Record<string, unknown>;
+  status?: string;
+  createdDate?: Date;
+  createdBy?: string;
   updatedDate?: Date;
   updatedBy?: string;
 }
 
-export interface INotification extends Document {
-  tenantId: string;
-  messages?: string;
-  isRead?: boolean;
-  senderId: string;
-  senderName: string;
-  senderEmail: string;
-  receiverId: string;
-  receiverName: string;
-  receiverEmail: string;
-  notificationType?: string;
-  notificationStatus?: string;
-  status: string;
-  createdDate: Date;
-  createdBy: string;
-  updatedDate?: Date;
-  updatedBy?: string;
-}
 
 export interface IOtherEmployee extends Document {
   tenantId: string;
@@ -3101,6 +3126,7 @@ export interface ITenantDetailsResponse {
 
 export interface ILookup extends Document {
   tenantId: string;
+  userId: string;
   lookupKey: string;
   keyName: string;
   keyValue: string;

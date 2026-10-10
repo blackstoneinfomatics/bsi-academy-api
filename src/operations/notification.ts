@@ -1,58 +1,111 @@
-// services/notification.service.ts
 import { Types } from "mongoose";
+import { z } from "zod";
 import AppLogger from "../helpers/logging";
 import notification, { zodnotificationSchema } from "../models/notification";
-import {getIO } from "../shared/socket";
+import { getIO } from "../shared/socket";
 import { INotification } from "../../types/models.types";
 
+const sendNotificationInputSchema = z
+  .object({
+    receiverId: z.union([
+      z.string().min(1),
+      z.array(z.string().min(1)).min(1),
+    ]),
+    receiverName: z
+      .union([z.string(), z.array(z.string())])
+      .optional(),
+    receiverEmail: z
+      .union([z.string(), z.array(z.string())])
+      .optional(),
+  })
+  .passthrough();
 
-//Create Notification //
-
-
-export const sendNotification = async (rawData: any) => {
+export const sendNotification = async (rawData: unknown) => {
   try {
-    // Extract receivers if array, else treat as one
-    const receiverIds = Array.isArray(rawData.receiverId) ? rawData.receiverId : [rawData.receiverId];
-    const receiverNames = Array.isArray(rawData.receiverName) ? rawData.receiverName : [rawData.receiverName];
-    const receiverEmails = Array.isArray(rawData.receiverEmail) ? rawData.receiverEmail : [rawData.receiverEmail];
+    const input = sendNotificationInputSchema.parse(rawData);
+    const receiverIds = Array.isArray(input.receiverId)
+      ? input.receiverId
+      : [input.receiverId];
+    const receiverNames = Array.isArray(input.receiverName)
+      ? input.receiverName
+      : [input.receiverName];
+    const receiverEmails = Array.isArray(input.receiverEmail)
+      ? input.receiverEmail
+      : [input.receiverEmail];
+    const seenReceiverIds = new Set<string>();
+    const savedNotifications: INotification[] = [];
+    const errors: string[] = [];
+    let duplicateCount = 0;
 
-    const savedNotifications = [];
+    for (const [index, receiverId] of receiverIds.entries()) {
+      if (seenReceiverIds.has(receiverId)) {
+        continue;
+      }
+      seenReceiverIds.add(receiverId);
 
-    for (let i = 0; i < receiverIds.length; i++) {
       const individualData = {
-        ...rawData,
-        receiverId: receiverIds[i],
-        receiverName: receiverNames[i],
-        receiverEmail: receiverEmails[i],
+        ...input,
+        receiverId,
+        receiverName: receiverNames[index],
+        receiverEmail: receiverEmails[index],
       };
 
-      const payload = zodnotificationSchema.parse(individualData); // ✅ Validate individual
-      const notificationData = new notification(payload);
-      const saved = await notificationData.save();
-      savedNotifications.push(saved);
+      try {
+        const payload = zodnotificationSchema.parse(individualData);
+        const saved = await new notification(payload).save();
+        savedNotifications.push(saved);
 
-      // Emit via WebSocket
-      const io = getIO();
-      io.to(payload.receiverId).emit("notification", saved);
+        try {
+          getIO().to(payload.receiverId).emit("notification", saved);
+        } catch (error) {
+          const message = (error as Error).message;
+          errors.push(`Delivery failed for recipient ${receiverId}: ${message}`);
+          AppLogger.error(
+            `Notification saved but Socket.IO delivery failed for recipient ${receiverId}: ${message}`
+          );
+        }
+      } catch (error) {
+        if ((error as { code?: number }).code === 11000) {
+          duplicateCount += 1;
+          AppLogger.info(
+            `Duplicate notification ignored for recipient ${receiverId}`
+          );
+          continue;
+        }
+
+        const message = (error as Error).message;
+        errors.push(`Notification failed for recipient ${receiverId}: ${message}`);
+        AppLogger.error(
+          `Notification failed for recipient ${receiverId}: ${message}`
+        );
+      }
     }
 
-    AppLogger.info(`Notification(s) sent: ${JSON.stringify(savedNotifications)}`);
-    return { success: true, data: savedNotifications };
-  } catch (err: any) {
-    AppLogger.error(`Notification error: ${JSON.stringify(err.errors ?? err.message)}`);
-    return { success: false, error: err.message };
+    return {
+      success: savedNotifications.length > 0 || errors.length === 0,
+      data: savedNotifications,
+      duplicateCount,
+      ...(errors.length > 0 ? { errors } : {}),
+    };
+  } catch (error) {
+    const message = (error as Error).message;
+    AppLogger.error(`Invalid notification payload: ${message}`);
+    return { success: false, data: [], error: message };
   }
 };
 
-
-
-export const getNotificationsByNotificationId = async (notificationId: string) => {
+export const getNotificationsByNotificationId = async (
+  notificationId: string,
+  receiverIds: string[],
+  tenantId: string
+) => {
   try {
-    const [notifications, totalCount] = await Promise.all([
-      notification.findOne({ _id: new Types.ObjectId(notificationId) }).lean(),
-      notification.countDocuments({ _id: new Types.ObjectId(notificationId) }),
-    ]);
-    return { notifications, totalCount };
+    const filter = {
+      _id: new Types.ObjectId(notificationId),
+      ...buildRecipientFilter(receiverIds, tenantId),
+    };
+    const notifications = await notification.findOne(filter).lean();
+    return { notifications, totalCount: notifications ? 1 : 0 };
   } catch (error) {
     throw new Error(`Failed to fetch notifications: ${(error as Error).message}`);
   }
@@ -61,16 +114,29 @@ export const getNotificationsByNotificationId = async (notificationId: string) =
 /**
  * Retrieves all meeting records with optional filters.
  */
-export default async function getAllNotification(receiverId?: string) {
-  try {
-    const filter = receiverId ? { receiverId } : {};
+const buildRecipientFilter = (receiverIds: string[], tenantId: string) => ({
+  receiverId: { $in: receiverIds },
+  $or: [
+    { tenantId },
+    { tenantId: { $exists: false } },
+    { tenantId: null },
+  ],
+});
 
-    const [notifications, totalCount] = await Promise.all([
+export default async function getAllNotification(
+  receiverIds: string[],
+  tenantId: string
+) {
+  try {
+    const filter = buildRecipientFilter(receiverIds, tenantId);
+
+    const [notifications, totalCount, unreadCount] = await Promise.all([
       notification.find(filter).sort({ createdDate: -1 }),
       notification.countDocuments(filter),
+      notification.countDocuments({ ...filter, isRead: false }),
     ]);
 
-    return { notifications, totalCount };
+    return { notifications, totalCount, unreadCount };
   } catch (error) {
     throw new Error(`Failed to fetch notifications: ${(error as Error).message}`);
   }
@@ -86,11 +152,15 @@ export default async function getAllNotification(receiverId?: string) {
 
 export const updateNotification = async (
   id: string,
-  payload: Partial<INotification>
+  payload: Partial<INotification>,
+  receiverIds: string[],
+  tenantId: string
 ): Promise<INotification | null> => {
-
   return notification.findOneAndUpdate(
-    { _id: new Types.ObjectId(id) },
+    {
+      _id: new Types.ObjectId(id),
+      ...buildRecipientFilter(receiverIds, tenantId),
+    },
     { $set: payload },
     { new: true }
   ).lean();

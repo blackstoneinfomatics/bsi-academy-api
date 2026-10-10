@@ -31,7 +31,10 @@ const LookupSchema = new Schema<ILookup>(
       trim: true,
       lowercase: true,
     },
-
+    userId: {
+      type: String,
+      required: true,
+    },
     dataType: {
       type: String,
       enum: ["string", "number", "boolean"],
@@ -64,6 +67,7 @@ const LookupSchema = new Schema<ILookup>(
 export const lookupSchema = z.object({
   tenantId: z.string().min(1),
   lookupKey: z.string().min(1),
+  userId: z.string().min(1),
   keyName: z.string().min(1),
   keyValue: z.string().min(1),
   dataType: z.enum(["string", "number", "boolean"]).optional(),
