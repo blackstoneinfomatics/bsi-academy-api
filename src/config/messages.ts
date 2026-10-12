@@ -401,6 +401,7 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   UPDATE_FAILED: "Failed to update the tenant settings",
   BYID: "Get Tenant details by Tenant Code",
   TENANT_NOT_FOUND: "Tenant not found",
+  TENANT_USERS:"tenant users list",
 
   PLAN_NOT_FOUND: "Plan not found",
 

@@ -14,6 +14,7 @@ import {
   getTenantDashboardGrowth,
   getTenantDashboardSummary,
   getTenantFullDetailsByCode,
+  getTenantUsersService,
   updateTenantDetailsByTenantId,
   updateTenantPlanService,
   updateTenantSettings,
@@ -101,6 +102,20 @@ const dashboardActivityQueryValidation = z.object({
       .positive(tenantDashboardMessages.INVALID_LIMIT)
       .max(100)
       .default(10),
+  }),
+});
+
+export const getTenantUsersValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+  query: z.object({
+    role: z.string().trim().min(1, "Role is required"),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+    search: z.string().trim().optional(),
+    sortBy: z.enum(["createdDate", "name"]).default("createdDate"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -580,5 +595,49 @@ async updateTenantPlan(request: Request, h: ResponseToolkit) {
       })
       .code(error.statusCode || 500);
   }
-}
+},
+
+getTenantUsers: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = getTenantUsersValidation.safeParse({
+      params: request.params,
+      query: request.query,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+
+    const tenantId = parsed.data?.params.tenantId as string;
+    const { role, page, limit, search, sortBy, sortOrder } =
+      parsed.data!.query;
+
+    const result = await getTenantUsersService({
+      tenantId,
+      role,
+      page,
+      limit,
+      search,
+      // sortBy,
+      // sortOrder,
+    });
+
+    return h
+      .response({
+        success: true,
+        message: "Tenant users fetched successfully",
+        data: result?.data,
+      })
+      .code(200);
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message: err.message || "Internal Server Error",
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
+  }
+},
+
 };
