@@ -122,7 +122,7 @@ export const RoomMemberValidation = z.object({
   isActive: z.boolean().default(true),
 });
 
-export const TenantRoomMemberModel = mongoose.model<IUserChatRoomMember>(
+export const UserRoomMemberModel = mongoose.model<IUserChatRoomMember>(
   "userChatRoomMembers",
   userChatRoomMemberSchema,
 );
