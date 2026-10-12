@@ -3239,3 +3239,90 @@ export interface ITenantRoomMember extends Document {
   updatedBy?: string;
   deletedAt?: Date | null;
 }
+
+export interface IUserChatRoom extends Document {
+  roomCode: string;
+
+  type: ChatRoomType;
+  
+  tenantId?: string | null;      
+  segmentKey?: string;
+
+  name: string;
+  description?: string;
+  planName?: string | null;
+  directChatKey?: string | null;
+  sendAccess: ChatSendAccess,
+
+  lastMessage?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+    createdAt: Date;
+  };
+
+  lastMessageAt?: Date;
+
+  status: ChatRoomStatus;
+  isEnabled: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+export interface IUserChatMessage extends Document {
+  roomId: Types.ObjectId;
+
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  
+  title?:string;
+  message: string;
+
+  messageType: ChatMessageType;
+
+  attachments?: string[];
+
+  replyTo?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+
+  createdAt: Date;
+
+  deletedForEveryone?: Boolean;
+
+deletedForEveryoneAt?: Date | null,
+
+deletedForEveryoneBy?: String | null,
+
+  deletedAt?: Date | null;
+}
+
+export interface IUserChatRoomMember extends Document {
+  roomId: Types.ObjectId;
+
+  userId: string;
+  tenantId: string;
+
+  name: string;
+  role:string;
+  groupRole:string;
+
+  lastSeenMessageId?: Types.ObjectId;
+  lastSeenAt?: Date;
+  
+  lastClearedMessageId?: Types.ObjectId;
+  lastClearedAt?: Date;
+
+  isActive: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}

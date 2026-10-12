@@ -218,7 +218,7 @@ export const createTenantPortal = async (
       portalId,
 
       portalCode: portalData.portalCode,
-      portalName: portalData.portalName,
+      portalName: portalData.portalName.toLocaleUpperCase,
       portalType: portalData.portalType,
       roleType: portalData.roleType,
       description: portalData.description,
@@ -975,4 +975,28 @@ export const getTenantPortalAccessService = async (
 
     modules,
   };
+};
+
+
+export const getTenantRolesService = async (tenantId: string) => {
+  try {
+    if (!tenantId?.trim()) {
+      throwError(portalMessages.TENANT_NOT_FOUND, 400);
+      return;
+    }
+
+    const roles = await tenantPortal.find({
+      tenantId: tenantId.trim(),
+      status: PortalStatus.ACTIVE,
+      isEnabled: true,
+      deletedAt: null,
+    }).distinct("portalName");
+
+    return roles;
+  } catch (error) {
+    console.error("Error fetching tenant roles:", error);
+
+    throwError("Failed to fetch tenant roles", 500);
+    return;
+  }
 };

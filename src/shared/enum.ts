@@ -159,11 +159,18 @@ export enum PortalStatus {
   ARCHIVED = "ARCHIVED",
 }
 
-export enum ChatRoomType{
+export enum ChatRoomType {
+  DIRECT = "DIRECT",
+  GROUP = "GROUP",
+  USER = "USER",
   TENANT = "TENANT",
-   GLOBAL= "GLOBAL",
   SEGMENT = "SEGMENT",
-  USER ="USER"
+  GLOBAL = "GLOBAL",
+}
+
+export enum ChatGroupRole {
+  ADMIN = "ADMIN",
+  MEMBER = "MEMBER",
 }
 
 export enum ChatMessageType{

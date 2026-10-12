@@ -8,7 +8,7 @@ import {
   getAllPortalService,
   getPortalDashboardCountService,
 } from "../../operations/portal";
-import {createCustomTenantPortalService,getTenantPortalAccessService,getTenantPortalDashboardService,syncTenantSubscriptionToTenantPortal,updateTenantPortalStatusService} from "../../operations/tenantPortal"
+import {createCustomTenantPortalService,getTenantPortalAccessService,getTenantPortalDashboardService,getTenantRolesService,syncTenantSubscriptionToTenantPortal,updateTenantPortalStatusService} from "../../operations/tenantPortal"
 import { PortalStatus, PortalType, RoleType } from "../../shared/enum";
 import { getTenantPortals } from "../../operations/tenantPortal";
 import { TenantPortalBaseValidation } from "../../models/tenantPortal";
@@ -141,6 +141,14 @@ export const getTenantPortalAccessValidation = z.object({
       .min(1, "Role name is required"),
   }),
 });
+export const getTenantRolesValidation = z.object({
+  params: z.object({
+    tenantId: z.string()
+      .trim()
+      .min(1, "Tenant ID is required"),
+  })
+});
+
 
 export default {
   createPortal: async (request: Request, h: ResponseToolkit) => {
@@ -398,6 +406,38 @@ getTenantPortalDashboard: async (request: Request, h: ResponseToolkit) => {
       .response({
         success: true,
         message: portalMessages.GETTENANT_PORTAL_ACCESS_SUCCESS,
+        data: result,
+      })
+      .code(200);
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message:
+          err.message || portalMessages.INTERNAL_SERVER_ERROR,
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
+  }
+},
+ getTenantRoles: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = getTenantRolesValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+
+    const tenantId = parsed.data?.params.tenantId as string;
+
+    const result = await getTenantRolesService(tenantId);
+
+    return h
+      .response({
+        success: true,
+        message: portalMessages.GET_TENANT_ROLES,
         data: result,
       })
       .code(200);

@@ -1018,6 +1018,9 @@ export const portalMessages = {
   DISABLE_TENANT_PORTAL: "Disable Tenant Portal",
   GET_TENANT_PORTALS: "Get Tenant Portals",
   GET_TENANT_PORTAL_DASHBOARD: "Get Tenant Portal Dashboard",
+  GET_TENANT_ROLES: "Get Tenant Roles",
+  GET_TENANT_PORTAL_ACCESS: "Get Tenant Portal Access",
+  UPDATE_TENANT_PORTAL_ACCESS: "Update Tenant Portal Access",
 
   // 🔹 Success Responses
   GET_TENANT_PORTAL_DASHBOARD_SUCCESS:

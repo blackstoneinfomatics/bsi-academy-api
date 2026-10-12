@@ -112,6 +112,18 @@ const register = async (server: Server): Promise<void> => {
         //   strategies: ["jwt"],
         // },
       },
+    },
+     {
+      method: "GET",
+      path: "/tenant-portal/{tenantId}/roles",
+      handler: handler.getTenantRoles,
+      options: {
+        description: portalMessages.GET_TENANT_ROLES,
+        tags: ["api", "Portal"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
     }
   ];
   server.route(routes);
