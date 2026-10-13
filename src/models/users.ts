@@ -95,6 +95,7 @@ const userSchema = new Schema<IUser>(
 
 export const zodUserSchema = z.object({
   userName: z.string().min(3),
+  tenantId: z.string(),
   gender: z.string(),
   email: z.string().email(),
   password: z

@@ -100,6 +100,18 @@ const notificationSchema = new Schema<INotification>(
       index: true,
     },
 
+    senderTenantId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
+    receiverTenantId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
     title: {
       type: String,
       required: false,
@@ -118,12 +130,12 @@ const notificationSchema = new Schema<INotification>(
 
     senderName: {
       type: String,
-      required: false,
+      required: true,
     },
 
     senderEmail: {
       type: String,
-      required: false,
+      required: true,
     },
 
     receiverId: {
@@ -133,12 +145,12 @@ const notificationSchema = new Schema<INotification>(
 
     receiverName: {
       type: String,
-      required: false,
+      required: true,
     },
 
     receiverEmail: {
       type: String,
-      required: false,
+      required: true,
     },
 
     notificationType: {
@@ -207,19 +219,19 @@ const notificationSchema = new Schema<INotification>(
 // Efficient notification list and unread-count queries
 notificationSchema.index({
   receiverId: 1,
-  tenantId: 1,
+  receiverTenantId: 1,
   createdDate: -1,
 });
 
 notificationSchema.index({
   receiverId: 1,
-  tenantId: 1,
+  receiverTenantId: 1,
   isRead: 1,
 });
 
 notificationSchema.index(
   {
-    tenantId: 1,
+    receiverTenantId: 1,
     receiverId: 1,
     notificationType: 1,
     "metadata.trialEndDate": 1,
@@ -228,6 +240,7 @@ notificationSchema.index(
     unique: true,
     partialFilterExpression: {
       notificationType: "TRIAL_EXPIRING",
+      receiverTenantId: { $exists: true },
       "metadata.trialEndDate": { $exists: true },
     },
   }
@@ -235,14 +248,16 @@ notificationSchema.index(
 
 export const zodnotificationSchema = z.object({
   tenantId: z.string().optional(),
+  senderTenantId: z.string().min(1),
+  receiverTenantId: z.string().min(1),
   title: z.string().optional(),
   messages: z.string().min(1),
   senderId: z.string().min(1),
-  senderName: z.string().optional(),
-  senderEmail: z.string().optional(),
+  senderName: z.string().min(1),
+  senderEmail: z.string().min(1),
   receiverId: z.string().min(1),
-  receiverName: z.string().optional(),
-  receiverEmail: z.string().optional(),
+  receiverName: z.string().min(1),
+  receiverEmail: z.string().min(1),
   notificationType: z.string().min(1),
   notificationStatus: z
     .enum([

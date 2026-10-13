@@ -15,6 +15,7 @@ import Tenants from "../models/tenants";
 import { Lookup } from "../models/lookup";
 import { deleteChatRoomForTrialByTenantId, deleteChatRoomService } from "./tenantChat";
 import { sendNotification } from "./notification";
+import users from "../models/users";
 
 const resolveTrialExpiryRecipient = async (tenant: {
   tenantCode: string;
@@ -47,10 +48,11 @@ const resolveTrialExpiryRecipient = async (tenant: {
     const recipient = trialMember || paidUser;
 
     if (recipient) {
+      if (!recipient.userId) {
+        continue;
+      }
       return {
-        receiverId: String(recipient.userId || recipient._id),
-        receiverName: recipient.userName,
-        receiverEmail: recipient.email,
+        receiverId: recipient.userId,
       };
     }
   }
@@ -646,21 +648,6 @@ export const processTrialReminders = async () => {
       `[trial-reminder] Found ${expiringTomorrow.length} active trial(s) expiring tomorrow (${tomorrow.toISOString()} to ${dayAfterTomorrow.toISOString()})`
     );
 
-    const sender = await Lookup.findOne({
-      lookupKey: "SUPER_ADMIN",
-      keyValue: "super_admin",
-      status: "Active",
-    })
-      .select("userId")
-      .lean();
-
-    if (!sender?.userId) {
-      console.error(
-        "[trial-reminder] Active Super Admin lookup with userId was not found; reminders were not sent"
-      );
-      return;
-    }
-
     for (const trial of expiringTomorrow) {
       try {
         const tenant = await Tenants.findOne({
@@ -681,24 +668,36 @@ export const processTrialReminders = async () => {
           continue;
         }
 
-        const result = await sendNotification({
-          tenantId: tenant.tenantCode,
-          title: "Your Trial Period Is Ending Soon",
-          messages: `Your trial period for ${tenant.tenantName} (${tenant.tenantCode}) will expire tomorrow. Kindly upgrade your subscription plan to continue using the application without interruption.`,
-          senderId: sender.userId,
-          senderName: "System",
-          receiverId: recipient.receiverId,
-          receiverName: recipient.receiverName,
-          receiverEmail: recipient.receiverEmail,
-          notificationType: "TRIAL_EXPIRING",
-          notificationStatus: "Unseen",
-          isRead: false,
-          metadata: {
-            trialEndDate: trial.trialEndDate,
-          },
-          createdBy: sender.keyName,
-          updatedBy: sender.keyName,
-        });
+      const superAdmin = await users
+  .findOne({
+    role: "SUPERADMIN",
+    status: appStatus.ACTIVE,
+  })
+  .select("userId tenantId userName email")
+  .lean();
+
+if (!superAdmin) {
+  console.error("Active Super Admin not found");
+  continue;
+}
+        const result = await sendNotification(
+  {
+    title: "Your Trial Period Is Ending Soon",
+    messages: `Your trial period for ${tenant.tenantName} (${tenant.tenantCode}) will expire tomorrow. Kindly upgrade your subscription plan to continue using the application without interruption.`,
+    receiverId: recipient.receiverId,
+    notificationType: "TRIAL_EXPIRING",
+    metadata: {
+      trialEndDate: trial.trialEndDate,
+    },
+    senderId: superAdmin.userId,
+    senderTenantId: superAdmin.tenantId,
+    senderName: superAdmin.userName,
+    senderEmail: superAdmin.email,
+  },
+  {
+    kind: "system",
+  }
+);
 
         const duplicateCount = "duplicateCount" in result ? result.duplicateCount : 0;
 

@@ -137,6 +137,7 @@ export interface IStudents extends Document {
 
 export interface IStudentCreate {
   firstName: string;
+  tenantId: string;
   lastName: string;
   academicCoach: {
     academicCoachId: string;
@@ -1584,7 +1585,10 @@ export interface IMeeting extends Document {
 
 
 export interface INotification extends Document {
+  /** Legacy tenant field retained for pre-tenant-split notification records. */
   tenantId?: string;
+  senderTenantId: string;
+  receiverTenantId: string;
   title?: string;
   messages: string;
   senderId: string;

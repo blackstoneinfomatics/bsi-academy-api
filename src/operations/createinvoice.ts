@@ -11,6 +11,10 @@ import { sendEmailClient } from "../shared/email";
 import { PaymentStatus, PaymentType } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
 import { customServiceInvoiceMessages } from "../config/messages";
+import AppLogger from "../helpers/logging";
+import { sendNotification } from "./notification";
+import users from "../models/users";
+import { Lookup } from "../models/lookup";
 
 
 export interface GetPlansQuery {
@@ -75,16 +79,13 @@ const getBillingCycle = (
 export const createCustomServiceInvoice = async (
   payload: CreateCustomServiceInvoicePayload,
 ) => {
-  console.log("createCustomServiceInvoice: payload =", payload);
 
   const tenant = await Tenants.findOne({
     tenantCode: payload.tenantId,
     status: "Active",
   });
-  console.log("createCustomServiceInvoice: tenant =", tenant);
 
   if (!tenant) {
-    console.log("createCustomServiceInvoice: tenant not found for tenantId =", payload.tenantId);
     throwError(customServiceInvoiceMessages.TENANT_NOT_FOUND, 404);
   }
 
@@ -95,10 +96,8 @@ export const createCustomServiceInvoice = async (
     paymentStatus : "PAID",
     deletedAt: null,
   });
-  console.log("createCustomServiceInvoice: subscription =", subscription);
 
   if (!subscription) {
-    console.log("createCustomServiceInvoice: subscription not found for subscriptionId =", payload.subscriptionId);
     throwError(customServiceInvoiceMessages.SUBSCRIPTION_NOT_FOUND, 404);
     return;
   }
@@ -106,23 +105,18 @@ export const createCustomServiceInvoice = async (
   const duplicateInvoice = await CustomServiceInvoiceModel.findOne({
     invoiceNumber: payload.invoiceNumber,
   });
-  console.log("createCustomServiceInvoice: duplicateInvoice =", duplicateInvoice);
 
   if (duplicateInvoice) {
-    console.log("createCustomServiceInvoice: duplicate invoiceNumber =", payload.invoiceNumber);
     throwError(customServiceInvoiceMessages.DUPLICATE_INVOICE, 409);
   }
 
   if (payload.attachments?.some((url) => !url.startsWith("https://"))) {
-    console.log("createCustomServiceInvoice: invalid attachment url in =", payload.attachments);
     throwError(customServiceInvoiceMessages.INVALID_ATTACHMENT_URL, 400);
   }
 
   const items = payload.items.map(calculateItemAmounts);
-  console.log("createCustomServiceInvoice: items =", items);
 
   const totals = calculateInvoiceTotals(items);
-  console.log("createCustomServiceInvoice: totals =", totals);
 
   const newInvoice = new CustomServiceInvoiceModel({
     ...payload,
@@ -130,21 +124,46 @@ export const createCustomServiceInvoice = async (
     items,
     ...totals,
   });
-  console.log("createCustomServiceInvoice: newInvoice before save =", newInvoice);
 
   await newInvoice.save();
   const invoiceId = String(newInvoice._id);
-  console.log("createCustomServiceInvoice: saved invoiceId =", invoiceId);
 
   newInvoice.paymentLink = getPaymentLink(invoiceId);
   await newInvoice.save();
-  console.log("createCustomServiceInvoice: paymentLink =", newInvoice.paymentLink);
 
   await newInvoice.populate({
     path: "planId",
     select: "planId planName billingPeriods",
   });
-  console.log("createCustomServiceInvoice: populated planId =", newInvoice.planId);
+
+// After invoice is saved and paymentLink is generated
+try {
+  const tenantAdmin = await users.findOne({
+    tenantId: payload.tenantId,
+    role: "ADMIN",
+    status: "Active",
+  }).select("userId userName email").lean();
+
+  if (tenantAdmin?.userId) {
+    const notificationResult = await sendNotification({
+      receiverId: tenantAdmin.userId,
+      messages: `A custom service invoice (${newInvoice.invoiceNumber}) has been created. Please review the invoice and payment details.`,
+      notificationType: "CUSTOM_SERVICE_INVOICE_CREATED",
+    });
+
+    if (!notificationResult.success) {
+      AppLogger.error(
+        `Invoice notification failed: ${notificationResult.error}`,
+      );
+    }
+  }
+} catch (error) {
+  AppLogger.error(
+    `Invoice notification error: ${
+      error instanceof Error ? error.message : String(error)
+    }`,
+  );
+}
 
   const plan = newInvoice.planId as unknown as {
     planName?: string;
@@ -161,10 +180,8 @@ export const createCustomServiceInvoice = async (
     const mailResult = await sendCustomServiceInvoice(invoiceId, {
       paymentLink: newInvoice.paymentLink ?? undefined,
     });
-    console.log("createCustomServiceInvoice: mailResult =", mailResult);
     email = { sent: true, recipient: mailResult?.recipient ?? null, error: null };
   } catch (err: any) {
-    console.error("Failed to send custom service invoice email:", err);
     email = {
       sent: false,
       recipient: null,
@@ -172,7 +189,6 @@ export const createCustomServiceInvoice = async (
     };
   }
 
-  console.log("createCustomServiceInvoice: email result =", email);
 
   const result = {
     invoice: {
@@ -184,7 +200,6 @@ export const createCustomServiceInvoice = async (
     email,
   };
 
-  console.log("createCustomServiceInvoice: returning =", result);
 
   return result;
 };

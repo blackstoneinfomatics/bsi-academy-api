@@ -14,6 +14,7 @@ import { academicDashboardCard, academicStudentList } from "../../kafka/producer
 // Input Validation for Create a User
 const createInputValidation = z.object({
   payload: zodStudentSchema.pick({
+    tenantId: true,
     firstName: true,
     lastName: true,
     academicCoach: true,
@@ -64,6 +65,7 @@ export default {
       payload: req.payload,
     });
     const result = await createStudent({     
+  tenantId: payload.tenantId,
   firstName: payload.firstName,
   lastName: payload.lastName,
   academicCoach: {
