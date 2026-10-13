@@ -3,8 +3,12 @@ import UpdateModel from "../models/update";
 import { CreateUpdateInput } from "../models/update";
 import Tenants from "../models/tenants";
 import TenantSubscription from "../models/tenantsubscription";
+import TenantUsers from "../models/users";
 import emailTemplates from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
+import { sendNotification } from "./notification";
+import { appStatus } from "../config/messages";
+import { Lookup } from "../models/lookup";
 
 interface GetUpdatesListParams {
   page: number;
@@ -177,6 +181,122 @@ const sendUpdateEmail = async (
   );
 };
 
+const sendUpdateInAppNotification = async (
+  payload: CreateUpdateInput,
+  updateId: string,
+): Promise<void> => {
+  const selectedTenantCodes = (payload.selectedTenants || [])
+    .map((tenantCode) => tenantCode.trim())
+    .filter(Boolean);
+
+  if (!payload.sendNotification?.inApp || selectedTenantCodes.length === 0) {
+    return;
+  }
+
+  const recipients = await TenantUsers.find({
+    tenantId: { $in: selectedTenantCodes },
+    status: appStatus.ACTIVE,
+  })
+    .select({
+      tenantId: 1,
+      userId: 1,
+      userName: 1,
+      email: 1,
+      _id: 0,
+    })
+    .lean();
+
+  const recipientsByTenant = new Map<
+    string,
+    { userId: string; userName?: string; email?: string }[]
+  >();
+
+  for (const recipient of recipients) {
+    const tenantId = recipient.tenantId;
+    const userId = recipient.userId;
+    if (!tenantId || !userId) continue;
+
+    const tenantRecipients = recipientsByTenant.get(tenantId) || [];
+    tenantRecipients.push({
+      userId,
+      userName: recipient.userName,
+      email: recipient.email,
+    });
+    recipientsByTenant.set(tenantId, tenantRecipients);
+  }
+
+  if (recipientsByTenant.size === 0) {
+    console.warn(
+      "sendUpdateInAppNotification >> skipped: no active tenant users resolved",
+    );
+    return;
+  }
+      const sender = await Lookup.findOne({
+      lookupKey: "SUPER_ADMIN",
+      keyValue: "super_admin",
+      status: "Active",
+    })
+      .select("userId keyName")
+      .lean();
+
+    if (!sender?.userId) {
+      console.error(
+        "[update-notification] Active Super Admin lookup with userId was not found; notifications were not sent"
+      );
+      return;
+    }
+
+    const senderTenant = await TenantUsers.findOne({
+      userId: sender.userId,
+      status: appStatus.ACTIVE,
+    })
+      .select("tenantId")
+      .lean();
+
+    if (!senderTenant?.tenantId) {
+      console.error(
+        `[update-notification] Active TenantUsers record with tenantId was not found for Super Admin ${sender.userId}; notifications were not sent`,
+      );
+      return;
+    }
+
+  for (const [tenantId, tenantRecipients] of recipientsByTenant) {
+    const result = await sendNotification({
+      tenantId,
+      senderTenantId: senderTenant.tenantId,
+      receiverTenantId: tenantId,
+      title: payload.title,
+      messages: payload.description,
+      senderId: sender.userId,
+      senderName: sender.keyName,
+      receiverId: tenantRecipients.map((recipient) => recipient.userId),
+      receiverName: tenantRecipients.map((recipient) => recipient.userName),
+      receiverEmail: tenantRecipients.map((recipient) => recipient.email),
+      notificationType: "UPDATE_PUBLISHED",
+      notificationStatus: "Unseen",
+      isRead: false,
+      status: "active",
+      metadata: {
+        updateId,
+        category: payload.category,
+        priority: payload.priority,
+        publishDate: payload.publishDate,
+        description: payload.description,
+        attachments: payload.attachments || [],
+      },
+      createdBy: "system",
+      updatedBy: "system",
+    });
+
+    if (!result.success) {
+      console.error(
+        `Failed to save in-app update notification for tenant ${tenantId}`,
+        result.error ?? result.errors,
+      );
+    }
+  }
+};
+
 const resolveAudienceTenantIds = async (
   payload: CreateUpdateInput,
 ): Promise<string[]> => {
@@ -343,6 +463,19 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   } catch (err: unknown) {
     const error = err as { message?: string };
     console.log("sendUpdateEmail >> FAILED", error?.message || err);
+  }
+
+  try {
+    await sendUpdateInAppNotification(
+      resolvedPayload,
+      update._id.toString(),
+    );
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error(
+      "sendUpdateInAppNotification >> FAILED",
+      error?.message || err,
+    );
   }
 
   return {
