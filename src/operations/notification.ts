@@ -499,13 +499,12 @@ export const getNotificationsByNotificationId = async (
 /**
  * Retrieves all meeting records with optional filters.
  */
-const buildRecipientFilter = (receiverIds: string[], tenantId: string) => ({
+const buildRecipientFilter = (
+  receiverIds: string[],
+  tenantId: string
+) => ({
   receiverId: { $in: receiverIds },
-  $or: [
-    { tenantId },
-    { tenantId: { $exists: false } },
-    { tenantId: null },
-  ],
+  receiverTenantId: tenantId,
 });
 
 export default async function getAllNotification(
@@ -515,14 +514,31 @@ export default async function getAllNotification(
   try {
     const filter = buildRecipientFilter(receiverIds, tenantId);
 
+    console.info("[notifications:get-all] Query started", {
+      tenantId,
+      receiverCount: receiverIds.length,
+    });
+
     const [notifications, totalCount, unreadCount] = await Promise.all([
       notification.find(filter).sort({ createdDate: -1 }),
       notification.countDocuments(filter),
       notification.countDocuments({ ...filter, isRead: false }),
     ]);
 
+    console.info("[notifications:get-all] Query completed", {
+      tenantId,
+      returnedCount: notifications.length,
+      totalCount,
+      unreadCount,
+    });
+
     return { notifications, totalCount, unreadCount };
   } catch (error) {
+    console.error("[notifications:get-all] Query failed", {
+      tenantId,
+      receiverCount: receiverIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw new Error(`Failed to fetch notifications: ${(error as Error).message}`);
   }
   
