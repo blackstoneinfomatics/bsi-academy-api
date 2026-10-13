@@ -108,7 +108,7 @@ export const ChatMessageValidation = z.object({
     .optional(),
 });
 
-export const ChatMessageModel = mongoose.model<IUserChatMessage>(
+export const UserChatMessageModel = mongoose.model<IUserChatMessage>(
   "userChatMessages",
   UserChatMessageSchema,
 );

@@ -18,6 +18,19 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+     {
+      method: "GET",
+      path: "/user/chat-room/{userId}",
+      handler: handler.getChatRooms,
+      options: {
+        description: tenantChatMessages.GET_CHAT_ROOMS,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
 //     {
 //       method: "POST",
 //       path: "/chat/message",

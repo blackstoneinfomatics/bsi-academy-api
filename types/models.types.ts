@@ -3317,6 +3317,7 @@ export interface IUserChatRoomMember extends Document {
   name: string;
   role:string;
   groupRole:string;
+  course?:string;
 
   lastSeenMessageId?: Types.ObjectId;
   lastSeenAt?: Date;

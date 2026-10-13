@@ -37,6 +37,13 @@ export const userChatRoomMemberSchema = new Schema<IUserChatRoomMember>(
       required: true,
     },
 
+    course:{
+      type:String,
+       required: false,
+       trim: true,
+      default:null,
+    },
+
     groupRole: {
       type: String,
       enum: Object.values(ChatGroupRole),
@@ -113,7 +120,7 @@ export const RoomMemberValidation = z.object({
   tenantId: z.string().min(1),
   name: z.string().trim().min(1),
   role: z.string().min(1),
-
+  course: z.string().min(1).optional(),
   groupRole: z
     .enum([ChatGroupRole.ADMIN, ChatGroupRole.MEMBER])
     .default(ChatGroupRole.MEMBER),
