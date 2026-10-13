@@ -34,6 +34,8 @@ interface ChatListItem {
   type: string;
   source: ChatSource;
   name: string;
+  role:string | null;
+  course:string | null;
   lastMessage: {
     message: string | null;
     senderName: string | null;
@@ -446,16 +448,43 @@ const buildChatItem = async ({
   currentMember: any;
   userId: string;
 }): Promise<ChatListItem> => {
-  console.log("room insid ebuild",room);
   const roomId = room._id as mongoose.Types.ObjectId;
+
+  let roomname = room.name;
+  let course: string | null = null;
+  let role: string | null = null;
+
+  // Get the opposite participant only for DIRECT chats.
+  if (room.type === ChatRoomType.DIRECT) {
+    const oppositeMember = await UserRoomMemberModel.findOne({
+      roomId,
+      userId: { $ne: userId },
+      tenantId: room.tenantId,
+      isActive: true,
+      deletedAt: null,
+    })
+      .select("userId name role course")
+      .lean();
+
+    if (oppositeMember) {
+      roomname = oppositeMember.name;
+      course = oppositeMember.course ?? null;
+      role = oppositeMember.role ?? null;
+    }
+  }
 
   const embeddedMessage = room.lastMessage ?? {};
 
   let messageDetails: any = null;
 
-  // Read actual message metadata when a message document exists.
+  // Select the message collection based on the chat source.
+  const MessageModel =
+    source === "SUPER_ADMIN"
+      ? ChatMessageModel
+      : UserChatMessageModel;
+
   if (embeddedMessage.messageId) {
-    messageDetails = await ChatMessageModel.findById(
+    messageDetails = await MessageModel.findById(
       embeddedMessage.messageId,
     )
       .select("message senderName messageType createdAt isDeleted")
@@ -463,12 +492,12 @@ const buildChatItem = async ({
   }
 
   const unreadCount = await getUnreadCount({
-  roomId,
-  userId,
-  lastSeenAt: currentMember?.lastSeenAt,
-  lastClearedAt: currentMember?.lastClearedAt,
-  source,
-});
+    roomId,
+    userId,
+    lastSeenAt: currentMember?.lastSeenAt,
+    lastClearedAt: currentMember?.lastClearedAt,
+    source,
+  });
 
   return {
     roomId: roomId.toString(),
@@ -476,9 +505,12 @@ const buildChatItem = async ({
     type: room.type,
     source,
 
-    // Use the room's name. For a TENANT room, this can be "ABC Academy".
-    name: room.name,
-    // role:room.
+    // DIRECT: opposite participant's name.
+    // Other room types: keep the room's existing name.
+    name: roomname,
+    course,
+    role,
+
     lastMessage: {
       message:
         messageDetails?.message ??
@@ -490,14 +522,16 @@ const buildChatItem = async ({
         embeddedMessage.senderName ??
         null,
 
-      messageType: messageDetails?.messageType ?? null,
+      messageType:
+        messageDetails?.messageType ?? null,
 
       createdAt:
         messageDetails?.createdAt ??
         embeddedMessage.createdAt ??
         null,
 
-      isDeleted: messageDetails?.isDeleted ?? false,
+      isDeleted:
+        messageDetails?.isDeleted ?? false,
     },
 
     lastMessageAt:
@@ -548,8 +582,6 @@ export const getChatRoomsService = async ({
       .lean(),
   ]);
 
-  console.log("userroom",userMemberships);
-  console.log("tennatroom",superAdminMemberships);
 
   const userRoomIds = userMemberships.map(
     (member: any) => member.roomId,
@@ -576,6 +608,7 @@ export const getChatRoomsService = async ({
         }).lean()
       : [],
   ]);
+
 
   // 3. Find the current user's membership for each room.
   const userMembershipMap = new Map<string, any>();
@@ -641,14 +674,13 @@ export const getChatRoomsService = async ({
   if (normalizedFilter === "ALL") {
     filteredItems = [
       ...directItems,
-      ...superAdminTenantItems,
     ];
   } else if (normalizedFilter === "GROUP") {
     filteredItems = [
       ...userGroupItems,
       ...superAdminSegmentItems,
     ];
-  } else if (normalizedFilter === "SUPER_ADMIN") {
+  } else if (normalizedFilter === "SUPERADMIN") {
     filteredItems = [...superAdminItems,...superAdminSegmentItems];
   } else {
     // ADMIN, TEACHER, STUDENT, etc.
@@ -739,15 +771,14 @@ export const getChatRoomsService = async ({
 
   const counts = {
     all: sumUnread([
-      ...directItems,
-      ...superAdminTenantItems,
+      ...directItems
     ]),
     group: sumUnread([
       ...userGroupItems,
       ...superAdminSegmentItems,
     ]),
     superAdmin: sumUnread(superAdminItems),
-    roles: roleCounts,
+    ...roleCounts,
   };
 
   // 9. Sort by latest message first.
@@ -769,7 +800,7 @@ export const getChatRoomsService = async ({
   const skip = (page - 1) * limit;
 
   return {
-    chats: filteredItems.slice(skip, skip + limit),
+    chatrooms: filteredItems.slice(skip, skip + limit),
     counts,
     pagination: {
       page,

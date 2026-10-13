@@ -95,6 +95,7 @@ export const appStatus: Record<string, any> = Object.freeze({
   DELETED: "Deleted",
   ARCHIVED: "Archived",
   NEW: "New",
+  TRIAL:"Trial"
 });
 
 export const teacherStatus: Record<string, any> = Object.freeze({
