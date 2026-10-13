@@ -58,7 +58,7 @@ const register = async (server: Server): Promise<void> => {
     },
 
      {
-    method: "POST",
+    method: "PUT",
     path: "/chat/clear",
     handler: handler.clearChat,
     options: {

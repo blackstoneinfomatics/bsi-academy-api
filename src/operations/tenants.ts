@@ -53,6 +53,10 @@ import RefundTransaction from "../models/refundTransaction";
 import AuditLog from "../models/auditlog";
 import portalModule from "../models/portalModule";
 import { createChatRoom, createChatRoomForTrial } from "./tenantChat";
+import StudentModel from "../models/student";
+import RecruitmentModel from "../models/recruitment";
+import UserModel from "../models/users";
+import { Lookup } from "../models/lookup";
 /**
  * Creates a new student.
  *
@@ -1583,4 +1587,169 @@ export const getTenantDashboardActivity = async (
       totalPages: Math.ceil(total / limit),
     },
   };
+};
+
+
+
+interface GetTenantUsersInput {
+  tenantId: string;
+  role: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export const getTenantUsersService = async ({
+  tenantId,
+  role,
+  page = 1,
+  limit = 10,
+  search,
+}: GetTenantUsersInput) => {
+  try {
+    if (!tenantId?.trim()) {
+      throwError("Tenant ID is required", 400);
+      return;
+    }
+
+    if (
+      !role?.trim() ||
+      !Number.isInteger(page) ||
+      !Number.isInteger(limit) ||
+      page < 1 ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throwError("Invalid role or pagination parameters", 400);
+      return;
+    }
+
+    const normalizedRole = role.trim().toUpperCase();
+    const skip = (page - 1) * limit;
+
+    const searchFilter = search?.trim()
+      ? {
+          $or: [
+            { userName: { $regex: search.trim(), $options: "i" } },
+            { email: { $regex: search.trim(), $options: "i" } },
+          ],
+        }
+      : {};
+
+    if (normalizedRole === "STUDENT") {
+      const studentFilter: Record<string, any> = {
+        tenantId: tenantId.trim(),
+        status: "Active",
+        ...searchFilter,
+      };
+
+      const [students, totalRecords] = await Promise.all([
+        StudentModel.find(studentFilter)
+          .select(
+            "studentId firstName lastName learningInterest status",
+          )
+          .sort({ createdDate: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        StudentModel.countDocuments(studentFilter),
+      ]);
+
+      return {
+        statusCode: 200,
+        message: "Tenant users fetched successfully",
+        data: {
+          users: students.map((student) => ({
+            userId: student.studentId,
+            name: `${student.firstName ?? ""} ${
+              student.lastName ?? ""
+            }`.trim(),
+            role: "STUDENT",
+            course: student.learningInterest ?? null,
+          })),
+          pagination: {
+            page,
+            limit,
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit),
+            hasNextPage: page * limit < totalRecords,
+            hasPreviousPage: page > 1,
+          },
+        },
+      };
+    }
+
+    const superAdminTenant = await Lookup.findOne({
+    lookupKey: "SUPER_ADMIN",
+    status: "Active",
+  }).lean();
+
+    const userFilter: Record<string, any> = {
+      tenantId: role === "SUPERADMIN" ? superAdminTenant?.tenantId : tenantId.trim(),
+      role: normalizedRole,
+      status: "Active",
+      ...searchFilter,
+    };
+
+    const [users, totalRecords] = await Promise.all([
+      UserModel.find(userFilter)
+        .select("userId userName role email status")
+        .sort({ createdDate: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      UserModel.countDocuments(userFilter),
+    ]);
+
+    const teacherUserIds =
+      normalizedRole === "TEACHER"
+        ? users.map((user) => user.userId)
+        : [];
+
+    const teachers = teacherUserIds.length
+      ? await RecruitmentModel.find({
+          candidateId: { $in: teacherUserIds },
+          status: "Active",
+        })
+          .select("candidateId positionApplied")
+          .lean()
+      : [];
+
+    const positionByUserId = new Map(
+      teachers.map((teacher) => [
+        teacher.candidateId,
+        teacher.positionApplied ?? null,
+      ]),
+    );
+
+    return {
+      statusCode: 200,
+      message: "Tenant users fetched successfully",
+      data: {
+        users: users.map((user : any) => ({
+          userId: user.userId,
+          name: user.userName,
+          role: user.role[0],
+          course:
+            normalizedRole === "TEACHER"
+              ? positionByUserId.get(user.userId) ?? null
+              : null,
+        })),
+        pagination: {
+          page,
+          limit,
+          totalRecords,
+          totalPages: Math.ceil(totalRecords / limit),
+          hasNextPage: page * limit < totalRecords,
+          hasPreviousPage: page > 1,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching tenant users:", error);
+    throwError("Internal Server Error", 500);
+    return;
+  }
 };

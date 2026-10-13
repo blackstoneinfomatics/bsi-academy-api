@@ -137,6 +137,7 @@ export interface IStudents extends Document {
 
 export interface IStudentCreate {
   firstName: string;
+  tenantId: string;
   lastName: string;
   academicCoach: {
     academicCoachId: string;
@@ -1545,42 +1546,70 @@ export interface IMeeting extends Document {
   updatedBy?: string;
 }
 
-export interface INotification {
-  messages?: string;
-  isRead?: boolean;
+// export interface INotification {
+//   messages?: string;
+//   isRead?: boolean;
+//   senderId: string;
+//   senderName: string;
+//   senderEmail: string;
+//   receiverId: string;
+//   receiverName: string;
+//   receiverEmail: string;
+//   notificationType?: string;
+//   notificationStatus?: string;
+//   status: string;
+//   createdDate: Date;
+//   createdBy: string;
+//   updatedDate?: Date;
+//   updatedBy?: string;
+// }
+
+// export interface INotification extends Document {
+//   tenantId: string;
+//   messages?: string;
+//   isRead?: boolean;
+//   senderId: string;
+//   senderName: string;
+//   senderEmail: string;
+//   receiverId: string;
+//   receiverName: string;
+//   receiverEmail: string;
+//   notificationType?: string;
+//   notificationStatus?: string;
+//   status: string;
+//   createdDate: Date;
+//   createdBy: string;
+//   updatedDate?: Date;
+//   updatedBy?: string;
+// }
+
+
+export interface INotification extends Document {
+  /** Legacy tenant field retained for pre-tenant-split notification records. */
+  tenantId?: string;
+  senderTenantId: string;
+  receiverTenantId: string;
+  title?: string;
+  messages: string;
   senderId: string;
-  senderName: string;
-  senderEmail: string;
+  senderName?: string;
+  senderEmail?: string;
   receiverId: string;
-  receiverName: string;
-  receiverEmail: string;
-  notificationType?: string;
+  receiverName?: string;
+  receiverEmail?: string;
+  notificationType: string;
   notificationStatus?: string;
-  status: string;
-  createdDate: Date;
-  createdBy: string;
+  isRead: boolean;
+  readAt?: Date;
+  actionUrl?: string;
+  metadata?: Record<string, unknown>;
+  status?: string;
+  createdDate?: Date;
+  createdBy?: string;
   updatedDate?: Date;
   updatedBy?: string;
 }
 
-export interface INotification extends Document {
-  tenantId: string;
-  messages?: string;
-  isRead?: boolean;
-  senderId: string;
-  senderName: string;
-  senderEmail: string;
-  receiverId: string;
-  receiverName: string;
-  receiverEmail: string;
-  notificationType?: string;
-  notificationStatus?: string;
-  status: string;
-  createdDate: Date;
-  createdBy: string;
-  updatedDate?: Date;
-  updatedBy?: string;
-}
 
 export interface IOtherEmployee extends Document {
   tenantId: string;
@@ -3101,6 +3130,7 @@ export interface ITenantDetailsResponse {
 
 export interface ILookup extends Document {
   tenantId: string;
+  userId: string;
   lookupKey: string;
   keyName: string;
   keyValue: string;
@@ -3200,6 +3230,93 @@ export interface ITenantRoomMember extends Document {
 
   name: string;
   role:string;
+
+  lastSeenMessageId?: Types.ObjectId;
+  lastSeenAt?: Date;
+  
+  lastClearedMessageId?: Types.ObjectId;
+  lastClearedAt?: Date;
+
+  isActive: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+export interface IUserChatRoom extends Document {
+  roomCode: string;
+
+  type: ChatRoomType;
+  
+  tenantId?: string | null;      
+  segmentKey?: string;
+
+  name: string;
+  description?: string;
+  planName?: string | null;
+  directChatKey?: string | null;
+  sendAccess: ChatSendAccess,
+
+  lastMessage?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+    createdAt: Date;
+  };
+
+  lastMessageAt?: Date;
+
+  status: ChatRoomStatus;
+  isEnabled: boolean;
+
+  createdBy: string;
+  updatedBy?: string;
+  deletedAt?: Date | null;
+}
+
+export interface IUserChatMessage extends Document {
+  roomId: Types.ObjectId;
+
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  
+  title?:string;
+  message: string;
+
+  messageType: ChatMessageType;
+
+  attachments?: string[];
+
+  replyTo?: {
+    messageId: Types.ObjectId;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+
+  createdAt: Date;
+
+  deletedForEveryone?: Boolean;
+
+deletedForEveryoneAt?: Date | null,
+
+deletedForEveryoneBy?: String | null,
+
+  deletedAt?: Date | null;
+}
+
+export interface IUserChatRoomMember extends Document {
+  roomId: Types.ObjectId;
+
+  userId: string;
+  tenantId: string;
+
+  name: string;
+  role:string;
+  groupRole:string;
 
   lastSeenMessageId?: Types.ObjectId;
   lastSeenAt?: Date;

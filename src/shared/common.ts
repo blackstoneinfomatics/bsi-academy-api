@@ -19,6 +19,12 @@ const ROLE_SHORT: Record<string, string> = {
   SUPERADMIN: "SAD",
   USER: "USR",
   MANAGER: "MGR",
+  TEACHER: "TCH",
+  STUDENT: "STD",
+  PARENT: "PRT",
+  GUEST: "GST",
+  ACADEMICCOACH: "ACD",
+  SUPERVISOR: "SUP",
 };
 
 const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

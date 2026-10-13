@@ -32,7 +32,7 @@ export const createPortalService = async (payload: Portal) => {
     const portalId = `POR-${String(count + 1).padStart(3, "0")}`;
   
     const newPortal = new PortalModal({
-      portalName: payload.portalName,
+      portalName: payload.portalName.toLocaleUpperCase(),
       portalType: payload.portalType || PortalType.DEFAULT,
       portalCode: portalId,
       roleType: payload.roleType,

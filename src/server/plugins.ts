@@ -55,6 +55,7 @@ import updateAPI from "../api/update/router"
 import auditLogAPI from "../api/auditLog/router";
 import dashboardsaas from "../api/dashboardsaas/router";
 import tenantchat from "../api/tenantChat/router";
+import userchat from "../api/userChat/router";
 
 export const appPlugins = [
   {
@@ -226,5 +227,8 @@ export const appPlugins = [
   },
   {
     plugin:tenantchat
+  },
+  {
+    plugin:userchat
   }
 ];

@@ -5,12 +5,60 @@ import { sendEmailClient } from "../shared/email";
 import emailTemplate from "../models/emailTemplate";
 import { throwError } from "../helpers/throwError";
 import TrialMemberModel from "../models/trailmember";
+import UserModel from "../models/users";
 import {
+  appStatus,
   subscriptionInvoiceMessages,
   subscriptionTrialMessages,
 } from "../config/messages";
 import Tenants from "../models/tenants";
+import { Lookup } from "../models/lookup";
 import { deleteChatRoomForTrialByTenantId, deleteChatRoomService } from "./tenantChat";
+import { sendNotification } from "./notification";
+import users from "../models/users";
+
+const resolveTrialExpiryRecipient = async (tenant: {
+  tenantCode: string;
+  adminEmail?: string | null;
+  emailId: string;
+}) => {
+  const recipientEmails = [...new Set([tenant.adminEmail, tenant.emailId])]
+    .filter((email): email is string => Boolean(email))
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  for (const email of recipientEmails) {
+    const trialMember = await TrialMemberModel.findOne({
+      tenantId: tenant.tenantCode,
+      email,
+      status: appStatus.ACTIVE,
+    })
+      .select("userId userName email _id")
+      .lean();
+
+    const paidUser = trialMember
+      ? null
+      : await UserModel.findOne({
+          tenantId: tenant.tenantCode,
+          email,
+          status: appStatus.ACTIVE,
+        })
+          .select("userId userName email _id")
+          .lean();
+    const recipient = trialMember || paidUser;
+
+    if (recipient) {
+      if (!recipient.userId) {
+        continue;
+      }
+      return {
+        receiverId: recipient.userId,
+      };
+    }
+  }
+
+  return null;
+};
 
 export const getSubscriptionTrials = async (query: any) => {
   try {
@@ -196,6 +244,7 @@ export const getSubscriptionTrialById = async (trialId: string) => {
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
+      status: { $in: [Status.TRIAL, Status.ACTIVE] },
     }).lean();
 
     if (!tenant) {
@@ -391,6 +440,7 @@ export const updateSubscriptionTrial = async (
     const tenant = await Tenants.findOne({
       tenantCode: trial.tenantId,
       deletedAt: null,
+      status: { $in: [Status.TRIAL, Status.ACTIVE] },
     }).lean();
 
     console.log("tenant", tenant);
@@ -579,6 +629,100 @@ export const processTrialReminders = async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+    const expiringTomorrow = await SubscriptionTrial.find({
+      trialEndDate: {
+        $gte: tomorrow,
+        $lt: dayAfterTomorrow,
+      },
+      status: SubscriptionTrialStatus.ACTIVE,
+      deletedAt: null,
+    }).lean();
+
+    console.info(
+      `[trial-reminder] Found ${expiringTomorrow.length} active trial(s) expiring tomorrow (${tomorrow.toISOString()} to ${dayAfterTomorrow.toISOString()})`
+    );
+
+    for (const trial of expiringTomorrow) {
+      try {
+        const tenant = await Tenants.findOne({
+          tenantCode: trial.tenantId,
+          deletedAt: null,
+        }).lean();
+
+        if (!tenant) {
+          console.error(`[trial-reminder] Tenant not found for trial ${trial._id}`);
+          continue;
+        }
+
+        const recipient = await resolveTrialExpiryRecipient(tenant);
+        if (!recipient) {
+          console.error(
+            `[trial-reminder] No active notification recipient found for tenant ${tenant.tenantCode}`
+          );
+          continue;
+        }
+
+      const superAdmin = await users
+  .findOne({
+    role: "SUPERADMIN",
+    status: appStatus.ACTIVE,
+  })
+  .select("userId tenantId userName email")
+  .lean();
+
+if (!superAdmin) {
+  console.error("Active Super Admin not found");
+  continue;
+}
+        const result = await sendNotification(
+  {
+    title: "Your Trial Period Is Ending Soon",
+    messages: `Your trial period for ${tenant.tenantName} (${tenant.tenantCode}) will expire tomorrow. Kindly upgrade your subscription plan to continue using the application without interruption.`,
+    receiverId: recipient.receiverId,
+    notificationType: "TRIAL_EXPIRING",
+    metadata: {
+      trialEndDate: trial.trialEndDate,
+    },
+    senderId: superAdmin.userId,
+    senderTenantId: superAdmin.tenantId,
+    senderName: superAdmin.userName,
+    senderEmail: superAdmin.email,
+  },
+  {
+    kind: "system",
+  }
+);
+
+        const duplicateCount = "duplicateCount" in result ? result.duplicateCount : 0;
+
+        if (!result.success) {
+          console.error(
+            `[trial-reminder] Notification was not saved for tenant ${tenant.tenantCode}`,
+            result.error ?? result.errors
+          );
+        } else if (result.data.length > 0) {
+          console.info(
+            `[trial-reminder] Saved ${result.data.length} notification(s) for tenant ${tenant.tenantCode}`
+          );
+        } else if (duplicateCount > 0) {
+          console.info(
+            `[trial-reminder] Reminder already exists for tenant ${tenant.tenantCode} and expiry ${trial.trialEndDate.toISOString()}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[trial-reminder] Failed to process trial ${trial._id}`,
+          error
+        );
+      }
+    }
+
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + 3);
 
@@ -591,12 +735,12 @@ export const processTrialReminders = async () => {
         $lt: nextDay,
       },
       status: SubscriptionTrialStatus.ACTIVE,
+      deletedAt: null,
     }).lean();
     for (const trial of trials) {
       const tenant = await Tenants.findOne({
         tenantCode: trial.tenantId,
         deletedAt: null,
-        status: "Active",
       }).lean();
       if (!tenant) {
         console.error(`Tenant not found for trial ID: ${trial._id}`);
@@ -609,6 +753,7 @@ export const processTrialReminders = async () => {
         trial,
       });
     }
+
   } catch (error) {
     console.error("❌ Error in processTrialReminders:", error);
   }

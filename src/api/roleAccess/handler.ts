@@ -21,6 +21,7 @@ export default{
 
       // Prepare the updated access payload
       const accessPayload: Partial<IAccessModel> = {
+        tenantId: user.tenantId,
         employeeId: user._id?.toString() ?? '',
         employeeName: user.userName || '',
         contact: user.email || '',

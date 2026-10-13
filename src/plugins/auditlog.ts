@@ -107,12 +107,12 @@ const logPayload: any = {
   createdDate: new Date(),
 };
 
-console.log("========== AUDIT LOG ==========");
-console.log("Action:", action);
-console.log("Path:", request.path);
-console.log("Readable:", readableDescription);
-console.log("Payload:", logPayload);
-console.log("===============================");
+// console.log("========== AUDIT LOG ==========");
+// console.log("Action:", action);
+// console.log("Path:", request.path);
+// console.log("Readable:", readableDescription);
+// console.log("Payload:", logPayload);
+// console.log("===============================");
 
 
 

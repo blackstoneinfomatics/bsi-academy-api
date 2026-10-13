@@ -19,7 +19,11 @@ import {
 } from "../shared/enum";
 import Boom from "@hapi/boom";
 import { z } from "zod";
-import { planMessages } from "../config/messages";
+import { appStatus, planMessages } from "../config/messages";
+import TenantUsers from "../models/users";
+import TrialMemberModel from "../models/trailmember";
+import { sendNotification } from "./notification";
+import { Lookup } from "../models/lookup";
 
 export type PlanAnalyticsPeriod = "monthly" | "quarterly" | "yearly";
 
@@ -219,7 +223,7 @@ export const updatePlan = async (
   id: string,
   payload: UpdatePlanPayload
 ) => {
-    // Domain validation
+  // Domain validation
   if (payload.customDomain === true) {
     // Frontend must send tenant custom domain
     if (!payload.domain) {
@@ -234,13 +238,25 @@ export const updatePlan = async (
     }
   }
 
-  return await PlanModel.findOneAndUpdate(
+  const previousPlan = await PlanModel.findOne({ planId: id }).lean();
+  if (!previousPlan) {
+    return null;
+  }
+
+  const { domain, userLimit, ...planFields } = payload;
+  const fieldsToUpdate = {
+    ...planFields,
+    ...(userLimit !== undefined ? { userLimit } : {}),
+    ...(domain !== undefined ? { domainName: domain } : {}),
+  };
+
+  const updatedPlan = await PlanModel.findOneAndUpdate(
     {
       planId: id,
     },
     {
       $set: {
-        ...payload,
+        ...fieldsToUpdate,
         updatedDate: new Date(),
       },
     },
@@ -249,6 +265,196 @@ export const updatePlan = async (
       runValidators: true,
     }
   ).lean();
+
+  if (!updatedPlan) {
+    return null;
+  }
+
+  const normalizeValue = (value: unknown): unknown => {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(normalizeValue);
+    }
+
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(
+            ([key]) =>
+              !["_id", "__v", "createdAt", "updatedAt"].includes(key),
+          )
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, nestedValue]) => [key, normalizeValue(nestedValue)]),
+      );
+    }
+
+    return value;
+  };
+
+  const normalizeFieldValue = (field: string, value: unknown): unknown => {
+    const normalizedValue = normalizeValue(value);
+
+    if (field === "billingPeriods" && Array.isArray(normalizedValue)) {
+      return [...normalizedValue].sort((left, right) => {
+        const leftId =
+          typeof left === "object" && left !== null && "billingPeriodId" in left
+            ? String(left.billingPeriodId)
+            : "";
+        const rightId =
+          typeof right === "object" && right !== null && "billingPeriodId" in right
+            ? String(right.billingPeriodId)
+            : "";
+        return leftId.localeCompare(rightId);
+      });
+    }
+
+    return normalizedValue;
+  };
+
+  const updatedPlanDetails = Object.fromEntries(
+    Object.keys(fieldsToUpdate)
+      .filter((field) => field !== "lastUpdatedBy")
+      .filter(
+        (field) =>
+          JSON.stringify(
+            normalizeFieldValue(
+              field,
+              previousPlan[field as keyof typeof previousPlan],
+            ),
+          ) !==
+          JSON.stringify(
+            normalizeFieldValue(
+              field,
+              updatedPlan[field as keyof typeof updatedPlan],
+            ),
+          ),
+      )
+      .map((field) => [
+        field === "domainName" ? "domain" : field,
+        normalizeFieldValue(
+          field,
+          updatedPlan[field as keyof typeof updatedPlan],
+        ),
+      ]),
+  );
+  const changedFieldNames = Object.keys(updatedPlanDetails).map((field) =>
+    field
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (letter) => letter.toUpperCase()),
+  );
+
+  if (changedFieldNames.length === 0) {
+    return updatedPlan;
+  }
+
+  try {
+    const tenants = await TenantModel.find({
+      tenantCode: { $exists: true, $ne: "" },
+    })
+      .select({ tenantCode: 1, _id: 0 })
+      .lean();
+    const tenantIds = [
+      ...new Set(
+        tenants
+          .map((tenant) => tenant.tenantCode?.trim())
+          .filter((tenantCode): tenantCode is string => Boolean(tenantCode)),
+      ),
+    ];
+
+    if (tenantIds.length > 0) {
+      const [tenantUsers, trialMembers] = await Promise.all([
+        TenantUsers.find({
+          tenantId: { $in: tenantIds },
+          status: appStatus.ACTIVE,
+        })
+          .select("tenantId userId userName email")
+          .lean(),
+        TrialMemberModel.find({
+          tenantId: { $in: tenantIds },
+          status: appStatus.ACTIVE,
+        })
+          .select("tenantId userId userName email")
+          .lean(),
+      ]);
+
+      const recipientsByTenant = new Map<
+        string,
+        { userId: string; userName?: string; email?: string }[]
+      >();
+
+      for (const recipient of [...tenantUsers, ...trialMembers]) {
+        if (!recipient.tenantId || !recipient.userId) {
+          continue;
+        }
+
+        const recipients =
+          recipientsByTenant.get(recipient.tenantId) || [];
+        recipients.push({
+          userId: recipient.userId,
+          userName: recipient.userName,
+          email: recipient.email,
+        });
+        recipientsByTenant.set(recipient.tenantId, recipients);
+      }
+
+      const sender = await Lookup.findOne({
+        lookupKey: "SUPER_ADMIN",
+        keyValue: "super_admin",
+        status: "Active",
+      })
+        .select("userId keyName tenantId")
+        .lean();
+
+      if (!sender?.userId) {
+        console.error(
+          "[plan-update] Active Super Admin lookup with userId was not found; notifications were not sent",
+        );
+      } else {
+        for (const [tenantId, recipients] of recipientsByTenant) {
+          const tenantRecipients = recipients.filter(
+            (recipient) => recipient.userId !== sender.userId,
+          );
+          if (tenantRecipients.length === 0) {
+            continue;
+          }
+
+          const result = await sendNotification({
+            tenantId,
+            senderTenantId: sender.tenantId,
+            receiverTenantId: tenantId,
+            title: `The ${updatedPlan.planName} plan has been updated.`,
+            messages: `Updated fields: ${changedFieldNames.join(", ")}.`,
+            senderId: sender.userId,
+            senderName: sender.keyName,
+            receiverId: tenantRecipients.map((recipient) => recipient.userId),
+            receiverName: tenantRecipients.map((recipient) => recipient.userName),
+            receiverEmail: tenantRecipients.map((recipient) => recipient.email),
+            notificationType: "PLAN_UPDATED",
+            notificationStatus: "Unseen",
+            isRead: false,
+            status: "active",
+            metadata: { plan: updatedPlanDetails },
+            createdBy: "system",
+            updatedBy: "system",
+          });
+
+          if (!result.success) {
+            console.error(
+              `Failed to save plan update notification for tenant ${tenantId}`,
+              result.error ?? result.errors,
+            );
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Failed to send plan update notifications", error);
+  }
+
+  return updatedPlan;
 };
 
 

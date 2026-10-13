@@ -17,6 +17,8 @@ import PortalModuleModel from "../models/portalModule";
 import { Types } from "mongoose";
 import tenantUsers from "../models/users";
 import plan from "../models/plan-model";
+import TenantModel from "../models/tenants";
+
 
 export interface IRoleCount {
   role: string;
@@ -216,7 +218,7 @@ export const createTenantPortal = async (
       portalId,
 
       portalCode: portalData.portalCode,
-      portalName: portalData.portalName,
+      portalName: portalData.portalName.toLocaleUpperCase,
       portalType: portalData.portalType,
       roleType: portalData.roleType,
       description: portalData.description,
@@ -850,5 +852,151 @@ export const getTenantPortalDashboardService = async (
     };
   } catch (error) {
     throw error;
+  }
+};
+
+
+export const getTenantPortalAccessService = async (
+  tenantId: string,
+  roleName: string,
+) => {
+  if (!tenantId) {
+    throwError(portalMessages.TENANT_ID_REQUIRED, 400);
+    return;
+  }
+
+  if (!roleName?.trim()) {
+    throwError("Role name is required", 400);
+    return;
+  }
+
+  // 1. Find tenant details
+  const tenantDetail = await TenantModel.findOne({
+    tenantCode: tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenantDetail) {
+    throwError(`Tenant "${tenantId}" not found`, 404);
+    return;
+  }
+
+  // 2. TRIAL tenant: return trial access without portal lookup
+  if (tenantDetail.status?.toLocaleUpperCase() === "TRIAL") {
+    return {
+      tenantId,
+      accessMode: "TRIAL",
+      tenantStatus: tenantDetail.status.toLocaleUpperCase(),
+      tenantPortal: null,
+      modules: [],
+    };
+  }
+
+  // 3. Only ACTIVE tenants can load portal-based access
+  if (tenantDetail.status?.toLocaleUpperCase() !== "ACTIVE") {
+    throwError(
+      `Tenant "${tenantId}" is not active`,
+      403,
+    );
+    return;
+  }
+
+  // 4. Find the matching active portal
+  const tenantPortalData = await tenantPortal.findOne({
+    tenantId,
+    portalName: roleName.trim(),
+    isEnabled: true,
+    status: PortalStatus.ACTIVE,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenantPortalData) {
+    throwError(
+      `Portal "${roleName}" not found for tenant "${tenantId}"`,
+      404,
+    );
+    return;
+  }
+
+  // 5. Find portal configuration
+  const tenantPortalConfig = await TenantPortalConfig.findOne({
+    tenantId,
+    tenantPortalId: tenantPortalData._id,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenantPortalConfig) {
+    throwError(
+      `Portal configuration not found for "${roleName}"`,
+      404,
+    );
+    return;
+  }
+
+  // 6. Build the portal access response
+  const modules = (tenantPortalConfig.modules || []).map((module) => ({
+    moduleId: module.moduleId,
+    moduleName: module.moduleName,
+    orderNo: module.orderNo,
+    isEnabled: module.isEnabled,
+
+    features: (module.features || []).map((feature) => ({
+      featureId: feature.featureId,
+      featureName: feature.featureName,
+      isEnabled: feature.isEnabled,
+    })),
+
+    children: (module.children || []).map((child) => ({
+      childModuleId: child.childModuleId,
+      childModuleName: child.childModuleName,
+      isEnabled: child.isEnabled,
+
+      features: (child.features || []).map((feature) => ({
+        featureId: feature.featureId,
+        featureName: feature.featureName,
+        isEnabled: feature.isEnabled,
+      })),
+    })),
+  }));
+
+  return {
+    tenantId,
+    accessMode: "TENANT",
+    tenantStatus: tenantDetail.status.toLocaleUpperCase(),
+
+    tenantPortal: {
+      tenantPortalId: tenantPortalData._id,
+      portalId: tenantPortalData.portalId,
+      portalCode: tenantPortalData.portalCode,
+      portalName: tenantPortalData.portalName,
+      portalType: tenantPortalData.portalType,
+      isEnabled: tenantPortalData.isEnabled,
+    },
+
+    modules,
+  };
+};
+
+
+export const getTenantRolesService = async (tenantId: string) => {
+  try {
+    if (!tenantId?.trim()) {
+      throwError(portalMessages.TENANT_NOT_FOUND, 400);
+      return;
+    }
+
+    const roles = await tenantPortal.find({
+      tenantId: tenantId.trim(),
+      status: PortalStatus.ACTIVE,
+      isEnabled: true,
+      deletedAt: null,
+    }).distinct("portalName");
+
+    return roles;
+  } catch (error) {
+    console.error("Error fetching tenant roles:", error);
+
+    throwError("Failed to fetch tenant roles", 500);
+    return;
   }
 };

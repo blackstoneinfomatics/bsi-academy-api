@@ -401,6 +401,7 @@ export const tenantsMessages: Record<string, any> = Object.freeze({
   UPDATE_FAILED: "Failed to update the tenant settings",
   BYID: "Get Tenant details by Tenant Code",
   TENANT_NOT_FOUND: "Tenant not found",
+  TENANT_USERS:"tenant users list",
 
   PLAN_NOT_FOUND: "Plan not found",
 
@@ -1018,6 +1019,9 @@ export const portalMessages = {
   DISABLE_TENANT_PORTAL: "Disable Tenant Portal",
   GET_TENANT_PORTALS: "Get Tenant Portals",
   GET_TENANT_PORTAL_DASHBOARD: "Get Tenant Portal Dashboard",
+  GET_TENANT_ROLES: "Get Tenant Roles",
+  GET_TENANT_PORTAL_ACCESS: "Get Tenant Portal Access",
+  UPDATE_TENANT_PORTAL_ACCESS: "Update Tenant Portal Access",
 
   // 🔹 Success Responses
   GET_TENANT_PORTAL_DASHBOARD_SUCCESS:
@@ -1038,6 +1042,7 @@ export const portalMessages = {
   DASBOARD_CARD_COUNT_SUCCESS : "Portal dashboard card count fetched successfully",
  CREATE_PORTAL_TO_TENANT_SUCCESS:
     "Portal assigned to tenant successfully.",
+    GETTENANT_PORTAL_ACCESS_SUCCESS: "Tenant portal access fetched successfully.",
 
   UPDATE_TENANT_PORTAL_SUCCESS:
     "Tenant portal updated successfully.",
