@@ -10,11 +10,10 @@ import EmailTemplate from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
 import { PaymentStatus, PaymentType } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
-import { customServiceInvoiceMessages } from "../config/messages";
+import { appStatus, customServiceInvoiceMessages } from "../config/messages";
 import AppLogger from "../helpers/logging";
 import { sendNotification } from "./notification";
 import users from "../models/users";
-import { Lookup } from "../models/lookup";
 
 
 export interface GetPlansQuery {
@@ -136,33 +135,101 @@ export const createCustomServiceInvoice = async (
     select: "planId planName billingPeriods",
   });
 
-// After invoice is saved and paymentLink is generated
+// Send the tenant admin a notification using the system-dispatch flow.
 try {
-  const tenantAdmin = await users.findOne({
+  console.info("[invoice-notification] Starting notification", {
     tenantId: payload.tenantId,
-    role: "ADMIN",
-    status: "Active",
-  }).select("userId userName email").lean();
+    invoiceId,
+    invoiceNumber: newInvoice.invoiceNumber,
+  });
 
-  if (tenantAdmin?.userId) {
-    const notificationResult = await sendNotification({
-      receiverId: tenantAdmin.userId,
-      messages: `A custom service invoice (${newInvoice.invoiceNumber}) has been created. Please review the invoice and payment details.`,
-      notificationType: "CUSTOM_SERVICE_INVOICE_CREATED",
+  const tenantAdmin = await users
+    .findOne({
+      tenantId: payload.tenantId,
+      role: "ADMIN",
+      status: "Active",
+    })
+    .select("userId userName email")
+    .lean();
+
+  console.info("[invoice-notification] Tenant admin lookup completed", {
+    found: Boolean(tenantAdmin?.userId),
+    receiverId: tenantAdmin?.userId,
+  });
+
+  if (!tenantAdmin?.userId) {
+    console.error(
+      `[invoice-notification] No active tenant admin found for tenant ${payload.tenantId}`,
+    );
+  } else {
+    const superAdmin = await users
+      .findOne({
+        role: "SUPERADMIN",
+        status: appStatus.ACTIVE,
+      })
+      .select("userId tenantId userName email")
+      .lean();
+
+    console.info("[invoice-notification] Super Admin lookup completed", {
+      found: Boolean(superAdmin),
+      senderId: superAdmin?.userId,
     });
 
-    if (!notificationResult.success) {
-      AppLogger.error(
-        `Invoice notification failed: ${notificationResult.error}`,
+    if (!superAdmin) {
+      console.error("[invoice-notification] Active Super Admin not found");
+    } else {
+      const notificationResult = await sendNotification(
+        {
+          title: "New Custom Service Invoice Created",
+          messages: `A custom service invoice (${newInvoice.invoiceNumber}) has been created. Please review the invoice and payment details.`,
+          receiverId: tenantAdmin.userId,
+          notificationType: "CUSTOM_SERVICE_INVOICE_CREATED",
+          metadata: {
+            invoiceId,
+            invoiceNumber: newInvoice.invoiceNumber,
+            paymentLink: newInvoice.paymentLink,
+          },
+          senderId: superAdmin.userId,
+          senderTenantId: superAdmin.tenantId,
+          senderName: superAdmin.userName,
+          senderEmail: superAdmin.email,
+        },
+        {
+          kind: "system",
+        },
       );
+
+      console.info("[invoice-notification] sendNotification result", {
+        success: notificationResult.success,
+        savedCount: notificationResult.data.length,
+        result:
+          "error" in notificationResult
+            ? notificationResult.error
+            : notificationResult.errors,
+      });
+
+      if (!notificationResult.success) {
+        console.error("[invoice-notification] Notification failed", {
+          tenantId: payload.tenantId,
+          invoiceId,
+          error:
+            "error" in notificationResult
+              ? notificationResult.error
+              : notificationResult.errors,
+        });
+      } else {
+        console.info(
+          `[invoice-notification] Sent notification for invoice ${invoiceId} to tenant admin ${tenantAdmin.userId}`,
+        );
+      }
     }
   }
 } catch (error) {
-  AppLogger.error(
-    `Invoice notification error: ${
-      error instanceof Error ? error.message : String(error)
-    }`,
-  );
+  console.error("[invoice-notification] Notification threw an error", {
+    tenantId: payload.tenantId,
+    invoiceId,
+    error: error instanceof Error ? error.message : String(error),
+  });
 }
 
   const plan = newInvoice.planId as unknown as {
