@@ -10,12 +10,12 @@ import {
   ChatGroupRole,
 } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
-import mongoose from "mongoose";
+import mongoose,{ Types } from "mongoose";
 import TenantChatRoomModel from "../models/tenantChatRoom";
 import { TenantRoomMemberModel } from "../models/tenantChatRoomMember";
 import {UserChatMessageModel} from "../models/userChatMessage";
 import {ChatMessageModel} from "../models/tenantChatMessage";
-import course from "../models/course";
+import {ChatMessageType} from  "../shared/enum";
 
 interface GetChatRoomsInput {
   userId: string;
@@ -75,6 +75,18 @@ interface ICreateChatRoomPayload {
   receivers: IChatUser[];
   name?: string;
   description?: string;
+}
+
+interface SendMessagePayload {
+  roomId: string;
+  title?:string;
+  message?: string;
+  messageType?: ChatMessageType;
+  attachments?: string[];
+  replyTo?: any;
+  senderId: string;
+  senderName: string;
+  senderRole?: string;
 }
 const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -811,4 +823,100 @@ export const getChatRoomsService = async ({
       hasPreviousPage: page > 1,
     },
   };
+};
+
+export const sendUserMessageService = async (
+  payload: SendMessagePayload
+) => {
+  try {
+    const {
+      roomId,
+      title,
+      message,
+      messageType = ChatMessageType.TEXT,
+      attachments,
+      replyTo,
+      senderId,
+      senderName,
+      senderRole,
+    } = payload;
+  
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+      return;
+    }
+
+    const room = await UserChatRoomModel.findOne({
+      _id: roomId,
+      deletedAt: null,
+      isEnabled: true,
+    });
+
+    if (!room) {
+      throwError("Chat room not found", 404);
+      return;
+    }
+
+    if (!message && (!attachments || attachments.length === 0)) {
+      throwError("Message or attachment required", 400);
+    }
+
+
+    const member = await UserRoomMemberModel.findOne({
+      roomId,
+      userId: senderId,
+      isActive: true,
+      deletedAt: null,
+    });
+
+    if (!member) throwError("User not part of this room", 403);
+
+    const newMessage = await UserChatMessageModel.create({
+      roomId,
+      senderId,
+      senderName,
+      senderRole,
+      message,
+      messageType,
+      attachments,
+      replyTo,
+    });
+
+    await UserChatRoomModel.updateOne(
+      { _id: roomId },
+      {
+        $set: {
+          lastMessage: {
+            messageId: newMessage._id,
+            message: newMessage.message,
+            senderId,
+            senderName,
+            createdAt: newMessage.createdAt,
+          },
+          lastMessageAt: newMessage.createdAt,
+        },
+      }
+    );
+
+    // // 🔹 socket emit
+    // try {
+    //   io.to(roomId.toString()).emit("chat:new-message", {
+    //     roomId,
+    //     message: newMessage,
+    //   });
+    // } catch (socketErr) {
+    //   console.error("Socket emit failed:", socketErr);
+    // }
+
+    return newMessage;
+
+  } catch (err: any) {
+    console.error("SendMessageService Error:", err);
+
+    throwError(
+      err.message || "Failed to send message",
+      err.statusCode || 500
+    );
+  }
 };

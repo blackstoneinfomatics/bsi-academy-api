@@ -1263,9 +1263,6 @@ export const sendMessageService = async (
       senderRole,
     } = payload;
   
-
-    console.log("Incoming roomId:", roomId);
-console.log("Is valid:", Types.ObjectId.isValid(roomId));
     if (!Types.ObjectId.isValid(roomId)) {
       throwError("Invalid roomId", 400);
       return;

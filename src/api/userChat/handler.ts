@@ -3,7 +3,9 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType } from "../../shared/enum";
-import { createChatRoomService,getChatRoomsService } from "../../operations/userChat";
+import { createChatRoomService,getChatRoomsService,sendUserMessageService } from "../../operations/userChat";
+import {UserChatMessageValidation} from  "../../models/userChatMessage";
+import {sendMessageService} from "../../operations/tenantChat";
 
 const chatUserSchema = z.object({
   userId: z.string().trim().min(1, "User ID is required"),
@@ -50,6 +52,27 @@ export const getChatRoomsValidation = z.object({
     search: z.string().trim().optional(),
   }),
 });
+export const SendChatMessageValidation = z.object({
+    param:z.object({
+     source : z.enum(['TENANT','SUPER_ADMIN']).default('TENANT')
+  }),
+    payload : UserChatMessageValidation.pick({
+          roomId: true,
+        
+          senderId: true,
+          senderName: true,
+          senderRole:true,
+        
+          title: true,
+          message:true,
+        
+          messageType: true,
+        
+          attachments: true,
+        
+          replyTo: true
+    })
+})
 
 export default {
   createChatRoom: async (request: Request, h: ResponseToolkit) => {
@@ -144,5 +167,48 @@ export default {
       })
       .code(500);
   }
-}
+},
+sendMessage: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = SendChatMessageValidation.safeParse({
+        param:request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+      
+    const payload = parsed?.data?.payload as any;
+    const source = parsed?.data?.param.source as any;
+
+    let result : any ;
+
+     if (source === "SUPER_ADMIN") {
+      result = await sendMessageService(payload);
+    } else {
+      result = await sendUserMessageService(payload);
+    }
+
+      return h
+        .response({
+          success: true,
+          message:
+            Array.isArray(result)
+              ? tenantChatMessages.SEND_GLOBAL_MESSAGE_SUCCESS
+              : tenantChatMessages.SEND_MESSAGE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || tenantChatMessages.INTERNAL_SERVER_ERROR,
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 };

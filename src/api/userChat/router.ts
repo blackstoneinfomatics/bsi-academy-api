@@ -31,18 +31,18 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-//     {
-//       method: "POST",
-//       path: "/chat/message",
-//       options: {
-//         handler: handler.sendMessage,
-//         description: tenantChatMessages.SEND_MESSAGE,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
+    {
+      method: "POST",
+      path: "/user/chat/{source}/message",
+      options: {
+        handler: handler.sendMessage,
+        description: tenantChatMessages.SEND_MESSAGE,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
 //     {
 //        method: "PUT",
