@@ -19,6 +19,32 @@ const register = async (server: Server): Promise<void> => {
 
     {
       method: "GET",
+      path: "/notification/card-details",
+      options: {
+        handler: handler.getNotificationCardDetailsHandler,
+        tags: ["api", "notification"],
+        description: "Get notification card counts",
+        auth: {
+          strategies: ["jwt"],
+        },
+      },
+    },
+
+    {
+      method: "GET",
+      path: "/notification/request-list",
+      options: {
+        handler: handler.getNotificationRequestListHandler,
+        tags: ["api", "notification"],
+        description: "Get notification request list",
+        auth: {
+          strategies: ["jwt"],
+        },
+      },
+    },
+
+    {
+      method: "GET",
       path: "/notification/{notificationId}",
       options: {
         handler:handler.getNotificationsHandler,
@@ -61,4 +87,3 @@ export = {
   name: "api-notification",
   register,
 };
-

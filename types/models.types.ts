@@ -1590,6 +1590,7 @@ export interface INotification extends Document {
   senderTenantId: string;
   receiverTenantId: string;
   title?: string;
+  requestId?: string;
   messages: string;
   senderId: string;
   senderName?: string;

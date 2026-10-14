@@ -118,6 +118,12 @@ const notificationSchema = new Schema<INotification>(
       trim: true,
     },
 
+    requestId: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+
     messages: {
       type: String,
       required: true,
@@ -251,6 +257,7 @@ export const zodnotificationSchema = z.object({
   senderTenantId: z.string().min(1),
   receiverTenantId: z.string().min(1),
   title: z.string().optional(),
+  requestId: z.string().min(1).optional(),
   messages: z.string().min(1),
   senderId: z.string().min(1),
   senderName: z.string().min(1),

@@ -8,6 +8,7 @@ import { appStatus, notificationStatus } from "../config/messages";
 import TrialMemberModel from "../models/trailmember";
 import users from "../models/users";
 import roleAccess from "../models/roleacces";
+import TenantModel from "../models/tenants";
 
 export interface NotificationIdentity {
   databaseId: string;
@@ -227,6 +228,7 @@ const sendNotificationInputSchema = z
     notificationType: z.string().min(1),
     messages: z.string().min(1),
     title: z.string().optional(),
+    requestId: z.string().min(1).optional(),
     actionUrl: z.string().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
@@ -399,6 +401,10 @@ export const sendNotification = async (
             ? input.title
             : undefined,
 
+        ...(input.requestId
+          ? { requestId: input.requestId }
+          : {}),
+
         messages: input.messages,
         notificationType: input.notificationType,
         notificationStatus: notificationStatus.UN_SEEN,
@@ -542,6 +548,106 @@ export default async function getAllNotification(
     throw new Error(`Failed to fetch notifications: ${(error as Error).message}`);
   }
   
+}
+
+export async function getNotificationCardDetails(
+  receiverIds: string[],
+  tenantId: string
+) {
+  try {
+    const filter = buildRecipientFilter(receiverIds, tenantId);
+    const now = new Date();
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+    );
+    const nextMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+    );
+
+    const [
+      totalNotifications,
+      seenNotifications,
+      unseenNotifications,
+      receivedThisMonth,
+    ] = await Promise.all([
+      notification.countDocuments(filter),
+      notification.countDocuments({ ...filter, isRead: true }),
+      notification.countDocuments({ ...filter, isRead: false }),
+      notification.countDocuments({
+        ...filter,
+        createdDate: { $gte: monthStart, $lt: nextMonthStart },
+      }),
+    ]);
+
+    return {
+      totalNotifications,
+      seenNotifications,
+      unseenNotifications,
+      receivedThisMonth,
+    };
+  } catch (error) {
+    console.error("[notifications:get-card-details] Query failed", {
+      tenantId,
+      receiverCount: receiverIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error(
+      `Failed to fetch notification card details: ${(error as Error).message}`
+    );
+  }
+}
+
+export async function getNotificationRequestList(
+  receiverIds: string[],
+  tenantId: string
+) {
+  try {
+    const filter = buildRecipientFilter(receiverIds, tenantId);
+    const [notifications, totalCount, unreadCount] = await Promise.all([
+      notification.find(filter).sort({ createdDate: -1 }).lean(),
+      notification.countDocuments(filter),
+      notification.countDocuments({ ...filter, isRead: false }),
+    ]);
+
+    const senderTenantCodes = [
+      ...new Set(notifications.map((item) => item.senderTenantId)),
+    ];
+    const tenants = senderTenantCodes.length
+      ? await TenantModel.find({
+          tenantCode: { $in: senderTenantCodes },
+        })
+          .select("tenantCode tenantName")
+          .lean()
+      : [];
+    const tenantNames = new Map(
+      tenants.map((tenant) => [tenant.tenantCode, tenant.tenantName])
+    );
+
+    const requestList = notifications.map((item) => {
+      const metadataRequestId = item.metadata?.requestId;
+      return {
+        requestId:
+          item.requestId ??
+          (typeof metadataRequestId === "string" ? metadataRequestId : null),
+        tenantName: tenantNames.get(item.senderTenantId) ?? null,
+        notificationCategory: item.title || item.notificationType,
+        description: item.messages,
+        receivedDate: item.createdDate ?? null,
+        seenDate: item.readAt ?? null,
+      };
+    });
+
+    return { notifications: requestList, totalCount, unreadCount };
+  } catch (error) {
+    console.error("[notifications:get-request-list] Query failed", {
+      tenantId,
+      receiverCount: receiverIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error(
+      `Failed to fetch notification requests: ${(error as Error).message}`
+    );
+  }
 }
 
 /**
