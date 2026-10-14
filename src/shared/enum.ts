@@ -191,6 +191,11 @@ export enum ChatSendAccess {
   ADMIN_ONLY = "ADMIN_ONLY",
 }
 
+export enum ChatSource {
+  TENANT = "TENANT",
+  SUPER_ADMIN = "SUPER_ADMIN"
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

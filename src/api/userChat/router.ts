@@ -92,15 +92,15 @@ const register = async (server: Server): Promise<void> => {
 //         // },
 //       },
 //     },
-//     {
-//       method: "GET",
-//       path: "/chat/groups/{roomId}",
-//       options: {
-//         handler: handler.getGroupDetails,
-//         description: "Get chat group details and tenant members",
-//         tags: ["api", "Chat"],
-//       },
-//     },
+    {
+      method: "GET",
+      path: "/user/chat/{source}/groups/{roomId}",
+      options: {
+        handler: handler.getGroupDetails,
+        description: "Get chat group details and user members",
+        tags: ["api", "userChat"],
+      },
+    },
 //     {
 //       method: "GET",
 //       path: "/chat/global",

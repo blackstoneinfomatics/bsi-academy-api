@@ -15,7 +15,8 @@ import TenantChatRoomModel from "../models/tenantChatRoom";
 import { TenantRoomMemberModel } from "../models/tenantChatRoomMember";
 import {UserChatMessageModel} from "../models/userChatMessage";
 import {ChatMessageModel} from "../models/tenantChatMessage";
-import {ChatMessageType} from  "../shared/enum";
+import {ChatMessageType , ChatSource as ChatSourceEnum} from  "../shared/enum";
+import { tenantChatMessages, tenantsMessages } from "../config/messages";
 
 interface GetChatRoomsInput {
   userId: string;
@@ -87,6 +88,16 @@ interface SendMessagePayload {
   senderId: string;
   senderName: string;
   senderRole?: string;
+}
+
+export interface GroupDetailsResponse {
+  roomId: string;
+  roomCode: string;
+  type: string;
+  source: ChatSourceEnum;
+  groupName: string;
+  description: string;
+  sendAccess: string;
 }
 const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -919,4 +930,44 @@ export const sendUserMessageService = async (
       err.statusCode || 500
     );
   }
+};
+
+export const getGroupDetailsOperation = async (
+  roomId: string,
+  source: ChatSourceEnum,
+): Promise<GroupDetailsResponse | null> => {
+
+  if (!roomId || !mongoose.isValidObjectId(roomId)) {
+    throwError(tenantChatMessages.INVALID_ROOM_ID, 400);
+  }
+
+  let room: any = null;
+
+  if (source === ChatSourceEnum.TENANT) {
+    room = await UserChatRoomModel.findOne({
+      _id: roomId,
+      ...ACTIVE_ROOM,
+    }).lean();
+  } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+    room = await TenantChatRoomModel.findOne({
+      _id: roomId,
+      ...ACTIVE_ROOM,
+    }).lean();
+  } else {
+    throwError("Invalid chat source", 400);
+  }
+
+  if (!room) {
+    return null;
+  }
+
+  return {
+    roomId: room._id.toString(),
+    roomCode: room.roomCode,
+    type: room.type,
+    source,
+    groupName: room.name,
+    description: String(room.description ?? ""),
+    sendAccess: room.sendAccess,
+  };
 };

@@ -2,10 +2,11 @@ import { Request, ResponseToolkit } from "@hapi/hapi";
 import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
-import { ChatRoomType } from "../../shared/enum";
-import { createChatRoomService,getChatRoomsService,sendUserMessageService } from "../../operations/userChat";
+import { ChatRoomType,ChatSource } from "../../shared/enum";
+import { createChatRoomService,getChatRoomsService,getGroupDetailsOperation,sendUserMessageService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
+
 
 const chatUserSchema = z.object({
   userId: z.string().trim().min(1, "User ID is required"),
@@ -54,7 +55,7 @@ export const getChatRoomsValidation = z.object({
 });
 export const SendChatMessageValidation = z.object({
     param:z.object({
-     source : z.enum(['TENANT','SUPER_ADMIN']).default('TENANT')
+     source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT)
   }),
     payload : UserChatMessageValidation.pick({
           roomId: true,
@@ -72,7 +73,13 @@ export const SendChatMessageValidation = z.object({
         
           replyTo: true
     })
-})
+});
+export const getGroupDetailsValidation = z.object({
+  params: z.object({
+    roomId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid roomId"),
+    source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT)
+  }),
+});
 
 export default {
   createChatRoom: async (request: Request, h: ResponseToolkit) => {
@@ -184,7 +191,7 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
 
     let result : any ;
 
-     if (source === "SUPER_ADMIN") {
+     if (source === ChatSource.SUPER_ADMIN) {
       result = await sendMessageService(payload);
     } else {
       result = await sendUserMessageService(payload);
@@ -209,6 +216,45 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
           errorCode: err.statusCode || 500,
         })
         .code(err.statusCode || 500);
+    }
+  },
+  getGroupDetails: async (request: Request, h: ResponseToolkit) => {
+    const parsed = getGroupDetailsValidation.safeParse({
+      params: request.params,
+    });
+  
+    if (!parsed.success) {
+         throwError(parsed.error.errors[0].message, 400);
+    }
+
+    const payload = parsed?.data?.params as any;
+  
+    try {
+      const data = await getGroupDetailsOperation(payload.roomId , payload.source);
+        if (!data) {
+      return h
+        .response({
+          statusCode: 404,
+          message: "Group not found",
+        })
+        .code(404);
+    }
+      return h
+        .response({
+          statusCode: 200,
+          message: "Group details fetched successfully",
+          data,
+        })
+        .code(200);
+    } catch (error: any) {
+      console.error("getGroupDetailsHandler error:", error);
+  
+      return h
+        .response({
+          statusCode: 500,
+          message: error?.message || "Internal Server Error",
+        })
+        .code(500);
     }
   },
 };
