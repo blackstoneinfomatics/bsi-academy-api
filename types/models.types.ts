@@ -19,6 +19,7 @@ import CustomEnumerator, {
   ChatRoomStatus,
   ChatMessageType,
   ChatSendAccess,
+  RequestStatus,
 } from "../src/shared/enum";
 
 enum Status {
@@ -2751,6 +2752,31 @@ export interface ITenantSubscription extends Document {
 
   deletedAt?: Date | null;
 }
+
+export interface IBackupRequest extends Document {
+  tenantId: string;
+  tenantName: string;
+  backupStartDate: Date;
+  backupEndDate: Date;
+  additionalNotes?: string;
+  status: RequestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPlanChangeRequest extends Document {
+  tenantId: string;
+  tenantName: string;
+  currentPlan: string;
+  newPlan: string;
+  planStartDate: Date;
+  changeReason: string;
+  requestReason: string;
+  status: RequestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface TenantSubscription {
   tenantId: string;
 

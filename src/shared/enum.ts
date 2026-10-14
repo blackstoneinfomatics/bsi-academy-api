@@ -11,6 +11,12 @@ export enum Status {
   COMPLETED = "Completed",
 }
 
+export enum RequestStatus {
+  PENDING = "Pending",
+  APPROVED = "Approved",
+  REJECTED = "Rejected",
+}
+
 export enum AssignmentStatus {
   ASSIGNED = "Assigned",
   PENDING = "Pending",
