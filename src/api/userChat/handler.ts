@@ -3,9 +3,10 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { createChatRoomService,getChatRoomsService,getGroupDetailsOperation,sendUserMessageService } from "../../operations/userChat";
+import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,sendUserMessageService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
+import { Query } from "mongoose";
 
 
 const chatUserSchema = z.object({
@@ -53,6 +54,22 @@ export const getChatRoomsValidation = z.object({
     search: z.string().trim().optional(),
   }),
 });
+
+export const getTenantUsersValidation = z.object({
+   param:z.object({
+     source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT),
+     roomId: z.string().trim().optional(),
+  }),
+  query: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+    role: z.string().trim().min(1, "Role is required"),
+
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+
+    search: z.string().trim().optional(),
+  }),
+});
 export const SendChatMessageValidation = z.object({
     param:z.object({
      source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT)
@@ -78,6 +95,19 @@ export const getGroupDetailsValidation = z.object({
   params: z.object({
     roomId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid roomId"),
     source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT)
+  }),
+  query :z.object({
+         userId : z.string().min(1)
+  })
+});
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+export const DeleteChatRoomValidation = z.object({
+  params: z.object({
+    roomId: objectId,
+  }),
+  payload: z.object({
+    deletedBy: z.string().min(1),
   }),
 });
 
@@ -221,6 +251,7 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
   getGroupDetails: async (request: Request, h: ResponseToolkit) => {
     const parsed = getGroupDetailsValidation.safeParse({
       params: request.params,
+   query:request.query
     });
   
     if (!parsed.success) {
@@ -228,9 +259,10 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
     }
 
     const payload = parsed?.data?.params as any;
+    const query = parsed?.data?.query as any;
   
     try {
-      const data = await getGroupDetailsOperation(payload.roomId , payload.source);
+      const data = await getGroupDetailsOperation(payload.roomId , payload.source , query.userId);
         if (!data) {
       return h
         .response({
@@ -255,6 +287,88 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
           message: error?.message || "Internal Server Error",
         })
         .code(500);
+    }
+  },
+
+  getTenantUsersByGroup : async (
+  request: Request,
+  h: ResponseToolkit,
+) => {
+  try {
+    const parsed = getTenantUsersValidation.safeParse({
+      param : request.params,
+      query: request.query,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.issues[0].message, 400);
+    }
+
+    const query = parsed?.data?.query as any;
+    const param = parsed?.data?.param as any;
+
+    const result = await getTenantUsersService({...param,...query});
+
+    return h
+      .response({
+        success: true,
+        message: result?.message ?? "Tenant users fetched successfully",
+        data: result?.data,
+      })
+      .code(result?.statusCode ?? 200);
+  } catch (error: any) {
+    if (error?.statusCode) {
+      throw error;
+    }
+
+    request.log(["error", "getTenantUsers"], error);
+
+    return h
+      .response({
+        success: false,
+        message: "Internal Server Error",
+      })
+      .code(500);
+  }
+},
+
+deleteRoom: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = DeleteChatRoomValidation.safeParse({
+        params: request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+      
+      const payload = parsed?.data as any;
+
+      const { roomId } = payload.params;
+      const { deletedBy } = payload.payload;
+
+      const result = await deleteUserChatRoomService({
+        roomId,
+        deletedBy,
+      });
+
+      return h
+        .response({
+          success: true,
+          message: "Chat room deleted successfully",
+          data: result,
+        })
+        .code(200);
+
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
     }
   },
 };

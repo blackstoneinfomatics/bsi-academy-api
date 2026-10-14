@@ -18,6 +18,19 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
+
+    {
+      method: "POST",
+      path: "/user/chat/{source}/message",
+      options: {
+        handler: handler.sendMessage,
+        description: tenantChatMessages.SEND_MESSAGE,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
      {
       method: "GET",
       path: "/user/chat-room/{userId}",
@@ -31,12 +44,12 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-    {
-      method: "POST",
-      path: "/user/chat/{source}/message",
+     {
+      method: "GET",
+      path: "/user/chat/{source}/group/{roomId}",
+      handler: handler.getTenantUsersByGroup,
       options: {
-        handler: handler.sendMessage,
-        description: tenantChatMessages.SEND_MESSAGE,
+        description: tenantChatMessages.GET_CHAT_ROOMS,
         tags: ["api", "userChat"],
         // auth: {
         //   strategies: ["jwt"],
@@ -130,15 +143,15 @@ const register = async (server: Server): Promise<void> => {
 //      tags: ["api", "Chat"],
 //   },
 // },
-//     {
-//     method: "DELETE",
-//     path: "/chat-room/{roomId}",
-//     handler: handler.deleteRoom,
-//     options: {
-//       description: "Soft delete chat room",
-//       tags: ["api", "Chat"],
-//     },
-//   },
+    {
+    method: "DELETE",
+    path: "/user/chat-room/{roomId}",
+    handler: handler.deleteRoom,
+    options: {
+      description: "Soft delete chat room",
+      tags: ["api", "userChat"],
+    },
+  },
 
 //   {
 //   method: "DELETE",

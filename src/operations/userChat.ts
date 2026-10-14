@@ -17,6 +17,10 @@ import {UserChatMessageModel} from "../models/userChatMessage";
 import {ChatMessageModel} from "../models/tenantChatMessage";
 import {ChatMessageType , ChatSource as ChatSourceEnum} from  "../shared/enum";
 import { tenantChatMessages, tenantsMessages } from "../config/messages";
+import StudentModel from "../models/student";
+import RecruitmentModel from "../models/recruitment";
+import UserModel from "../models/users";
+import { Lookup } from "../models/lookup";
 
 interface GetChatRoomsInput {
   userId: string;
@@ -98,6 +102,25 @@ export interface GroupDetailsResponse {
   groupName: string;
   description: string;
   sendAccess: string;
+  canUpdate:boolean;
+}
+
+export interface GroupDetailsMember {
+  userId: string;
+  userName: string;
+  isSelected: boolean;
+  role: string;
+  course: string | null;
+}
+
+export interface GetTenantUsersInput {
+  tenantId: string;
+  role: string;
+  roomId?: string;
+  source?: ChatSourceEnum;
+  page?: number;
+  limit?: number;
+  search?: string;
 }
 const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -935,6 +958,7 @@ export const sendUserMessageService = async (
 export const getGroupDetailsOperation = async (
   roomId: string,
   source: ChatSourceEnum,
+  userId:string
 ): Promise<GroupDetailsResponse | null> => {
 
   if (!roomId || !mongoose.isValidObjectId(roomId)) {
@@ -957,6 +981,20 @@ export const getGroupDetailsOperation = async (
     throwError("Invalid chat source", 400);
   }
 
+ let canUpdate = false;
+
+if (source === ChatSourceEnum.TENANT) {
+  const isAdmin = await UserRoomMemberModel.exists({
+    roomId,
+    userId,
+    groupRole: ChatGroupRole.ADMIN,
+    ...ACTIVE_MEMBER,
+  });
+
+  canUpdate = !!isAdmin;
+}
+
+
   if (!room) {
     return null;
   }
@@ -969,5 +1007,391 @@ export const getGroupDetailsOperation = async (
     groupName: room.name,
     description: String(room.description ?? ""),
     sendAccess: room.sendAccess,
+    canUpdate:canUpdate
   };
+};
+
+
+export const getTenantUsersService = async ({
+  tenantId,
+  role,
+  roomId,
+  source = ChatSourceEnum.TENANT,
+  page = 1,
+  limit = 10,
+  search,
+}: GetTenantUsersInput) => {
+  try {
+    if (!tenantId?.trim()) {
+      throwError("Tenant ID is required", 400);
+    }
+
+    if (
+      !role?.trim() ||
+      !Number.isInteger(page) ||
+      !Number.isInteger(limit) ||
+      page < 1 ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throwError("Invalid role or pagination parameters", 400);
+    }
+
+    if (
+      roomId &&
+      !mongoose.isValidObjectId(roomId)
+    ) {
+      throwError("Invalid room ID", 400);
+    }
+
+    if (
+      roomId &&
+      !Object.values(ChatSourceEnum).includes(source)
+    ) {
+      throwError("Invalid chat source", 400);
+    }
+
+    const normalizedRole = role.trim().toUpperCase();
+    const normalizedTenantId = tenantId.trim();
+    const skip = (page - 1) * limit;
+
+    const searchText = search?.trim();
+
+    const searchFilter = searchText
+      ? {
+          $or: [
+            {
+              userName: {
+                $regex: searchText,
+                $options: "i",
+              },
+            },
+            {
+              email: {
+                $regex: searchText,
+                $options: "i",
+              },
+            },
+          ],
+        }
+      : {};
+
+    // --------------------------------------------------
+    // 1. Fetch existing room members
+    // --------------------------------------------------
+
+    let selectedUserIds = new Set<string>();
+
+    if (roomId) {
+      
+     let room: any = null;
+
+const roomFilter = {
+  _id: roomId,
+  // type: { $ne: ChatRoomType.SEGMENT },
+  status: ChatRoomStatus.ACTIVE,
+  isEnabled: true,
+  deletedAt: null,
+};
+
+if (source === ChatSourceEnum.SUPER_ADMIN) {
+  room = await TenantChatRoomModel.findOne(roomFilter)
+    .select("_id type")
+    .lean();
+} else {
+  room = await UserChatRoomModel.findOne(roomFilter)
+    .select("_id type")
+    .lean();
+}
+
+      if (!room) {
+        throwError("Chat room not found", 404);
+      }
+
+      if (room.type === ChatRoomType.SEGMENT) {
+  return {
+    statusCode: 200,
+    message:
+      "This group belongs to Super Admin, so you cannot view its member list",
+    data: {
+      members: [],
+      memberCount: 0,
+    },
+  };
+}
+
+      const memberFilter: Record<string, any> = {
+        roomId: room._id,
+        isActive: true,
+        deletedAt: null,
+      };
+
+      // Tenant-side membership must belong to this tenant.
+      if (source === ChatSourceEnum.TENANT) {
+        memberFilter.tenantId = normalizedTenantId;
+      }
+
+     let existingMembers: Array<{ userId: string }> = [];
+
+if (source === ChatSourceEnum.SUPER_ADMIN) {
+  existingMembers = await TenantRoomMemberModel.find(memberFilter)
+    .select("userId")
+    .lean();
+} else {
+  existingMembers = await UserRoomMemberModel.find(memberFilter)
+    .select("userId")
+    .lean();
+}
+
+      selectedUserIds = new Set(
+        existingMembers.map((member: any) =>
+          String(member.userId),
+        ),
+      );
+    }
+
+    // --------------------------------------------------
+    // 2. Fetch users based on role
+    // --------------------------------------------------
+
+    let users: Array<{
+      userId: string;
+      userName: string;
+      role: string;
+      course: string | null;
+    }> = [];
+
+    let totalRecords = 0;
+
+    if (normalizedRole === "STUDENT") {
+      const studentFilter: Record<string, any> = {
+        tenantId: normalizedTenantId,
+        status: "Active",
+      };
+
+      if (searchText) {
+        studentFilter.$or = [
+          {
+            firstName: {
+              $regex: searchText,
+              $options: "i",
+            },
+          },
+          {
+            lastName: {
+              $regex: searchText,
+              $options: "i",
+            },
+          },
+        ];
+      }
+
+      const [students, total] = await Promise.all([
+        StudentModel.find(studentFilter)
+          .select(
+            "studentId firstName lastName learningInterest status",
+          )
+          .sort({ createdDate: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        StudentModel.countDocuments(studentFilter),
+      ]);
+
+      totalRecords = total;
+
+      users = students.map((student: any) => ({
+        userId: String(student.studentId),
+        userName: `${student.firstName ?? ""} ${
+          student.lastName ?? ""
+        }`.trim(),
+        role: "STUDENT",
+        course: student.learningInterest ?? null,
+      }));
+    } else {
+      // Resolve the tenant ID for Super Admin users.
+      const superAdminTenant =
+        normalizedRole === "SUPERADMIN"
+          ? await Lookup.findOne({
+              lookupKey: "SUPER_ADMIN",
+              status: "Active",
+            }).lean()
+          : null;
+
+      if (
+        normalizedRole === "SUPERADMIN" &&
+        !superAdminTenant?.tenantId
+      ) {
+        throwError("Super Admin tenant not found", 404);
+      }
+
+      const userFilter: Record<string, any> = {
+        tenantId:
+          normalizedRole === "SUPERADMIN"
+            ? superAdminTenant!.tenantId
+            : normalizedTenantId,
+        role: normalizedRole,
+        status: "Active",
+        ...searchFilter,
+      };
+
+      const [userRecords, total] = await Promise.all([
+        UserModel.find(userFilter)
+          .select("userId userName role email status")
+          .sort({ createdDate: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        UserModel.countDocuments(userFilter),
+      ]);
+
+      totalRecords = total;
+
+      const teacherUserIds =
+        normalizedRole === "TEACHER"
+          ? userRecords.map((user: any) => user.userId)
+          : [];
+
+      const teachers = teacherUserIds.length
+        ? await RecruitmentModel.find({
+            candidateId: { $in: teacherUserIds },
+            status: "Active",
+          })
+            .select("candidateId positionApplied")
+            .lean()
+        : [];
+
+      const positionByUserId = new Map<string, string | null>(
+        teachers.map((teacher: any) => [
+          String(teacher.candidateId),
+          teacher.positionApplied ?? null,
+        ]),
+      );
+
+      users = userRecords.map((user: any) => ({
+        userId: String(user.userId),
+        userName: user.userName,
+        role: Array.isArray(user.role)
+          ? user.role[0] ?? normalizedRole
+          : user.role ?? normalizedRole,
+        course:
+          normalizedRole === "TEACHER"
+            ? positionByUserId.get(String(user.userId)) ?? null
+            : null,
+      }));
+    }
+
+    // --------------------------------------------------
+    // 3. Add isSelected to each user
+    // --------------------------------------------------
+
+    const members: GroupDetailsMember[] = users.map((user) => ({
+      userId: user.userId,
+      userName: user.userName,
+      isSelected: selectedUserIds.has(user.userId),
+      role: user.role,
+      course: user.course,
+    }));
+
+    // --------------------------------------------------
+    // 4. Return response
+    // --------------------------------------------------
+
+    return {
+      statusCode: 200,
+      message: "Tenant users fetched successfully",
+      data: {
+        members,
+        memberCount: selectedUserIds.size,
+        pagination: {
+          page,
+          limit,
+          totalRecords,
+          totalPages: Math.ceil(totalRecords / limit),
+          hasNextPage: page * limit < totalRecords,
+          hasPreviousPage: page > 1,
+        },
+      },
+    };
+  } catch (error: any) {
+    // Preserve known HTTP errors rather than converting every error to 500.
+    if (error?.statusCode && error.statusCode < 500) {
+      throw error;
+    }
+
+    console.error("Error fetching tenant users:", error);
+
+    throwError("Internal Server Error", 500);
+  }
+};
+
+export const deleteUserChatRoomService = async (payload: {
+  roomId: string;
+  deletedBy: string;
+}) => {
+  try {
+    const { roomId, deletedBy } = payload;
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    const room = await UserChatRoomModel.findOne({
+      _id: roomId,
+      deletedAt: null,
+    });
+
+    if (!room) {
+      throwError("Chat room not found", 404);
+    }
+
+    // 🔹 (optional auth check)
+    // if (room.createdBy !== deletedBy) throwError("Not allowed", 403);
+
+    await UserChatRoomModel.updateOne(
+      { _id: roomId },
+      {
+        $set: {
+          deletedAt: new Date(),
+          status: ChatRoomStatus.DELETED,
+          isEnabled: false,
+          updatedBy: deletedBy,
+        },
+      }
+    );
+
+    await UserRoomMemberModel.updateMany(
+      { roomId },
+      {
+        $set: {
+          deletedAt: new Date(),
+          isActive: false,
+          updatedBy: deletedBy,
+        },
+      }
+    );
+
+    // // 🔹 socket emit
+    // try {
+    //   io.to(roomId.toString()).emit("chat:room-deleted", {
+    //     roomId,
+    //   });
+    // } catch (e) {
+    //   console.error("Socket emit failed:", e);
+    // }
+
+    return {
+      roomId,
+      deletedAt: new Date(),
+    };
+  } catch (err: any) {
+    console.error("deleteChatRoomService Error:", err);
+
+    throwError(
+      err.message || "Failed to delete chat room",
+      err.statusCode || 500
+    );
+  }
 };
