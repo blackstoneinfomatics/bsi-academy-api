@@ -1183,6 +1183,192 @@ export const markUserMessageSeenService = async (
 };
 
 
+export const updateUserChatRoomService = async (payload: {
+  source: ChatSourceEnum;
+  roomId: string;
+  addUsers?: {
+    userId: string;
+    name: string;
+    role: string;
+    course?: string | null;
+  }[];
+  removeUsers?: {
+    userId: string;
+  }[];
+  sendAccess?: string;
+  updatedBy: string;
+}) => {
+  try {
+    const {
+      source,
+      roomId,
+      addUsers = [],
+      removeUsers = [],
+      sendAccess,
+      updatedBy,
+    } = payload;
+
+    // 1. Validate source
+    if (!Object.values(ChatSourceEnum).includes(source)) {
+      throwError("Invalid chat source", 400);
+    }
+
+    // 2. Block Super Admin-side updates
+    if (source === ChatSourceEnum.SUPER_ADMIN) {
+      throwError(
+        "Super Admin is not authorized to update this chat room",
+        403
+      );
+    }
+
+    // 3. Validate room ID
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    // 4. Validate duplicate users
+    const addUserIds = addUsers.map((user) => user.userId);
+    const removeUserIds = removeUsers.map((user) => user.userId);
+
+    if (new Set(addUserIds).size !== addUserIds.length) {
+      throwError("Duplicate userId found in addUsers", 400);
+    }
+
+    if (new Set(removeUserIds).size !== removeUserIds.length) {
+      throwError("Duplicate userId found in removeUsers", 400);
+    }
+
+    if (addUserIds.some((id) => removeUserIds.includes(id))) {
+      throwError(
+        "The same user cannot be added and removed in one request",
+        400
+      );
+    }
+
+    // 5. Find tenant-side room
+    const room = await UserChatRoomModel.findOne({
+      _id: new Types.ObjectId(roomId),
+      deletedAt: null,
+      isEnabled: true,
+    }).lean();
+
+    if (!room) {
+      throwError("Chat room not found", 404);
+      return;
+    }
+
+    // 6. Allow membership changes only for GROUP rooms
+    if (
+      room.type !== ChatRoomType.GROUP &&
+      (addUsers.length > 0 || removeUsers.length > 0)
+    ) {
+      throwError(
+        "Users can only be added or removed from GROUP rooms",
+        400
+      );
+    }
+
+   if (addUsers.length > 0) {
+  for (const participant of addUsers) {
+    await UserRoomMemberModel.updateOne(
+      {
+        roomId: room._id,
+        userId: participant.userId,
+      },
+      {
+        $set: {
+          name: participant.name,
+          role: participant.role,
+          course: participant.course ?? null,
+          groupRole: ChatGroupRole.MEMBER,
+          isActive: true,
+          deletedAt: null,
+          updatedBy,
+        },
+        $setOnInsert: {
+          createdBy: updatedBy,
+        },
+      },
+      {
+        upsert: true,
+      }
+    );
+  }
+}
+
+    // 8. Remove users
+    if (removeUsers.length > 0) {
+      const result = await UserRoomMemberModel.updateMany(
+        {
+          roomId: room._id,
+          userId: {
+            $in: removeUsers.map((user) => user.userId),
+          },
+          isActive: true,
+          deletedAt: null,
+        },
+        {
+          $set: {
+            isActive: false,
+            deletedAt: new Date(),
+            updatedBy,
+          },
+        }
+      );
+
+    }
+
+   const roomUpdate: Record<string, any> = {
+  updatedBy,
+};
+
+if (sendAccess !== undefined) {
+  roomUpdate.sendAccess = sendAccess;
+}
+
+const updatedRoom = await UserChatRoomModel.findOneAndUpdate(
+  {
+    _id: new Types.ObjectId(roomId),
+    deletedAt: null,
+    isEnabled: true,
+  },
+  {
+    $set: roomUpdate,
+  },
+  {
+    new: true,
+    runValidators: true,
+  }
+).lean();
+
+if (!updatedRoom) {
+  throwError("Chat room not found", 404);
+  return;
+}
+
+    // 11. Return response
+    return {
+      source,
+      roomId: updatedRoom._id.toString(),
+      roomCode: updatedRoom.roomCode,
+      type: updatedRoom.type,
+      name: updatedRoom.name,
+      description: updatedRoom.description,
+      sendAccess: updatedRoom.sendAccess,
+      updatedBy: updatedRoom.updatedBy,
+    };
+  } catch (err: any) {
+    console.error("updateChatRoomService error:", err);
+
+    throwError(
+      err.message || "Failed to update chat room",
+      err.statusCode || 500
+    );
+  }
+};
+
+
+
 export const getTenantUsersService = async ({
   tenantId,
   role,

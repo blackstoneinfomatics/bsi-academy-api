@@ -3,7 +3,7 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,markUserMessageSeenService,sendUserMessageService } from "../../operations/userChat";
+import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
 import { Query } from "mongoose";
@@ -128,7 +128,7 @@ export const MarkSeenValidation = z.object({
 export const getUserRoomMessagesValidation = z.object({
   params: z.object({
     source: z.nativeEnum(ChatSource),
-    roomId: z.string().min(1, "Room ID is required"),
+    roomId:  objectId,
   }),
   query: z.object({
     userId: z.string().optional(),
@@ -138,6 +138,38 @@ export const getUserRoomMessagesValidation = z.object({
       .enum(["true", "false"])
       .transform((value) => value === "true")
       .default("false"),
+  }),
+});
+
+export const UpdateUserChatRoomValidation = z.object({
+  param: z.object({
+    source: z.nativeEnum(ChatSource),
+    roomId: objectId,
+  }),
+
+  payload: z.object({
+    addUsers: z
+      .array(
+        z.object({
+          userId: z.string().min(1, "User ID is required"),
+          name: z.string().min(1, "Name is required"),
+          role: z.string().min(1, "Role is required"),
+          course: z.string().nullable().optional(),
+        })
+      )
+      .optional(),
+
+    removeUsers: z
+      .array(
+        z.object({
+          userId: z.string().min(1, "User ID is required"),
+        })
+      )
+      .optional(),
+
+    sendAccess: z.enum(["ADMIN_ONLY", "EVERYONE"]).optional(),
+
+    updatedBy: z.string().min(1, "Updated by is required"),
   }),
 });
 
@@ -312,6 +344,43 @@ sendMessage: async (request: Request, h: ResponseToolkit) => {
           .code(err.statusCode || 500);
       }
     },
+
+ updateChatRoom: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = UpdateUserChatRoomValidation.safeParse({
+  payload: request.payload,
+  param:request.params,
+});
+
+if (!parsed.success) {
+  throwError(parsed.error.errors[0].message, 400);
+  return;
+}
+
+  const param = parsed?.data?.param as any;
+
+const { payload } = parsed?.data as any;
+
+const result = await updateUserChatRoomService({
+  ...payload,
+  ...param, 
+});
+
+    return h.response({
+      success: true,
+      message: "Chat room updated successfully",
+      data: result,
+    }).code(200);
+
+  } catch (err: any) {
+    return h.response({
+      success: false,
+      message: err.message,
+      errorCode: err.statusCode || 500,
+    }).code(err.statusCode || 500);
+  }
+},
+
   getGroupDetails: async (request: Request, h: ResponseToolkit) => {
     const parsed = getGroupDetailsValidation.safeParse({
       params: request.params,

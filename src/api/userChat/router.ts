@@ -46,7 +46,7 @@ const register = async (server: Server): Promise<void> => {
 
      {
       method: "GET",
-      path: "/user/chat/{source}/group/{roomId}",
+      path: "/user/chat/{source}/groupuser/{roomId}",
       handler: handler.getTenantUsersByGroup,
       options: {
         description: tenantChatMessages.GET_CHAT_ROOMS,
@@ -57,18 +57,18 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-//     {
-//        method: "PUT",
-//        path: "/chat-room/{roomId}",
-//       options: {
-//         handler: handler.updateChatRoom,
-//         description: tenantChatMessages.ADD_ROOM_MEMBER,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
+    {
+       method: "PUT",
+       path: "/user/chat-room/{source}/{roomId}",
+      options: {
+        handler: handler.updateChatRoom,
+        description: tenantChatMessages.ADD_ROOM_MEMBER,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
     {
       method: "POST",
