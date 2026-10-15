@@ -3,7 +3,7 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { clearUserChatService, createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
+import { clearUserChatService, createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,getUserSeenUsersService,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
 import { Query } from "mongoose";
@@ -180,6 +180,14 @@ export const ClearUserChatValidation = z.object({
   payload: z.object({
     roomId: objectId,
     userId: z.string().min(1),
+  }),
+});
+
+export const GetSeenUsersValidation = z.object({
+  params: z.object({
+    source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT),
+    messageId: objectId,
+    currentUserId: z.string().min(1),
   }),
 });
 
@@ -513,6 +521,43 @@ const result = await updateUserChatRoomService({
         message: "Internal Server Error",
       })
       .code(500);
+  }
+},
+
+getSeenUsers: async (request: Request, h: ResponseToolkit) => {
+  try {
+    const parsed = GetSeenUsersValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+      
+    const payload = parsed?.data?.params as any;
+
+    const result = await getUserSeenUsersService(
+      payload.messageId,
+      payload.currentUserId,
+      payload.source
+    );
+
+    return h
+      .response({
+        success: true,
+        message: tenantChatMessages.GET_SEEN_USERS_SUCCESS,
+        data: result,
+      })
+      .code(200);
+
+  } catch (err: any) {
+    return h
+      .response({
+        success: false,
+        message: err.message || "Internal Server Error",
+        errorCode: err.statusCode || 500,
+      })
+      .code(err.statusCode || 500);
   }
 },
 

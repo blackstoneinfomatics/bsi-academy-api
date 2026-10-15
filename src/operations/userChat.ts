@@ -1836,6 +1836,113 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
   }
 };
 
+
+export const getUserSeenUsersService = async (
+  messageId: string,
+  currentUserId: string,
+  source: ChatSourceEnum
+) => {
+  try {
+    // 1. Validate source
+    if (!Object.values(ChatSourceEnum).includes(source)) {
+      throwError("Invalid chat source", 400);
+    }
+
+    // 2. Validate message ID
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const messageObjectId = new Types.ObjectId(messageId);
+
+    let message: any = null;
+    let members: any[] = [];
+
+    // 3. Fetch message and room members by source
+    if (source === ChatSourceEnum.TENANT) {
+      message = await UserChatMessageModel.findById(messageObjectId)
+        .select("_id roomId createdAt senderId")
+        .lean();
+
+      if (!message) {
+        throwError("Message not found", 404);
+      }
+
+      members = await UserRoomMemberModel.find({
+        roomId: message.roomId,
+        isActive: true,
+        deletedAt: null,
+      })
+        .select("userId name lastSeenAt lastSeenMessageId")
+        .lean();
+    } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+      message = await ChatMessageModel.findById(messageObjectId)
+        .select("_id roomId createdAt senderId")
+        .lean();
+
+      if (!message) {
+        throwError("Message not found", 404);
+      }
+
+      members = await TenantRoomMemberModel.find({
+        roomId: message.roomId,
+        isActive: true,
+        deletedAt: null,
+      })
+        .select("userId name lastSeenAt lastSeenMessageId")
+        .lean();
+    }
+
+    // 4. Determine which members have seen the message
+    const seenUsers = members
+      .filter((member) => {
+        // Exclude the current user
+        if (String(member.userId) === String(currentUserId)) {
+          return false;
+        }
+
+        // Prefer timestamp comparison
+        if (member.lastSeenAt) {
+          return (
+            new Date(member.lastSeenAt).getTime() >=
+            new Date(message.createdAt).getTime()
+          );
+        }
+
+        // Fallback only when timestamps are unavailable
+        if (member.lastSeenMessageId) {
+          return (
+            String(member.lastSeenMessageId) ===
+            String(message._id)
+          );
+        }
+
+        return false;
+      })
+      .map((member) => ({
+        userId: member.userId,
+        name: member.name,
+        seenAt: member.lastSeenAt ?? null,
+      }));
+
+    // 5. Return response
+    return {
+      source,
+      messageId: message._id.toString(),
+      roomId: message.roomId.toString(),
+      totalSeen: seenUsers.length,
+      seenUsers,
+    };
+  } catch (err: any) {
+    console.error("getSeenUsersService error:", err);
+
+    throwError(
+      err.message || "Failed to fetch seen users",
+      err.statusCode || 500
+    );
+  }
+};
+
 export const deleteUserChatRoomService = async (payload: {
   roomId: string;
   deletedBy: string;
