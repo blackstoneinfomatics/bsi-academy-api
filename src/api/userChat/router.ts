@@ -143,15 +143,15 @@ const register = async (server: Server): Promise<void> => {
     },
   },
 
-//   {
-//   method: "DELETE",
-//   path: "/chat/message/{messageId}/everyone/{userId}",
-//   handler: handler.deleteForEveryone,
-//   options: {
-//       description: "Soft delete message for everyone",
-//     tags: ["api", "Chat"],
-//   },
-// }
+  {
+  method: "DELETE",
+  path: "/user/chat/{source}/message/{messageId}/everyone/{userId}",
+  handler: handler.deleteForEveryone,
+  options: {
+      description: "Soft delete message for everyone",
+    tags: ["api", "userChat"],
+  },
+}
   ];
   server.route(routes);
 };

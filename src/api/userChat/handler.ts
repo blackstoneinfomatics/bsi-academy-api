@@ -3,7 +3,7 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { clearUserChatService, createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,getUserSeenUsersService,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
+import { clearUserChatService, createChatRoomService,deleteUserChatRoomService,deleteUserMessageForEveryoneService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,getUserSeenUsersService,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
 import { Query } from "mongoose";
@@ -188,6 +188,14 @@ export const GetSeenUsersValidation = z.object({
     source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT),
     messageId: objectId,
     currentUserId: z.string().min(1),
+  }),
+});
+
+export const GetUserDeleteMessageValidation = z.object({
+  params: z.object({
+        source : z.enum([ChatSource.TENANT,ChatSource.SUPER_ADMIN]).default(ChatSource.TENANT),
+    messageId: objectId,
+    userId: z.string().min(1),
   }),
 });
 
@@ -633,6 +641,38 @@ deleteRoom: async (request: Request, h: ResponseToolkit) => {
         .code(err.statusCode || 500);
     }
   },
+  deleteForEveryone: async (request: Request, h: ResponseToolkit) => {
+  try {
+   
+      const parsed = GetUserDeleteMessageValidation.safeParse({
+      params: request.params,
+    });
 
+    if (!parsed.success) {
+      throwError(parsed.error.errors[0].message, 400);
+    }
+      
+    const payload = parsed?.data?.params as any;
+
+    const result = await deleteUserMessageForEveryoneService({
+      source:payload.source,
+      messageId: payload.messageId,
+      userId: payload.userId
+    });
+
+    return h.response({
+      success: true,
+      message: "Message deleted for everyone",
+      data: result,
+    }).code(200);
+
+  } catch (err: any) {
+    return h.response({
+      success: false,
+      message: err.message,
+      errorCode: err.statusCode || 500,
+    }).code(err.statusCode || 500);
+  }
+}
 
 };

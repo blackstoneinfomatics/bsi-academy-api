@@ -2390,3 +2390,108 @@ const messagesByDate = Object.entries(groupedMessages)
     },
   };
 };
+
+
+export const deleteUserMessageForEveryoneService = async (payload: {
+  source: ChatSourceEnum;
+  messageId: string;
+  userId: string;
+}) => {
+  try {
+    const { source, messageId, userId } = payload;
+
+    // 1. Validate source
+    if (!Object.values(ChatSourceEnum).includes(source)) {
+      throwError("Invalid chat source", 400);
+    }
+
+    // 2. Validate message ID
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const messageObjectId = new Types.ObjectId(messageId);
+
+    // 3. Fetch message from the correct collection
+    let message: any = null;
+
+    if (source === ChatSourceEnum.TENANT) {
+      message = await UserChatMessageModel.findById(
+        messageObjectId
+      );
+    } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+      message = await ChatMessageModel.findById(
+        messageObjectId
+      );
+    }
+
+    if (!message) {
+      throwError("Message not found", 404);
+    }
+
+    // 4. Only the original sender can delete the message
+    if (String(message.senderId) !== String(userId)) {
+      throwError("Only sender can delete this message", 403);
+    }
+
+    // 5. Prevent repeated deletion
+    if (message.deletedForEveryone === true) {
+      return {
+        source,
+        messageId: message._id.toString(),
+        roomId: message.roomId.toString(),
+        alreadyDeleted: true,
+      };
+    }
+
+    const deletedAt = new Date();
+
+    // 6. Soft-delete in the correct collection
+    const update = {
+      $set: {
+        deletedForEveryone: true,
+        deletedForEveryoneAt: deletedAt,
+        deletedForEveryoneBy: userId,
+        message: "This message was deleted",
+        attachments: [],
+      },
+    };
+
+    if (source === ChatSourceEnum.TENANT) {
+      await UserChatMessageModel.updateOne(
+        {
+          _id: messageObjectId,
+          senderId: message.senderId,
+          deletedForEveryone: { $ne: true },
+        },
+        update
+      );
+    } else {
+      await ChatMessageModel.updateOne(
+        {
+          _id: messageObjectId,
+          senderId: message.senderId,
+          deletedForEveryone: { $ne: true },
+        },
+        update
+      );
+    }
+
+    // 7. Return result
+    return {
+      source,
+      messageId: message._id.toString(),
+      roomId: message.roomId.toString(),
+      deletedForEveryone: true,
+      deletedAt,
+      alreadyDeleted: false,
+    };
+  } catch (err: any) {
+    console.error("deleteMessageForEveryoneService error:", err);
+
+    throwError(
+      err.message || "Failed to delete message",
+      err.statusCode || 500
+    );
+  }
+};
