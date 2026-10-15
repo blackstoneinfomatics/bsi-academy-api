@@ -1368,6 +1368,158 @@ if (!updatedRoom) {
 };
 
 
+export const clearUserChatService = async (payload: {
+  source: ChatSourceEnum;
+  roomId: string;
+  userId: string;
+}) => {
+  try {
+    const { source, roomId, userId } = payload;
+
+    // 1. Validate source
+    if (!Object.values(ChatSourceEnum).includes(source)) {
+      throwError("Invalid chat source", 400);
+    }
+
+    // 2. Validate room ID
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    const roomObjectId = new Types.ObjectId(roomId);
+
+    let room: any = null;
+    let member: any = null;
+    let lastMessage: any = null;
+
+    // 3. Fetch room, membership and last message by source
+    if (source === ChatSourceEnum.TENANT) {
+      room = await UserChatRoomModel.findOne({
+        _id: roomObjectId,
+        deletedAt: null,
+        isEnabled: true,
+      }).lean();
+
+      if (!room) {
+        throwError("Chat room not found", 404);
+      }
+
+      member = await UserRoomMemberModel.findOne({
+        roomId: roomObjectId,
+        userId,
+        isActive: true,
+        deletedAt: null,
+      }).lean();
+
+      if (!member) {
+        throwError("User not part of room", 403);
+      }
+
+      lastMessage = await UserChatMessageModel.findOne({
+        roomId: roomObjectId,
+      })
+        .sort({ createdAt: -1, _id: -1 })
+        .select("_id createdAt")
+        .lean();
+    } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+      room = await TenantChatRoomModel.findOne({
+        _id: roomObjectId,
+        deletedAt: null,
+        isEnabled: true,
+      }).lean();
+
+      if (!room) {
+        throwError("Chat room not found", 404);
+      }
+
+      member = await TenantRoomMemberModel.findOne({
+        roomId: roomObjectId,
+        userId,
+        isActive: true,
+        deletedAt: null,
+      }).lean();
+
+      if (!member) {
+        throwError("User not part of room", 403);
+      }
+
+      lastMessage = await ChatMessageModel.findOne({
+        roomId: roomObjectId,
+      })
+        .sort({ createdAt: -1, _id: -1 })
+        .select("_id createdAt")
+        .lean();
+    }
+
+    // 4. Check whether the chat is already cleared
+    if (
+      member.lastClearedAt &&
+      (!lastMessage ||
+        new Date(member.lastClearedAt).getTime() >=
+          new Date(lastMessage.createdAt).getTime())
+    ) {
+      return {
+        source,
+        roomId,
+        userId,
+        clearedAt: member.lastClearedAt,
+        alreadyCleared: true,
+      };
+    }
+
+    // 5. Update the correct membership collection
+    const now = new Date();
+
+    const clearUpdate = {
+      $set: {
+        lastClearedMessageId: lastMessage?._id ?? null,
+        lastClearedAt: now,
+        updatedBy: userId,
+      },
+    };
+
+    if (source === ChatSourceEnum.TENANT) {
+      await UserRoomMemberModel.updateOne(
+        {
+          roomId: roomObjectId,
+          userId,
+          isActive: true,
+          deletedAt: null,
+        },
+        clearUpdate
+      );
+    } else {
+      await TenantRoomMemberModel.updateOne(
+        {
+          roomId: roomObjectId,
+          userId,
+          isActive: true,
+          deletedAt: null,
+        },
+        clearUpdate
+      );
+    }
+
+    // 6. Return result
+    return {
+      source,
+      roomId,
+      userId,
+      lastClearedMessageId: lastMessage?._id?.toString() ?? null,
+      clearedAt: now,
+      alreadyCleared: false,
+    };
+  } catch (err: any) {
+    console.error("clearChatService Error:", err);
+
+    throwError(
+      err.message || "Failed to clear chat",
+      err.statusCode || 500
+    );
+  }
+};
+
+
 
 export const getTenantUsersService = async ({
   tenantId,

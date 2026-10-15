@@ -3,7 +3,7 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
+import { clearUserChatService, createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,markUserMessageSeenService,sendUserMessageService, updateUserChatRoomService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
 import { Query } from "mongoose";
@@ -170,6 +170,16 @@ export const UpdateUserChatRoomValidation = z.object({
     sendAccess: z.enum(["ADMIN_ONLY", "EVERYONE"]).optional(),
 
     updatedBy: z.string().min(1, "Updated by is required"),
+  }),
+});
+
+export const ClearUserChatValidation = z.object({
+ param: z.object({
+    source: z.nativeEnum(ChatSource),
+  }),
+  payload: z.object({
+    roomId: objectId,
+    userId: z.string().min(1),
   }),
 });
 
@@ -505,6 +515,39 @@ const result = await updateUserChatRoomService({
       .code(500);
   }
 },
+
+ clearChat: async (request: Request, h: ResponseToolkit) => {
+    try {
+      const parsed = ClearUserChatValidation.safeParse({
+        param:request.params,
+        payload: request.payload,
+      });
+
+      if (!parsed.success) {
+        throwError(parsed.error.errors[0].message, 400);
+      }
+
+      const payload = parsed?.data?.payload as any;
+      const source = parsed?.data?.param?.source as any;
+      const result = await clearUserChatService({source ,...payload});
+
+      return h
+        .response({
+          success: true,
+          message: "Chat cleared successfully",
+          data: result,
+        })
+        .code(200);
+    } catch (err: any) {
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 
 deleteRoom: async (request: Request, h: ResponseToolkit) => {
     try {

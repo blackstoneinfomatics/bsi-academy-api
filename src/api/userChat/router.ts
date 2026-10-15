@@ -83,15 +83,15 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-//      {
-//     method: "PUT",
-//     path: "/chat/clear",
-//     handler: handler.clearChat,
-//     options: {
-//       description: "Clear chat for current user in a room",
-//       tags: ["api", "chat"],
-//     },
-//   },
+     {
+    method: "PUT",
+    path: "/user/chat/{source}/clear",
+    handler: handler.clearChat,
+    options: {
+      description: "Clear chat for current user in a room",
+      tags: ["api", "userChat"],
+    },
+  },
 
 //     {
 //       method: "GET",
@@ -114,15 +114,6 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "userChat"],
       },
     },
-//     {
-//       method: "GET",
-//       path: "/chat/global",
-//       options: {
-//         handler: handler.getGlobalChatGroups,
-//         description: "Get global chat group details and tenant members",
-//         tags: ["api", "Chat"],
-//       },
-//     },
     {
       method: "GET",
       path: "/user/chat/{source}/{roomId}/messages",
