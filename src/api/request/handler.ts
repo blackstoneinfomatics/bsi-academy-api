@@ -4,12 +4,18 @@ import { backupRequestValidation } from "../../models/backupRequest";
 import {
   createBackupRequest,
   createPlanChangeRequest,
+  createPortalRequestOperation,
+  createRefundRequestOperation,
   resolveRequestTenant,
 } from "../../operations/requestTenant";
 import {
   backupRequestMessages,
   planChangeRequestMessages,
+  portalRequestMessages,
+  refundRequestMessages,
 } from "../../config/messages";
+import { portalRequestValidation } from "../../models/portalRequest";
+import { refundRequestValidation } from "../../models/refundRequest";
 
 const createPlanChangeRequestHandler = async (
   req: Request,
@@ -82,7 +88,121 @@ const createBackupRequestHandler = async (
   }
 };
 
+const createPortalRequest = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const validation = portalRequestValidation.safeParse(
+      request.payload
+    );
+
+    if (!validation.success) {
+      return h.response({
+        success: false,
+        message: portalRequestMessages.VALIDATION_FAILED,
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      }).code(400);
+    }
+
+    const result = await createPortalRequestOperation(
+      validation.data
+    );
+
+    return h.response({
+      success: true,
+      message: portalRequestMessages.SUBMITTED,
+      data: result,
+    }).code(201);
+  } catch (error: unknown) {
+    console.error(portalRequestMessages.CATCH_LOG, error);
+
+    return h.response({
+      success: false,
+      message: portalRequestMessages.SUBMIT_FAILED,
+    }).code(500);
+  }
+};
+
+
+
+const createRefundRequest = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const validation = refundRequestValidation.safeParse(
+      request.payload
+    );
+
+    if (!validation.success) {
+      return h.response({
+        success: false,
+        message: refundRequestMessages.VALIDATION_FAILED,
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      }).code(400);
+    }
+
+    const result = await createRefundRequestOperation(
+      validation.data
+    );
+
+    return h.response({
+      success: true,
+      message: refundRequestMessages.SUBMITTED,
+      data: result,
+    }).code(201);
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "";
+
+    const knownErrors: Record<string, { statusCode: number; message: string }> = {
+      PAYMENT_NOT_FOUND: {
+        statusCode: 404,
+        message: refundRequestMessages.PAYMENT_NOT_FOUND,
+      },
+      INVALID_PAYMENT_DETAILS: {
+        statusCode: 400,
+        message: refundRequestMessages.INVALID_PAYMENT_DETAILS,
+      },
+      REFUND_WINDOW_EXPIRED: {
+        statusCode: 400,
+        message: refundRequestMessages.REFUND_WINDOW_EXPIRED,
+      },
+      REFUND_REQUEST_ALREADY_EXISTS: {
+        statusCode: 409,
+        message: refundRequestMessages.REFUND_REQUEST_ALREADY_EXISTS,
+      },
+    };
+
+    const knownError = knownErrors[errorMessage];
+
+    if (knownError) {
+      return h.response({
+        success: false,
+        message: knownError.message,
+      }).code(knownError.statusCode);
+    }
+
+    console.error(refundRequestMessages.CATCH_LOG, error);
+
+    return h.response({
+      success: false,
+      message: refundRequestMessages.SUBMIT_FAILED,
+    }).code(500);
+  }
+};
+
+
 export default {
   createPlanChangeRequestHandler,
   createBackupRequestHandler,
+  createPortalRequest,
+  createRefundRequest,
 };

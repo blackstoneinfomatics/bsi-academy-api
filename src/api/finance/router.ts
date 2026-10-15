@@ -16,6 +16,15 @@ const register = async (server: Server): Promise<void> => {
 ,
     {
       method: "GET",
+      path: "/finance/transactions/tenant/{tenantId}/{invoice_id}",
+      options: {
+        handler: handler.getTenantFinanceTransactionByInvoiceId,
+        description: "Get a tenant finance transaction by invoice ID",
+        tags: ["api", "finance"],
+      },
+    },
+    {
+      method: "GET",
       path: "/finance/transactions/tenant/{tenantId}",
       options: {
         handler: handler.getTenantFinanceTransactions,

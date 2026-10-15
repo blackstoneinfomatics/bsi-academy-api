@@ -20,6 +20,7 @@ import CustomEnumerator, {
   ChatMessageType,
   ChatSendAccess,
   RequestStatus,
+  PortalRequestType,
 } from "../src/shared/enum";
 
 enum Status {
@@ -2754,6 +2755,7 @@ export interface ITenantSubscription extends Document {
 }
 
 export interface IBackupRequest extends Document {
+  requestId: string;
   tenantId: string;
   tenantName: string;
   backupStartDate: Date;
@@ -2765,6 +2767,7 @@ export interface IBackupRequest extends Document {
 }
 
 export interface IPlanChangeRequest extends Document {
+  requestId: string;
   tenantId: string;
   tenantName: string;
   currentPlan: string;
@@ -3357,4 +3360,49 @@ export interface IUserChatRoomMember extends Document {
   createdBy: string;
   updatedBy?: string;
   deletedAt?: Date | null;
+}
+
+
+
+
+export interface IPortalRequest {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  requestType: PortalRequestType;
+  portalName?: string;
+  portalId?: string;
+  featureName?: string;
+  featureId?: string;
+  requestReason: string;
+  status: RequestStatus;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  reviewComment?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+
+export interface IRefundRequest {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  paymentId: string;
+  paymentDate: Date;
+  paidAmount: number;
+  refundReason:
+    | "CHANGE_PLAN"
+    | "DUPLICATE_PAYMENT"
+    | "SERVICE_ISSUE"
+    | "OTHER";
+  newPlan?: string;
+  additionalDetails: string;
+  refundAmount: number;
+  refundMethod:string;
+  eligibilityStatus: "ELIGIBLE" | "EXPIRED";
+  daysRemaining: number;
+  status: RequestStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

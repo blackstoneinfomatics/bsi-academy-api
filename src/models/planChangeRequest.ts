@@ -36,6 +36,7 @@ export const planChangeRequestValidation = z
 
 const planChangeRequestSchema = new Schema<IPlanChangeRequest>(
   {
+    requestId: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     tenantName: { type: String, required: true, trim: true },
     currentPlan: { type: String, required: true, trim: true },

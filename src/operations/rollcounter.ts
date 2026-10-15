@@ -19,3 +19,13 @@ export async function generateTenant(prefix = 'TEN', width = 6): Promise<string>
   const seqStr = String(counter.sequence).padStart(width, '0');
   return `${prefix}${seqStr}`;
 }
+
+export async function generateRequestId(): Promise<string> {
+  const counter = await RollCounter.findOneAndUpdate(
+    { prefix: "REQ" },
+    { $inc: { sequence: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `REQ-${counter.sequence}`;
+}

@@ -325,4 +325,11 @@ export enum TenantGrowthPeriod {
   YEARLY = "yearly",
 }
 
+export enum PortalRequestType {
+  ADD_PORTAL = "ADD_PORTAL",
+  DISABLE_PORTAL = "DISABLE_PORTAL",
+  ADD_FEATURE = "ADD_FEATURE",
+  DISABLE_FEATURE = "DISABLE_FEATURE",
+}
+
 export default CustomEnumerator;

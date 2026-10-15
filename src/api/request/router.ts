@@ -21,6 +21,28 @@ const register = async (server: Server): Promise<void> => {
         description: "Submit a tenant plan change request",
       },
     },
+
+    {
+      method: "POST",
+      path: "/portal-request/create",
+      handler: handler.createPortalRequest,
+      options: {
+        tags: ["api", "request"],
+        description: "Create a portal or feature request",
+        auth: "jwt",
+      },
+    },
+
+     {
+      method: "POST",
+      path: "/refund-request/create",
+      handler: handler.createRefundRequest,
+      options: {
+        auth: "jwt",
+        tags: ["api", "request"],
+        description: "Create a refund request",
+      },
+    },
   ];
 
   server.route(routes);

@@ -74,6 +74,18 @@ export const planChangeRequestMessages: Record<string, string> = Object.freeze({
   SAME_PLAN: "New plan must differ from the current plan",
 });
 
+export const refundRequestMessages: Record<string, string> = Object.freeze({
+  VALIDATION_FAILED: "Validation failed",
+  SUBMITTED: "Refund request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit refund request",
+  CATCH_LOG: "Create refund request error:",
+  PAYMENT_NOT_FOUND: "Payment not found",
+  INVALID_PAYMENT_DETAILS: "Invalid payment details",
+  REFUND_WINDOW_EXPIRED: "Refund eligibility period has expired",
+  REFUND_REQUEST_ALREADY_EXISTS:
+    "A pending refund request already exists for this payment",
+});
+
 export const requestTenantMessages: Record<string, string> = Object.freeze({
   TENANT_HEADER_REQUIRED: "The tenantid header is required",
   TENANT_NOT_FOUND: "Tenant not found or inactive",
@@ -258,6 +270,8 @@ export const financeMessages: Record<string, string> = Object.freeze({
   REVENUE_GROWTH_FETCHED: "Revenue growth fetched successfully",
   TRANSACTIONS_FETCHED: "Finance transactions fetched successfully",
   TENANT_TRANSACTIONS_FETCHED: "Tenant finance transactions fetched successfully",
+  TENANT_TRANSACTION_FETCHED: "Tenant finance transaction fetched successfully",
+  TRANSACTION_NOT_FOUND: "Finance transaction not found for this tenant and invoice",
   TENANT_ID_REQUIRED: "TenantId is required",
   TRANSACTION_CARD_COUNT_FETCHED: "Finance transaction card count fetched successfully",
   TODAY_ACTIVITIES_FETCHED: "Today's finance activities fetched successfully",
@@ -1275,4 +1289,18 @@ export const tenantChatMessages = {
   // 🔹 Generic
   VALIDATION_FAILED: "Validation Failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+
+export const portalRequestMessages = {
+  VALIDATION_FAILED: "Validation failed",
+  SUBMITTED: "Portal request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit portal request",
+  CATCH_LOG: "Create portal request error:",
+  TENANT_ID_REQUIRED: "Tenant ID is required",
+  TENANT_NAME_REQUIRED: "Tenant name is required",
+  PORTAL_NAME_REQUIRED: "Portal name is required",
+  PORTAL_ID_REQUIRED: "Please select a portal",
+  FEATURE_NAME_REQUIRED: "Feature name is required",
+  FEATURE_ID_REQUIRED: "Please select a feature",
+  REQUEST_REASON_REQUIRED: "Reason for request is required",
 };

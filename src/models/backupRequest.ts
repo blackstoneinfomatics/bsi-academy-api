@@ -50,6 +50,7 @@ export const backupRequestValidation = z
 
 const backupRequestSchema = new Schema<IBackupRequest>(
   {
+    requestId: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     tenantName: { type: String, required: true, trim: true },
     backupStartDate: { type: Date, required: true },
