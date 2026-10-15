@@ -123,16 +123,15 @@ const register = async (server: Server): Promise<void> => {
 //         tags: ["api", "Chat"],
 //       },
 //     },
-//     {
-//       method: "GET",
-//       path: "/chat/{roomId}/messages",
-//       options: {
-//         handler: handler.getRoomMessages,
-//         description: "Get paginated messages for a chat room",
-//         tags: ["api", "Chat"],
-//         auth: false,
-//       },
-//     },
+    {
+      method: "GET",
+      path: "/user/chat/{source}/{roomId}/messages",
+      options: {
+        handler: handler.getRoomMessages,
+        description: "Get paginated messages for a chat room",
+        tags: ["api", "userChat"],
+      },
+    },
 
 //     {
 //   method: "GET",

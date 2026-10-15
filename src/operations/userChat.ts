@@ -1395,3 +1395,382 @@ export const deleteUserChatRoomService = async (payload: {
     );
   }
 };
+
+export const getMessageDateLabel = (date: Date | string): string => {
+  const messageDate = new Date(date);
+  const now = new Date();
+
+  const messageDay = new Date(
+    messageDate.getFullYear(),
+    messageDate.getMonth(),
+    messageDate.getDate(),
+  );
+
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (messageDay.getTime() === today.getTime()) {
+    return "Today";
+  }
+
+  if (messageDay.getTime() === yesterday.getTime()) {
+    return "Yesterday";
+  }
+
+  return messageDate.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+export const buildReplyChain = async (
+  messageId: string,
+  source: ChatSourceEnum,
+  depth = 0,
+  maxDepth = 5,
+): Promise<Record<string, any> | null> => {
+  if (!messageId || depth >= maxDepth) {
+    return null;
+  }
+
+  if (!Types.ObjectId.isValid(messageId)) {
+    return null;
+  }
+
+  let message: any = null;
+
+  if (source === ChatSourceEnum.TENANT) {
+    message = await UserChatMessageModel.findById(
+      new Types.ObjectId(messageId),
+    ).lean();
+  } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+    message = await ChatMessageModel.findById(
+      new Types.ObjectId(messageId),
+    ).lean();
+  } else {
+    return null;
+  }
+
+  if (!message) {
+    return null;
+  }
+
+  const isDeleted = message.deletedForEveryone === true;
+
+  let nestedReply = null;
+
+  if (!isDeleted && message.replyTo?.messageId) {
+    nestedReply = await buildReplyChain(
+      String(message.replyTo.messageId),
+      source,
+      depth + 1,
+      maxDepth,
+    );
+  }
+
+  return {
+    messageId: message._id.toString(),
+    senderId: message.senderId,
+    senderName: message.senderName,
+    message: isDeleted
+      ? "This message was deleted"
+      : message.message,
+    messageType: message.messageType,
+    createdAt: message.createdAt,
+    isDeleted,
+    replyTo: nestedReply,
+  };
+};
+
+export const getUSerRoomMessagesOperation = async ({
+  roomId,
+  userId,
+  source,
+  all = false,
+  page = 1,
+  limit = 20,
+}: {
+  roomId: string;
+  userId: string;
+  source: ChatSourceEnum;
+  all?: boolean;
+  page?: number;
+  limit?: number;
+}) => {
+  // ---------------------------------------------
+  // 1. Validate request
+  // ---------------------------------------------
+
+  if (!roomId?.trim()) {
+    throwError("Room ID is required", 400);
+  }
+
+  if (!userId?.trim()) {
+    throwError("User ID is required", 401);
+  }
+
+  if (
+    !Object.values(ChatSourceEnum).includes(source) ||
+    ![ChatSourceEnum.TENANT, ChatSourceEnum.SUPER_ADMIN].includes(source)
+  ) {
+    throwError("Invalid chat source", 400);
+  }
+
+  if (
+    !all &&
+    (!Number.isInteger(page) ||
+      !Number.isInteger(limit) ||
+      page < 1 ||
+      limit < 1 ||
+      limit > 100)
+  ) {
+    throwError("Invalid pagination parameters", 400);
+  }
+
+  const skip = (page - 1) * limit;
+  const isObjectId = Types.ObjectId.isValid(roomId);
+
+  // ---------------------------------------------
+  // 2. Resolve room from correct collection
+  // ---------------------------------------------
+
+  let room: any = null;
+
+  const roomFilter: Record<string, any> = {
+    status: ChatRoomStatus.ACTIVE,
+    isEnabled: true,
+    deletedAt: null,
+  };
+
+  if (isObjectId) {
+    roomFilter._id = new Types.ObjectId(roomId);
+  } else {
+    roomFilter.roomCode = roomId;
+  }
+
+  if (source === ChatSourceEnum.TENANT) {
+    room = await UserChatRoomModel.findOne(roomFilter).lean();
+  } else {
+    room = await TenantChatRoomModel.findOne(roomFilter).lean();
+  }
+
+  if (!room) {
+    throwError(tenantChatMessages.CHAT_ROOM_NOT_FOUND,404);
+    return;
+  }
+
+  const resolvedRoomId = room._id as Types.ObjectId;
+
+  // ---------------------------------------------
+  // 3. Verify active room membership
+  // ---------------------------------------------
+
+  let member: any = null;
+
+  if (source === ChatSourceEnum.TENANT) {
+    member = await UserRoomMemberModel.findOne({
+      roomId: resolvedRoomId,
+      userId,
+      tenantId: room.tenantId,
+      isActive: true,
+      deletedAt: null,
+    })
+      .select("userId lastSeenAt lastClearedAt")
+      .lean();
+  } else {
+    member = await TenantRoomMemberModel.findOne({
+      roomId: resolvedRoomId,
+      userId,
+      isActive: true,
+      deletedAt: null,
+    })
+      .select("userId lastSeenAt lastClearedAt")
+      .lean();
+  }
+
+  if (!member) {
+    throwError(tenantChatMessages.FORBIDDEN,403);
+    return;
+  }
+
+  // ---------------------------------------------
+  // 4. Fetch room's last message details
+  // ---------------------------------------------
+
+  let lastMessageDetails: any = null;
+
+  if (room.lastMessage?.messageId) {
+    if (source === ChatSourceEnum.TENANT) {
+      lastMessageDetails = await UserChatMessageModel.findById(
+        room.lastMessage.messageId,
+      ).lean();
+    } else {
+      lastMessageDetails = await ChatMessageModel.findById(
+        room.lastMessage.messageId,
+      ).lean();
+    }
+  }
+
+  // ---------------------------------------------
+  // 5. Fetch messages from correct collection
+  // ---------------------------------------------
+
+  const messageFilter: Record<string, any> = {
+    roomId: resolvedRoomId,
+  };
+
+  if (member.lastClearedAt) {
+    messageFilter.createdAt = {
+      $gt: member.lastClearedAt,
+    };
+  }
+
+  let total = 0;
+  let messages: any[] = [];
+
+  if (source === ChatSourceEnum.TENANT) {
+    total = await UserChatMessageModel.countDocuments(messageFilter);
+
+    let query = UserChatMessageModel.find(messageFilter).sort({
+      createdAt: 1,
+      _id: 1,
+    });
+
+    if (!all) {
+      query = query.skip(skip).limit(limit);
+    }
+
+    messages = await query.lean();
+  } else {
+    total = await ChatMessageModel.countDocuments(messageFilter);
+
+    let query = ChatMessageModel.find(messageFilter).sort({
+      createdAt: 1,
+      _id: 1,
+    });
+
+    if (!all) {
+      query = query.skip(skip).limit(limit);
+    }
+
+    messages = await query.lean();
+  }
+
+  // ---------------------------------------------
+  // 6. Format messages and reply chains
+  // ---------------------------------------------
+
+  const formattedMessages = await Promise.all(
+    messages.map(async (message: any) => {
+      const isMine = message.senderId === userId;
+      const isDeleted = message.deletedForEveryone === true;
+
+      const displayMessage = isDeleted
+        ? isMine
+          ? "You deleted this message"
+          : `${message.senderName} deleted this message`
+        : message.message;
+
+      return {
+        ...message,
+        message: displayMessage,
+        isDeleted,
+        timestamp: message.createdAt,
+        dateLabel: getMessageDateLabel(message.createdAt),
+        side: isMine ? "right" : "left",
+
+        replyTo:
+          !isDeleted && message.replyTo?.messageId
+            ? await buildReplyChain(
+                message.replyTo.messageId,
+                source,
+              )
+            : null,
+      };
+    }),
+  );
+
+ 
+type MessageGroup = {
+  date: Date;
+  dateLabel: string;
+  messages: typeof formattedMessages;
+};
+
+const groupedMessages = formattedMessages.reduce<
+  Record<string, MessageGroup>
+>((groups, message) => {
+  const date = new Date(message.createdAt);
+
+  const dateKey = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  if (!groups[dateKey]) {
+    groups[dateKey] = {
+      date,
+      dateLabel: getMessageDateLabel(message.createdAt),
+      messages: [],
+    };
+  }
+
+  groups[dateKey].messages.push(message);
+
+  return groups;
+}, {});
+
+const messagesByDate = Object.entries(groupedMessages)
+  .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+  .map(([dateKey, group]) => ({
+    date: dateKey,
+    dateLabel: group.dateLabel,
+    messages: group.messages,
+  }));
+
+  // ---------------------------------------------
+  // 7. Return room profile and message list
+  // ---------------------------------------------
+
+  return {
+    source,
+
+    room: {
+      roomId: room._id.toString(),
+      roomCode: room.roomCode,
+      type: room.type,
+      source,
+      name: room.name,
+      description: room.description ?? "",
+      planName: room.planName ?? null,
+      sendAccess: room.sendAccess,
+      status: room.status,
+      lastMessage: room.lastMessage
+        ? {
+            ...room.lastMessage,
+            // messageDetails: lastMessageDetails,
+          }
+        : null,
+      lastMessageAt: room.lastMessageAt ?? null,
+    },
+
+    messagesByDate,
+
+    pagination: {
+      page: all ? 1 : page,
+      limit: all ? total : limit,
+      total,
+      totalPages: all ? (total > 0 ? 1 : 0) : Math.ceil(total / limit),
+      hasNextPage: all ? false : page * limit < total,
+      hasPreviousPage: all ? false : page > 1,
+    },
+  };
+};

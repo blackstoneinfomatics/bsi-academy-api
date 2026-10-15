@@ -3,7 +3,7 @@ import { tenantChatMessages } from "../../config/messages";
 import { throwError } from "../../helpers/throwError";
 import { z } from "zod";
 import { ChatRoomType,ChatSource } from "../../shared/enum";
-import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,sendUserMessageService } from "../../operations/userChat";
+import { createChatRoomService,deleteUserChatRoomService,getChatRoomsService,getGroupDetailsOperation,getTenantUsersService,getUSerRoomMessagesOperation,sendUserMessageService } from "../../operations/userChat";
 import {UserChatMessageValidation} from  "../../models/userChatMessage";
 import {sendMessageService} from "../../operations/tenantChat";
 import { Query } from "mongoose";
@@ -108,6 +108,23 @@ export const DeleteChatRoomValidation = z.object({
   }),
   payload: z.object({
     deletedBy: z.string().min(1),
+  }),
+});
+
+
+export const getUserRoomMessagesValidation = z.object({
+  params: z.object({
+    source: z.nativeEnum(ChatSource),
+    roomId: z.string().min(1, "Room ID is required"),
+  }),
+  query: z.object({
+    userId: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    all: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .default("false"),
   }),
 });
 
@@ -371,4 +388,53 @@ deleteRoom: async (request: Request, h: ResponseToolkit) => {
         .code(err.statusCode || 500);
     }
   },
+
+getRoomMessages: async (request: Request, h: ResponseToolkit) => {
+  const parsed = getUserRoomMessagesValidation.safeParse({
+    params: request.params,
+    query: request.query,
+  });
+
+  if (!parsed.success) {
+    return h
+      .response({
+        statusCode: 400,
+        message:
+          parsed.error.issues[0]?.message ||
+          "Invalid request parameters",
+      })
+      .code(400);
+  }
+
+  try {
+    const { source, roomId } = parsed.data.params as any;
+    const { page, limit, userId, all } = parsed.data.query as any;
+
+    const data = await getUSerRoomMessagesOperation({
+      source,
+      roomId,
+      userId,
+      all,
+      page,
+      limit,
+    });
+
+    return h
+      .response({
+        statusCode: 200,
+        message: tenantChatMessages.GET_MESSAGES_SUCCESS,
+        data,
+      })
+      .code(200);
+  } catch (error: any) {
+    console.error("getRoomMessagesHandler error:", error);
+
+    return h
+      .response({
+        statusCode: 500,
+        message: "Internal Server Error",
+      })
+      .code(500);
+  }
+}
 };
