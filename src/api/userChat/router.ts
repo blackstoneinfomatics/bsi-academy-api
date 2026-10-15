@@ -70,18 +70,18 @@ const register = async (server: Server): Promise<void> => {
 //       },
 //     },
 
-//     {
-//       method: "POST",
-//       path: "/chat/seen",
-//       options: {
-//         handler: handler.markSeen,
-//         description: tenantChatMessages.MARK_SEEN,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
+    {
+      method: "POST",
+      path: "/user/chat/{source}/seen",
+      options: {
+        handler: handler.markSeen,
+        description: tenantChatMessages.MARK_SEEN,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
 //      {
 //     method: "PUT",

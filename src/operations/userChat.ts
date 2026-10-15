@@ -122,6 +122,13 @@ export interface GetTenantUsersInput {
   limit?: number;
   search?: string;
 }
+export interface MarkSeenPayload {
+  source: ChatSourceEnum;
+  roomId: string;
+  messageId: string;
+  userId: string;
+}
+
 const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 async function randomCode(length = 6): Promise<string> {
@@ -1009,6 +1016,170 @@ if (source === ChatSourceEnum.TENANT) {
     sendAccess: room.sendAccess,
     canUpdate:canUpdate
   };
+};
+
+
+export const markUserMessageSeenService = async (
+  payload: MarkSeenPayload
+) => {
+  try {
+    const { source, roomId, messageId, userId } = payload;
+
+    if (!Object.values(ChatSourceEnum).includes(source)) {
+      throwError("Invalid chat source", 400);
+    }
+
+    if (!Types.ObjectId.isValid(roomId)) {
+      throwError("Invalid roomId", 400);
+    }
+
+    if (!Types.ObjectId.isValid(messageId)) {
+      throwError("Invalid messageId", 400);
+    }
+
+    const roomObjectId = new Types.ObjectId(roomId);
+    const messageObjectId = new Types.ObjectId(messageId);
+
+    // ------------------------------------
+    // 1. Validate room, member and message
+    // ------------------------------------
+    let room: any = null;
+    let member: any = null;
+    let message: any = null;
+
+    if (source === ChatSourceEnum.TENANT) {
+      // Tenant/user-side chat
+      room = await UserChatRoomModel.findOne({
+        _id: roomObjectId,
+        deletedAt: null,
+        isEnabled: true,
+      }).lean();
+
+      if (!room) {
+        throwError("Chat room not found", 404);
+      }
+
+      member = await UserRoomMemberModel.findOne({
+        roomId: roomObjectId,
+        userId,
+        isActive: true,
+        deletedAt: null,
+      }).lean();
+
+      if (!member) {
+        throwError("User not part of this room", 403);
+      }
+
+      message = await UserChatMessageModel.findOne({
+        _id: messageObjectId,
+        roomId: roomObjectId,
+      }).lean();
+    } else if (source === ChatSourceEnum.SUPER_ADMIN) {
+      // Super Admin-side chat
+      room = await TenantChatRoomModel.findOne({
+        _id: roomObjectId,
+        deletedAt: null,
+        isEnabled: true,
+      }).lean();
+
+      if (!room) {
+        throwError("Chat room not found", 404);
+      }
+
+      member = await TenantRoomMemberModel.findOne({
+        roomId: roomObjectId,
+        userId,
+        isActive: true,
+        deletedAt: null,
+      }).lean();
+
+      if (!member) {
+        throwError("User not part of this room", 403);
+      }
+
+      message = await ChatMessageModel.findOne({
+        _id: messageObjectId,
+        roomId: roomObjectId,
+      }).lean();
+    }
+
+    if (!message) {
+      throwError("Message not found in this room", 404);
+    }
+
+    // ------------------------------------
+    // 2. Check whether message is already seen
+    // ------------------------------------
+    if (
+      member.lastSeenMessageId &&
+      String(member.lastSeenMessageId) === String(messageObjectId)
+    ) {
+      return {
+        source,
+        roomId,
+        userId,
+        messageId,
+        alreadySeen: true,
+        lastSeenAt: member.lastSeenAt ?? null,
+      };
+    }
+
+    // ------------------------------------
+    // 3. Update last-seen information
+    // ------------------------------------
+    const seenAt = new Date();
+
+    if (source === ChatSourceEnum.TENANT) {
+      await UserRoomMemberModel.updateOne(
+        {
+          roomId: roomObjectId,
+          userId,
+          isActive: true,
+          deletedAt: null,
+        },
+        {
+          $set: {
+            lastSeenMessageId: messageObjectId,
+            lastSeenAt: seenAt,
+          },
+        }
+      );
+    } else {
+      await TenantRoomMemberModel.updateOne(
+        {
+          roomId: roomObjectId,
+          userId,
+          isActive: true,
+          deletedAt: null,
+        },
+        {
+          $set: {
+            lastSeenMessageId: messageObjectId,
+            lastSeenAt: seenAt,
+          },
+        }
+      );
+    }
+
+    // ------------------------------------
+    // 4. Return response
+    // ------------------------------------
+    return {
+      source,
+      roomId,
+      userId,
+      messageId,
+      alreadySeen: false,
+      seenAt,
+    };
+  } catch (err: any) {
+    console.error("markMessageSeenService Error:", err);
+
+    throwError(
+      err.message || "Failed to update seen status",
+      err.statusCode || 500
+    );
+  }
 };
 
 
