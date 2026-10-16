@@ -15,7 +15,8 @@ import { getTenantsByPlan } from "./tenantSubscription.";
 import planModel from "../models/plan-model";
 import TrialMembers from "../models/trailmember";
 import { randomInt } from 'crypto';
-
+import { CHAT_EVENTS, emitChatEventToRoom } from "../shared/socket";
+import { ChatSource as ChatSourceEnum } from "../shared/enum";
 
 type CreateChatRoomInput = {
   type: ChatRoomType;
@@ -1336,6 +1337,44 @@ export const sendMessageService = async (
 
       await tenantChatRoom.bulkWrite(bulkUpdates);
 
+      const source = ChatSourceEnum.SUPER_ADMIN;
+
+const formattedMessages = insertedMessages.map((newMessage) => {
+  const messageData = newMessage.toObject();
+
+  return {
+    ...messageData,
+    _id: String(messageData._id),
+    roomId: String(messageData.roomId),
+    createdAt: new Date(messageData.createdAt).toISOString(),
+    updatedAt: new Date().toISOString(),
+    timestamp: new Date(messageData.createdAt).toISOString(),
+    dateLabel: "Today",
+    attachments: messageData.attachments ?? [],
+    deletedForEveryone: messageData.deletedForEveryone ?? false,
+    deletedForEveryoneAt: messageData.deletedForEveryoneAt ?? null,
+    deletedForEveryoneBy: messageData.deletedForEveryoneBy ?? null,
+    deletedAt: messageData.deletedAt ?? null,
+    isDeleted: false,
+    replyTo: messageData.replyTo ?? null,
+     side : "left"
+  };
+});
+
+// Emit each message to its own room
+for (const formattedMessage of formattedMessages) {
+  emitChatEventToRoom(
+    source,
+    formattedMessage.roomId,
+    CHAT_EVENTS.NEW_MESSAGE,
+    {
+      source,
+      roomId: formattedMessage.roomId,
+      message: formattedMessage,
+    },
+  );
+}
+
       // // 🔹 socket emit per room
       // tenantRooms.forEach((r, index) => {
       //   io.to(r._id.toString()).emit("chat:new-message", {
@@ -1386,6 +1425,37 @@ export const sendMessageService = async (
         },
       }
     );
+
+    const messageData = newMessage.toObject();
+    
+    const formattedMessage = {
+      ...messageData,
+      _id: String(messageData._id),
+      roomId: String(messageData.roomId),
+      createdAt: new Date(messageData.createdAt).toISOString(),
+      updatedAt: new Date().toISOString(),
+      timestamp: new Date(messageData.createdAt).toISOString(),
+      dateLabel: "Today",
+      attachments: messageData.attachments ?? [],
+      deletedForEveryone: messageData.deletedForEveryone ?? false,
+      deletedForEveryoneAt: messageData.deletedForEveryoneAt ?? null,
+      deletedForEveryoneBy: messageData.deletedForEveryoneBy ?? null,
+      deletedAt: messageData.deletedAt ?? null,
+      isDeleted:  false,
+      replyTo: messageData.replyTo ?? null,
+      side : "left"
+    };
+    
+        try {
+          const source = ChatSourceEnum.SUPER_ADMIN;
+          emitChatEventToRoom(source, roomId, CHAT_EVENTS.NEW_MESSAGE, {
+            source,
+            roomId,
+            message: formattedMessage,
+          });
+        } catch (socketError) {
+          console.error("Socket emit failed:", socketError);
+        }
 
     // // 🔹 socket emit
     // try {

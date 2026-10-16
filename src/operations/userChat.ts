@@ -2,7 +2,7 @@
 
 import { randomInt } from "crypto";
 import UserChatRoomModel from "../models/userChatRoom";
-import {UserRoomMemberModel} from "../models/userChatRoomMember";
+import { UserRoomMemberModel } from "../models/userChatRoomMember";
 import {
   ChatRoomType,
   ChatRoomStatus,
@@ -10,17 +10,18 @@ import {
   ChatGroupRole,
 } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
-import mongoose,{ Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import TenantChatRoomModel from "../models/tenantChatRoom";
 import { TenantRoomMemberModel } from "../models/tenantChatRoomMember";
-import {UserChatMessageModel} from "../models/userChatMessage";
-import {ChatMessageModel} from "../models/tenantChatMessage";
-import {ChatMessageType , ChatSource as ChatSourceEnum} from  "../shared/enum";
+import { UserChatMessageModel } from "../models/userChatMessage";
+import { ChatMessageModel } from "../models/tenantChatMessage";
+import { ChatMessageType, ChatSource as ChatSourceEnum } from "../shared/enum";
 import { tenantChatMessages, tenantsMessages } from "../config/messages";
 import StudentModel from "../models/student";
 import RecruitmentModel from "../models/recruitment";
 import UserModel from "../models/users";
 import { Lookup } from "../models/lookup";
+import { CHAT_EVENTS, emitChatEventToRoom } from "../shared/socket";
 
 interface GetChatRoomsInput {
   userId: string;
@@ -39,8 +40,8 @@ interface ChatListItem {
   type: string;
   source: ChatSource;
   name: string;
-  role:string | null;
-  course:string | null;
+  role: string | null;
+  course: string | null;
   lastMessage: {
     message: string | null;
     senderName: string | null;
@@ -64,12 +65,11 @@ const ACTIVE_ROOM = {
   deletedAt: null,
 };
 
-
 interface IChatUser {
   userId: string;
   name: string;
   role: string;
-  course?:string;
+  course?: string;
 }
 
 interface ICreateChatRoomPayload {
@@ -84,7 +84,7 @@ interface ICreateChatRoomPayload {
 
 interface SendMessagePayload {
   roomId: string;
-  title?:string;
+  title?: string;
   message?: string;
   messageType?: ChatMessageType;
   attachments?: string[];
@@ -102,7 +102,7 @@ export interface GroupDetailsResponse {
   groupName: string;
   description: string;
   sendAccess: string;
-  canUpdate:boolean;
+  canUpdate: boolean;
 }
 
 export interface GroupDetailsMember {
@@ -129,29 +129,24 @@ export interface MarkSeenPayload {
   userId: string;
 }
 
-const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 async function randomCode(length = 6): Promise<string> {
-  let result = '';
+  let result = "";
   for (let i = 0; i < length; i++) {
     result += CHARSET[randomInt(CHARSET.length)];
   }
   return result;
 }
 
-export const generateRoomCode = async (prefix = 'ROOM'): Promise<string> => {
+export const generateRoomCode = async (prefix = "ROOM"): Promise<string> => {
   return `${prefix}-${await randomCode(6)}`;
 };
 
 export const createChatRoomService = async (
   payload: ICreateChatRoomPayload,
 ) => {
-  const {
-    type,
-    tenantId,
-    sender,
-    receivers,
-  } = payload;
+  const { type, tenantId, sender, receivers } = payload;
 
   // 1. Validate required fields
   if (!tenantId) {
@@ -163,9 +158,9 @@ export const createChatRoomService = async (
   }
 
   // 2. Validate sender consistency
-//   if (sender.userId !== userId) {
-//     throwError("Sender user ID does not match payload user ID", 400);
-//   }
+  //   if (sender.userId !== userId) {
+  //     throwError("Sender user ID does not match payload user ID", 400);
+  //   }
 
   if (!Array.isArray(receivers) || receivers.length === 0) {
     throwError("At least one receiver is required", 400);
@@ -194,10 +189,7 @@ export const createChatRoomService = async (
   switch (type) {
     case "DIRECT": {
       if (receivers.length !== 1) {
-        throwError(
-          "Direct chat must have exactly one receiver",
-          400,
-        );
+        throwError("Direct chat must have exactly one receiver", 400);
       }
 
       return createDirectChat(payload);
@@ -220,16 +212,12 @@ export const createChatRoomService = async (
 // DIRECT CHAT SERVICE
 // --------------------------------------------------
 
-const createDirectChat = async (
-  payload: ICreateChatRoomPayload,
-) => {
-  const {tenantId, sender, receivers } = payload;
+const createDirectChat = async (payload: ICreateChatRoomPayload) => {
+  const { tenantId, sender, receivers } = payload;
   const receiver = receivers[0];
 
   // Stable key ensures both users resolve to the same room.
-  const directChatKey = [sender.userId, receiver.userId]
-    .sort()
-    .join(":");
+  const directChatKey = [sender.userId, receiver.userId].sort().join(":");
 
   let room: any;
 
@@ -281,10 +269,7 @@ const createDirectChat = async (
     throwError("Unable to create or retrieve direct chat", 500);
   }
 
-  if (
-    room.status !== ChatRoomStatus.ACTIVE ||
-    !room.isEnabled
-  ) {
+  if (room.status !== ChatRoomStatus.ACTIVE || !room.isEnabled) {
     throwError("This chat room is inactive", 409);
   }
 
@@ -303,7 +288,7 @@ const createDirectChat = async (
           name: participant.name,
           role: participant.role,
           groupRole: ChatGroupRole.MEMBER,
-          course:participant.course ?? null,
+          course: participant.course ?? null,
           isActive: true,
           deletedAt: null,
           updatedBy: sender.userId,
@@ -327,7 +312,7 @@ const createDirectChat = async (
       userId: receiver.userId,
       name: receiver.name,
       role: receiver.role,
-      course:receiver.course || "",
+      course: receiver.course || "",
     },
     lastMessage: room.lastMessage ?? null,
     lastMessageAt: room.lastMessageAt ?? null,
@@ -339,16 +324,8 @@ const createDirectChat = async (
 // GROUP CHAT SERVICE
 // --------------------------------------------------
 
-const createGroupChat = async (
-  payload: ICreateChatRoomPayload,
-) => {
-  const {
-    tenantId,
-    sender,
-    receivers,
-    name,
-    description,
-  } = payload;
+const createGroupChat = async (payload: ICreateChatRoomPayload) => {
+  const { tenantId, sender, receivers, name, description } = payload;
 
   let room: any;
 
@@ -393,7 +370,7 @@ const createGroupChat = async (
             tenantId,
             name: participant.name,
             role: participant.role,
-            course:participant.course || null,
+            course: participant.course || null,
             groupRole: participant.groupRole,
             isActive: true,
             deletedAt: null,
@@ -421,7 +398,7 @@ const createGroupChat = async (
         name: participant.name,
         role: participant.role,
         groupRole: participant.groupRole,
-        course:participant.course || "",
+        course: participant.course || "",
       })),
       createdBy: room.createdBy,
       createdAt: room.createdAt,
@@ -436,7 +413,6 @@ const createGroupChat = async (
     throw error;
   }
 };
-
 
 /**
  * Calculate unread messages for the current user.
@@ -458,9 +434,7 @@ const getUnreadCount = async ({
   source: "TENANT" | "SUPER_ADMIN";
 }): Promise<number> => {
   const MessageModel =
-    source === "SUPER_ADMIN"
-      ? ChatMessageModel
-      : UserChatMessageModel;
+    source === "SUPER_ADMIN" ? ChatMessageModel : UserChatMessageModel;
 
   const boundaries = [lastSeenAt, lastClearedAt].filter(
     (date): date is Date => date instanceof Date,
@@ -468,9 +442,7 @@ const getUnreadCount = async ({
 
   const lastReadAt =
     boundaries.length > 0
-      ? new Date(
-          Math.max(...boundaries.map((date) => date.getTime())),
-        )
+      ? new Date(Math.max(...boundaries.map((date) => date.getTime())))
       : null;
 
   const query: Record<string, any> = {
@@ -532,14 +504,10 @@ const buildChatItem = async ({
 
   // Select the message collection based on the chat source.
   const MessageModel =
-    source === "SUPER_ADMIN"
-      ? ChatMessageModel
-      : UserChatMessageModel;
+    source === "SUPER_ADMIN" ? ChatMessageModel : UserChatMessageModel;
 
   if (embeddedMessage.messageId) {
-    messageDetails = await MessageModel.findById(
-      embeddedMessage.messageId,
-    )
+    messageDetails = await MessageModel.findById(embeddedMessage.messageId)
       .select("message senderName messageType createdAt isDeleted")
       .lean();
   }
@@ -565,26 +533,16 @@ const buildChatItem = async ({
     role,
 
     lastMessage: {
-      message:
-        messageDetails?.message ??
-        embeddedMessage.message ??
-        null,
+      message: messageDetails?.message ?? embeddedMessage.message ?? null,
 
       senderName:
-        messageDetails?.senderName ??
-        embeddedMessage.senderName ??
-        null,
+        messageDetails?.senderName ?? embeddedMessage.senderName ?? null,
 
-      messageType:
-        messageDetails?.messageType ?? null,
+      messageType: messageDetails?.messageType ?? null,
 
-      createdAt:
-        messageDetails?.createdAt ??
-        embeddedMessage.createdAt ??
-        null,
+      createdAt: messageDetails?.createdAt ?? embeddedMessage.createdAt ?? null,
 
-      isDeleted:
-        messageDetails?.isDeleted ?? false,
+      isDeleted: messageDetails?.isDeleted ?? false,
     },
 
     lastMessageAt:
@@ -635,10 +593,7 @@ export const getChatRoomsService = async ({
       .lean(),
   ]);
 
-
-  const userRoomIds = userMemberships.map(
-    (member: any) => member.roomId,
-  );
+  const userRoomIds = userMemberships.map((member: any) => member.roomId);
 
   const superAdminRoomIds = superAdminMemberships.map(
     (member: any) => member.roomId,
@@ -662,7 +617,6 @@ export const getChatRoomsService = async ({
       : [],
   ]);
 
-
   // 3. Find the current user's membership for each room.
   const userMembershipMap = new Map<string, any>();
   const superAdminMembershipMap = new Map<string, any>();
@@ -682,9 +636,7 @@ export const getChatRoomsService = async ({
         buildChatItem({
           room,
           source: "TENANT",
-          currentMember: userMembershipMap.get(
-            room._id.toString(),
-          ),
+          currentMember: userMembershipMap.get(room._id.toString()),
           userId,
         }),
       ),
@@ -695,9 +647,7 @@ export const getChatRoomsService = async ({
         buildChatItem({
           room,
           source: "SUPER_ADMIN",
-          currentMember: superAdminMembershipMap.get(
-            room._id.toString(),
-          ),
+          currentMember: superAdminMembershipMap.get(room._id.toString()),
           userId,
         }),
       ),
@@ -705,13 +655,9 @@ export const getChatRoomsService = async ({
   ]);
 
   // 5. Separate the categories according to your requirements.
-  const directItems = userItems.filter(
-    (item) => item.type === "DIRECT",
-  );
+  const directItems = userItems.filter((item) => item.type === "DIRECT");
 
-  const userGroupItems = userItems.filter(
-    (item) => item.type === "GROUP",
-  );
+  const userGroupItems = userItems.filter((item) => item.type === "GROUP");
 
   const superAdminTenantItems = superAdminItems.filter(
     (item) => item.type === "TENANT",
@@ -725,16 +671,11 @@ export const getChatRoomsService = async ({
   let filteredItems: ChatListItem[];
 
   if (normalizedFilter === "ALL") {
-    filteredItems = [
-      ...directItems,
-    ];
+    filteredItems = [...directItems];
   } else if (normalizedFilter === "GROUP") {
-    filteredItems = [
-      ...userGroupItems,
-      ...superAdminSegmentItems,
-    ];
+    filteredItems = [...userGroupItems, ...superAdminSegmentItems];
   } else if (normalizedFilter === "SUPERADMIN") {
-    filteredItems = [...superAdminItems,...superAdminSegmentItems];
+    filteredItems = [...superAdminItems, ...superAdminSegmentItems];
   } else {
     // ADMIN, TEACHER, STUDENT, etc.
     // Role filters require the other participant's role.
@@ -764,8 +705,7 @@ export const getChatRoomsService = async ({
     }
 
     filteredItems = directItems.filter(
-      (item) =>
-        roleByRoomId.get(item.roomId) === normalizedFilter,
+      (item) => roleByRoomId.get(item.roomId) === normalizedFilter,
     );
   }
 
@@ -817,32 +757,22 @@ export const getChatRoomsService = async ({
     const role = roleByRoomId.get(item.roomId);
 
     if (role) {
-      roleCounts[role] =
-        (roleCounts[role] ?? 0) + item.unreadCount;
+      roleCounts[role] = (roleCounts[role] ?? 0) + item.unreadCount;
     }
   }
 
   const counts = {
-    all: sumUnread([
-      ...directItems
-    ]),
-    group: sumUnread([
-      ...userGroupItems,
-      ...superAdminSegmentItems,
-    ]),
+    all: sumUnread([...directItems]),
+    group: sumUnread([...userGroupItems, ...superAdminSegmentItems]),
     superAdmin: sumUnread(superAdminItems),
     ...roleCounts,
   };
 
   // 9. Sort by latest message first.
   filteredItems.sort((a, b) => {
-    const aTime = a.lastMessageAt
-      ? new Date(a.lastMessageAt).getTime()
-      : 0;
+    const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
 
-    const bTime = b.lastMessageAt
-      ? new Date(b.lastMessageAt).getTime()
-      : 0;
+    const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
 
     return bTime - aTime;
   });
@@ -866,9 +796,7 @@ export const getChatRoomsService = async ({
   };
 };
 
-export const sendUserMessageService = async (
-  payload: SendMessagePayload
-) => {
+export const sendUserMessageService = async (payload: SendMessagePayload) => {
   try {
     const {
       roomId,
@@ -881,7 +809,6 @@ export const sendUserMessageService = async (
       senderName,
       senderRole,
     } = payload;
-  
 
     if (!Types.ObjectId.isValid(roomId)) {
       throwError("Invalid roomId", 400);
@@ -902,7 +829,6 @@ export const sendUserMessageService = async (
     if (!message && (!attachments || attachments.length === 0)) {
       throwError("Message or attachment required", 400);
     }
-
 
     const member = await UserRoomMemberModel.findOne({
       roomId,
@@ -937,37 +863,52 @@ export const sendUserMessageService = async (
           },
           lastMessageAt: newMessage.createdAt,
         },
-      }
+      },
     );
 
-    // // 🔹 socket emit
-    // try {
-    //   io.to(roomId.toString()).emit("chat:new-message", {
-    //     roomId,
-    //     message: newMessage,
-    //   });
-    // } catch (socketErr) {
-    //   console.error("Socket emit failed:", socketErr);
-    // }
+   const messageData = newMessage.toObject();
 
+const formattedMessage = {
+  ...messageData,
+  _id: String(messageData._id),
+  roomId: String(messageData.roomId),
+  createdAt: new Date(messageData.createdAt).toISOString(),
+  updatedAt: new Date().toISOString(),
+  timestamp: new Date(messageData.createdAt).toISOString(),
+  dateLabel: "Today",
+  attachments: messageData.attachments ?? [],
+  deletedForEveryone: messageData.deletedForEveryone ?? false,
+  deletedForEveryoneAt: messageData.deletedForEveryoneAt ?? null,
+  deletedForEveryoneBy: messageData.deletedForEveryoneBy ?? null,
+  deletedAt: messageData.deletedAt ?? null,
+  isDeleted:  false,
+  replyTo: messageData.replyTo ?? null,
+   side : "left"
+};
+
+    try {
+      const source = ChatSourceEnum.TENANT;
+      emitChatEventToRoom(source, roomId, CHAT_EVENTS.NEW_MESSAGE, {
+        source,
+        roomId,
+        message: formattedMessage,
+      });
+    } catch (socketError) {
+      console.error("Socket emit failed:", socketError);
+    }
     return newMessage;
-
   } catch (err: any) {
     console.error("SendMessageService Error:", err);
 
-    throwError(
-      err.message || "Failed to send message",
-      err.statusCode || 500
-    );
+    throwError(err.message || "Failed to send message", err.statusCode || 500);
   }
 };
 
 export const getGroupDetailsOperation = async (
   roomId: string,
   source: ChatSourceEnum,
-  userId:string
+  userId: string,
 ): Promise<GroupDetailsResponse | null> => {
-
   if (!roomId || !mongoose.isValidObjectId(roomId)) {
     throwError(tenantChatMessages.INVALID_ROOM_ID, 400);
   }
@@ -988,19 +929,18 @@ export const getGroupDetailsOperation = async (
     throwError("Invalid chat source", 400);
   }
 
- let canUpdate = false;
+  let canUpdate = false;
 
-if (source === ChatSourceEnum.TENANT) {
-  const isAdmin = await UserRoomMemberModel.exists({
-    roomId,
-    userId,
-    groupRole: ChatGroupRole.ADMIN,
-    ...ACTIVE_MEMBER,
-  });
+  if (source === ChatSourceEnum.TENANT) {
+    const isAdmin = await UserRoomMemberModel.exists({
+      roomId,
+      userId,
+      groupRole: ChatGroupRole.ADMIN,
+      ...ACTIVE_MEMBER,
+    });
 
-  canUpdate = !!isAdmin;
-}
-
+    canUpdate = !!isAdmin;
+  }
 
   if (!room) {
     return null;
@@ -1014,14 +954,11 @@ if (source === ChatSourceEnum.TENANT) {
     groupName: room.name,
     description: String(room.description ?? ""),
     sendAccess: room.sendAccess,
-    canUpdate:canUpdate
+    canUpdate: canUpdate,
   };
 };
 
-
-export const markUserMessageSeenService = async (
-  payload: MarkSeenPayload
-) => {
+export const markUserMessageSeenService = async (payload: MarkSeenPayload) => {
   try {
     const { source, roomId, messageId, userId } = payload;
 
@@ -1142,7 +1079,7 @@ export const markUserMessageSeenService = async (
             lastSeenMessageId: messageObjectId,
             lastSeenAt: seenAt,
           },
-        }
+        },
       );
     } else {
       await TenantRoomMemberModel.updateOne(
@@ -1157,7 +1094,7 @@ export const markUserMessageSeenService = async (
             lastSeenMessageId: messageObjectId,
             lastSeenAt: seenAt,
           },
-        }
+        },
       );
     }
 
@@ -1177,11 +1114,10 @@ export const markUserMessageSeenService = async (
 
     throwError(
       err.message || "Failed to update seen status",
-      err.statusCode || 500
+      err.statusCode || 500,
     );
   }
 };
-
 
 export const updateUserChatRoomService = async (payload: {
   source: ChatSourceEnum;
@@ -1215,10 +1151,7 @@ export const updateUserChatRoomService = async (payload: {
 
     // 2. Block Super Admin-side updates
     if (source === ChatSourceEnum.SUPER_ADMIN) {
-      throwError(
-        "Super Admin is not authorized to update this chat room",
-        403
-      );
+      throwError("Super Admin is not authorized to update this chat room", 403);
     }
 
     // 3. Validate room ID
@@ -1241,7 +1174,7 @@ export const updateUserChatRoomService = async (payload: {
     if (addUserIds.some((id) => removeUserIds.includes(id))) {
       throwError(
         "The same user cannot be added and removed in one request",
-        400
+        400,
       );
     }
 
@@ -1262,39 +1195,36 @@ export const updateUserChatRoomService = async (payload: {
       room.type !== ChatRoomType.GROUP &&
       (addUsers.length > 0 || removeUsers.length > 0)
     ) {
-      throwError(
-        "Users can only be added or removed from GROUP rooms",
-        400
-      );
+      throwError("Users can only be added or removed from GROUP rooms", 400);
     }
 
-   if (addUsers.length > 0) {
-  for (const participant of addUsers) {
-    await UserRoomMemberModel.updateOne(
-      {
-        roomId: room._id,
-        userId: participant.userId,
-      },
-      {
-        $set: {
-          name: participant.name,
-          role: participant.role,
-          course: participant.course ?? null,
-          groupRole: ChatGroupRole.MEMBER,
-          isActive: true,
-          deletedAt: null,
-          updatedBy,
-        },
-        $setOnInsert: {
-          createdBy: updatedBy,
-        },
-      },
-      {
-        upsert: true,
+    if (addUsers.length > 0) {
+      for (const participant of addUsers) {
+        await UserRoomMemberModel.updateOne(
+          {
+            roomId: room._id,
+            userId: participant.userId,
+          },
+          {
+            $set: {
+              name: participant.name,
+              role: participant.role,
+              course: participant.course ?? null,
+              groupRole: ChatGroupRole.MEMBER,
+              isActive: true,
+              deletedAt: null,
+              updatedBy,
+            },
+            $setOnInsert: {
+              createdBy: updatedBy,
+            },
+          },
+          {
+            upsert: true,
+          },
+        );
       }
-    );
-  }
-}
+    }
 
     // 8. Remove users
     if (removeUsers.length > 0) {
@@ -1313,38 +1243,37 @@ export const updateUserChatRoomService = async (payload: {
             deletedAt: new Date(),
             updatedBy,
           },
-        }
+        },
       );
-
     }
 
-   const roomUpdate: Record<string, any> = {
-  updatedBy,
-};
+    const roomUpdate: Record<string, any> = {
+      updatedBy,
+    };
 
-if (sendAccess !== undefined) {
-  roomUpdate.sendAccess = sendAccess;
-}
+    if (sendAccess !== undefined) {
+      roomUpdate.sendAccess = sendAccess;
+    }
 
-const updatedRoom = await UserChatRoomModel.findOneAndUpdate(
-  {
-    _id: new Types.ObjectId(roomId),
-    deletedAt: null,
-    isEnabled: true,
-  },
-  {
-    $set: roomUpdate,
-  },
-  {
-    new: true,
-    runValidators: true,
-  }
-).lean();
+    const updatedRoom = await UserChatRoomModel.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(roomId),
+        deletedAt: null,
+        isEnabled: true,
+      },
+      {
+        $set: roomUpdate,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    ).lean();
 
-if (!updatedRoom) {
-  throwError("Chat room not found", 404);
-  return;
-}
+    if (!updatedRoom) {
+      throwError("Chat room not found", 404);
+      return;
+    }
 
     // 11. Return response
     return {
@@ -1362,11 +1291,10 @@ if (!updatedRoom) {
 
     throwError(
       err.message || "Failed to update chat room",
-      err.statusCode || 500
+      err.statusCode || 500,
     );
   }
 };
-
 
 export const clearUserChatService = async (payload: {
   source: ChatSourceEnum;
@@ -1486,7 +1414,7 @@ export const clearUserChatService = async (payload: {
           isActive: true,
           deletedAt: null,
         },
-        clearUpdate
+        clearUpdate,
       );
     } else {
       await TenantRoomMemberModel.updateOne(
@@ -1496,7 +1424,7 @@ export const clearUserChatService = async (payload: {
           isActive: true,
           deletedAt: null,
         },
-        clearUpdate
+        clearUpdate,
       );
     }
 
@@ -1512,14 +1440,9 @@ export const clearUserChatService = async (payload: {
   } catch (err: any) {
     console.error("clearChatService Error:", err);
 
-    throwError(
-      err.message || "Failed to clear chat",
-      err.statusCode || 500
-    );
+    throwError(err.message || "Failed to clear chat", err.statusCode || 500);
   }
 };
-
-
 
 export const getTenantUsersService = async ({
   tenantId,
@@ -1546,17 +1469,11 @@ export const getTenantUsersService = async ({
       throwError("Invalid role or pagination parameters", 400);
     }
 
-    if (
-      roomId &&
-      !mongoose.isValidObjectId(roomId)
-    ) {
+    if (roomId && !mongoose.isValidObjectId(roomId)) {
       throwError("Invalid room ID", 400);
     }
 
-    if (
-      roomId &&
-      !Object.values(ChatSourceEnum).includes(source)
-    ) {
+    if (roomId && !Object.values(ChatSourceEnum).includes(source)) {
       throwError("Invalid chat source", 400);
     }
 
@@ -1592,42 +1509,41 @@ export const getTenantUsersService = async ({
     let selectedUserIds = new Set<string>();
 
     if (roomId) {
-      
-     let room: any = null;
+      let room: any = null;
 
-const roomFilter = {
-  _id: roomId,
-  // type: { $ne: ChatRoomType.SEGMENT },
-  status: ChatRoomStatus.ACTIVE,
-  isEnabled: true,
-  deletedAt: null,
-};
+      const roomFilter = {
+        _id: roomId,
+        // type: { $ne: ChatRoomType.SEGMENT },
+        status: ChatRoomStatus.ACTIVE,
+        isEnabled: true,
+        deletedAt: null,
+      };
 
-if (source === ChatSourceEnum.SUPER_ADMIN) {
-  room = await TenantChatRoomModel.findOne(roomFilter)
-    .select("_id type")
-    .lean();
-} else {
-  room = await UserChatRoomModel.findOne(roomFilter)
-    .select("_id type")
-    .lean();
-}
+      if (source === ChatSourceEnum.SUPER_ADMIN) {
+        room = await TenantChatRoomModel.findOne(roomFilter)
+          .select("_id type")
+          .lean();
+      } else {
+        room = await UserChatRoomModel.findOne(roomFilter)
+          .select("_id type")
+          .lean();
+      }
 
       if (!room) {
         throwError("Chat room not found", 404);
       }
 
       if (room.type === ChatRoomType.SEGMENT) {
-  return {
-    statusCode: 200,
-    message:
-      "This group belongs to Super Admin, so you cannot view its member list",
-    data: {
-      members: [],
-      memberCount: 0,
-    },
-  };
-}
+        return {
+          statusCode: 200,
+          message:
+            "This group belongs to Super Admin, so you cannot view its member list",
+          data: {
+            members: [],
+            memberCount: 0,
+          },
+        };
+      }
 
       const memberFilter: Record<string, any> = {
         roomId: room._id,
@@ -1640,22 +1556,20 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
         memberFilter.tenantId = normalizedTenantId;
       }
 
-     let existingMembers: Array<{ userId: string }> = [];
+      let existingMembers: Array<{ userId: string }> = [];
 
-if (source === ChatSourceEnum.SUPER_ADMIN) {
-  existingMembers = await TenantRoomMemberModel.find(memberFilter)
-    .select("userId")
-    .lean();
-} else {
-  existingMembers = await UserRoomMemberModel.find(memberFilter)
-    .select("userId")
-    .lean();
-}
+      if (source === ChatSourceEnum.SUPER_ADMIN) {
+        existingMembers = await TenantRoomMemberModel.find(memberFilter)
+          .select("userId")
+          .lean();
+      } else {
+        existingMembers = await UserRoomMemberModel.find(memberFilter)
+          .select("userId")
+          .lean();
+      }
 
       selectedUserIds = new Set(
-        existingMembers.map((member: any) =>
-          String(member.userId),
-        ),
+        existingMembers.map((member: any) => String(member.userId)),
       );
     }
 
@@ -1697,9 +1611,7 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
 
       const [students, total] = await Promise.all([
         StudentModel.find(studentFilter)
-          .select(
-            "studentId firstName lastName learningInterest status",
-          )
+          .select("studentId firstName lastName learningInterest status")
           .sort({ createdDate: -1, _id: -1 })
           .skip(skip)
           .limit(limit)
@@ -1712,9 +1624,7 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
 
       users = students.map((student: any) => ({
         userId: String(student.studentId),
-        userName: `${student.firstName ?? ""} ${
-          student.lastName ?? ""
-        }`.trim(),
+        userName: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
         role: "STUDENT",
         course: student.learningInterest ?? null,
       }));
@@ -1728,10 +1638,7 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
             }).lean()
           : null;
 
-      if (
-        normalizedRole === "SUPERADMIN" &&
-        !superAdminTenant?.tenantId
-      ) {
+      if (normalizedRole === "SUPERADMIN" && !superAdminTenant?.tenantId) {
         throwError("Super Admin tenant not found", 404);
       }
 
@@ -1783,11 +1690,11 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
         userId: String(user.userId),
         userName: user.userName,
         role: Array.isArray(user.role)
-          ? user.role[0] ?? normalizedRole
-          : user.role ?? normalizedRole,
+          ? (user.role[0] ?? normalizedRole)
+          : (user.role ?? normalizedRole),
         course:
           normalizedRole === "TEACHER"
-            ? positionByUserId.get(String(user.userId)) ?? null
+            ? (positionByUserId.get(String(user.userId)) ?? null)
             : null,
       }));
     }
@@ -1836,11 +1743,10 @@ if (source === ChatSourceEnum.SUPER_ADMIN) {
   }
 };
 
-
 export const getUserSeenUsersService = async (
   messageId: string,
   currentUserId: string,
-  source: ChatSourceEnum
+  source: ChatSourceEnum,
 ) => {
   try {
     // 1. Validate source
@@ -1911,10 +1817,7 @@ export const getUserSeenUsersService = async (
 
         // Fallback only when timestamps are unavailable
         if (member.lastSeenMessageId) {
-          return (
-            String(member.lastSeenMessageId) ===
-            String(message._id)
-          );
+          return String(member.lastSeenMessageId) === String(message._id);
         }
 
         return false;
@@ -1938,7 +1841,7 @@ export const getUserSeenUsersService = async (
 
     throwError(
       err.message || "Failed to fetch seen users",
-      err.statusCode || 500
+      err.statusCode || 500,
     );
   }
 };
@@ -1975,7 +1878,7 @@ export const deleteUserChatRoomService = async (payload: {
           isEnabled: false,
           updatedBy: deletedBy,
         },
-      }
+      },
     );
 
     await UserRoomMemberModel.updateMany(
@@ -1986,7 +1889,7 @@ export const deleteUserChatRoomService = async (payload: {
           isActive: false,
           updatedBy: deletedBy,
         },
-      }
+      },
     );
 
     // // 🔹 socket emit
@@ -2007,7 +1910,7 @@ export const deleteUserChatRoomService = async (payload: {
 
     throwError(
       err.message || "Failed to delete chat room",
-      err.statusCode || 500
+      err.statusCode || 500,
     );
   }
 };
@@ -2022,11 +1925,7 @@ export const getMessageDateLabel = (date: Date | string): string => {
     messageDate.getDate(),
   );
 
-  const today = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -2095,9 +1994,7 @@ export const buildReplyChain = async (
     messageId: message._id.toString(),
     senderId: message.senderId,
     senderName: message.senderName,
-    message: isDeleted
-      ? "This message was deleted"
-      : message.message,
+    message: isDeleted ? "This message was deleted" : message.message,
     messageType: message.messageType,
     createdAt: message.createdAt,
     isDeleted,
@@ -2178,7 +2075,7 @@ export const getUSerRoomMessagesOperation = async ({
   }
 
   if (!room) {
-    throwError(tenantChatMessages.CHAT_ROOM_NOT_FOUND,404);
+    throwError(tenantChatMessages.CHAT_ROOM_NOT_FOUND, 404);
     return;
   }
 
@@ -2212,7 +2109,7 @@ export const getUSerRoomMessagesOperation = async ({
   }
 
   if (!member) {
-    throwError(tenantChatMessages.FORBIDDEN,403);
+    throwError(tenantChatMessages.FORBIDDEN, 403);
     return;
   }
 
@@ -2304,53 +2201,49 @@ export const getUSerRoomMessagesOperation = async ({
 
         replyTo:
           !isDeleted && message.replyTo?.messageId
-            ? await buildReplyChain(
-                message.replyTo.messageId,
-                source,
-              )
+            ? await buildReplyChain(message.replyTo.messageId, source)
             : null,
       };
     }),
   );
 
- 
-type MessageGroup = {
-  date: Date;
-  dateLabel: string;
-  messages: typeof formattedMessages;
-};
+  type MessageGroup = {
+    date: Date;
+    dateLabel: string;
+    messages: typeof formattedMessages;
+  };
 
-const groupedMessages = formattedMessages.reduce<
-  Record<string, MessageGroup>
->((groups, message) => {
-  const date = new Date(message.createdAt);
+  const groupedMessages = formattedMessages.reduce<
+    Record<string, MessageGroup>
+  >((groups, message) => {
+    const date = new Date(message.createdAt);
 
-  const dateKey = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+    const dateKey = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
 
-  if (!groups[dateKey]) {
-    groups[dateKey] = {
-      date,
-      dateLabel: getMessageDateLabel(message.createdAt),
-      messages: [],
-    };
-  }
+    if (!groups[dateKey]) {
+      groups[dateKey] = {
+        date,
+        dateLabel: getMessageDateLabel(message.createdAt),
+        messages: [],
+      };
+    }
 
-  groups[dateKey].messages.push(message);
+    groups[dateKey].messages.push(message);
 
-  return groups;
-}, {});
+    return groups;
+  }, {});
 
-const messagesByDate = Object.entries(groupedMessages)
-  .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-  .map(([dateKey, group]) => ({
-    date: dateKey,
-    dateLabel: group.dateLabel,
-    messages: group.messages,
-  }));
+  const messagesByDate = Object.entries(groupedMessages)
+    .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+    .map(([dateKey, group]) => ({
+      date: dateKey,
+      dateLabel: group.dateLabel,
+      messages: group.messages,
+    }));
 
   // ---------------------------------------------
   // 7. Return room profile and message list
@@ -2391,7 +2284,6 @@ const messagesByDate = Object.entries(groupedMessages)
   };
 };
 
-
 export const deleteUserMessageForEveryoneService = async (payload: {
   source: ChatSourceEnum;
   messageId: string;
@@ -2416,13 +2308,9 @@ export const deleteUserMessageForEveryoneService = async (payload: {
     let message: any = null;
 
     if (source === ChatSourceEnum.TENANT) {
-      message = await UserChatMessageModel.findById(
-        messageObjectId
-      );
+      message = await UserChatMessageModel.findById(messageObjectId);
     } else if (source === ChatSourceEnum.SUPER_ADMIN) {
-      message = await ChatMessageModel.findById(
-        messageObjectId
-      );
+      message = await ChatMessageModel.findById(messageObjectId);
     }
 
     if (!message) {
@@ -2464,7 +2352,7 @@ export const deleteUserMessageForEveryoneService = async (payload: {
           senderId: message.senderId,
           deletedForEveryone: { $ne: true },
         },
-        update
+        update,
       );
     } else {
       await ChatMessageModel.updateOne(
@@ -2473,7 +2361,7 @@ export const deleteUserMessageForEveryoneService = async (payload: {
           senderId: message.senderId,
           deletedForEveryone: { $ne: true },
         },
-        update
+        update,
       );
     }
 
@@ -2491,7 +2379,7 @@ export const deleteUserMessageForEveryoneService = async (payload: {
 
     throwError(
       err.message || "Failed to delete message",
-      err.statusCode || 500
+      err.statusCode || 500,
     );
   }
 };
