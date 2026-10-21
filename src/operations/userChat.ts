@@ -866,25 +866,25 @@ export const sendUserMessageService = async (payload: SendMessagePayload) => {
       },
     );
 
-   const messageData = newMessage.toObject();
+    const messageData = newMessage.toObject();
 
-const formattedMessage = {
-  ...messageData,
-  _id: String(messageData._id),
-  roomId: String(messageData.roomId),
-  createdAt: new Date(messageData.createdAt).toISOString(),
-  updatedAt: new Date().toISOString(),
-  timestamp: new Date(messageData.createdAt).toISOString(),
-  dateLabel: "Today",
-  attachments: messageData.attachments ?? [],
-  deletedForEveryone: messageData.deletedForEveryone ?? false,
-  deletedForEveryoneAt: messageData.deletedForEveryoneAt ?? null,
-  deletedForEveryoneBy: messageData.deletedForEveryoneBy ?? null,
-  deletedAt: messageData.deletedAt ?? null,
-  isDeleted:  false,
-  replyTo: messageData.replyTo ?? null,
-   side : "left"
-};
+    const formattedMessage = {
+      ...messageData,
+      _id: String(messageData._id),
+      roomId: String(messageData.roomId),
+      createdAt: new Date(messageData.createdAt).toISOString(),
+      updatedAt: new Date().toISOString(),
+      timestamp: new Date(messageData.createdAt).toISOString(),
+      dateLabel: "Today",
+      attachments: messageData.attachments ?? [],
+      deletedForEveryone: messageData.deletedForEveryone ?? false,
+      deletedForEveryoneAt: messageData.deletedForEveryoneAt ?? null,
+      deletedForEveryoneBy: messageData.deletedForEveryoneBy ?? null,
+      deletedAt: messageData.deletedAt ?? null,
+      isDeleted: false,
+      replyTo: messageData.replyTo ?? null,
+      side: "left",
+    };
 
     try {
       const source = ChatSourceEnum.TENANT;
@@ -893,6 +893,55 @@ const formattedMessage = {
         roomId,
         message: formattedMessage,
       });
+
+      let roomname = room.name;
+      let course: string | null = null;
+      let role: string | null = null;
+
+      if (room.type === ChatRoomType.DIRECT) {
+        const oppositeMember = await UserRoomMemberModel.findOne({
+          roomId,
+          userId: { $ne: senderId },
+          tenantId: room.tenantId,
+          isActive: true,
+          deletedAt: null,
+        })
+          .select("userId name role course")
+          .lean();
+
+        if (oppositeMember) {
+          roomname = oppositeMember.name;
+          course = oppositeMember.course ?? null;
+          role = oppositeMember.role ?? null;
+        }
+      }
+
+      const roomListUpdate = {
+        roomId: String(roomId),
+        roomCode: room.roomCode,
+        type: room.type,
+        source,
+        name: room.name,
+        course: course ?? null,
+        role: role ?? null,
+        lastMessage: {
+          message: newMessage.message,
+          senderName: newMessage.senderName,
+          messageType: newMessage.messageType,
+          createdAt: newMessage.createdAt.toISOString(),
+          isDeleted: false,
+        },
+        lastMessageAt: newMessage.createdAt.toISOString(),
+        unreadCount: 0,
+        isUnread: false,
+      };
+
+      emitChatEventToRoom(
+        source,
+        String(roomId),
+        CHAT_EVENTS.ROOM_LIST_UPDATED,
+        roomListUpdate,
+      );
     } catch (socketError) {
       console.error("Socket emit failed:", socketError);
     }
@@ -1211,6 +1260,7 @@ export const updateUserChatRoomService = async (payload: {
               role: participant.role,
               course: participant.course ?? null,
               groupRole: ChatGroupRole.MEMBER,
+              tenantId:room.tenantId,
               isActive: true,
               deletedAt: null,
               updatedBy,
