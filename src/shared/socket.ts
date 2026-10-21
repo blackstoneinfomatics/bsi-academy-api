@@ -21,6 +21,7 @@ export const CHAT_EVENTS = {
   ROOM_UPDATED: "chat:roomUpdated",
   MEMBER_ADDED: "chat:memberAdded",
   MEMBER_REMOVED: "chat:memberRemoved",
+  ROOM_LIST_UPDATED: "chat:roomListUpdated",
   CLEARED: "chat:cleared",
 } as const;
 
