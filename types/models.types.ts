@@ -2889,6 +2889,10 @@ export interface IRefundTransaction extends Document {
 
   tenantId: string;
 
+  tenantName?: string;
+
+  requestId?: string;
+
   invoiceId: Types.ObjectId;
 
   paymentId: Types.ObjectId;
@@ -2920,6 +2924,18 @@ export interface IRefundTransaction extends Document {
   netAmount?: number;
 
   refundReason?: string;
+
+  paidAmount?: number;
+
+  refundAmount?: number;
+
+  newPlan?: string;
+
+  additionalDetails?: string;
+
+  eligibilityStatus?: "ELIGIBLE" | "EXPIRED";
+
+  daysRemaining?: number;
 
   status: RefundApprovalStatus;
 

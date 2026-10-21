@@ -15,7 +15,26 @@ import {
   refundRequestMessages,
 } from "../../config/messages";
 import { portalRequestValidation } from "../../models/portalRequest";
-import { refundRequestValidation } from "../../models/refundRequest";
+import { z } from "zod";
+
+
+export const CreateRefundRequestValidation = z.object({
+  tenantId: z.string().trim().min(1, "Tenant ID is required"),
+
+  tenantName: z.string().trim().min(1, "Tenant name is required"),
+
+  paymentId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i, "Invalid payment ID"),
+
+  refundMethod: z.string().trim().min(1, "Refund method is required"),
+
+  refundReason: z.string().trim().max(500).min(1, "Refund reason is required"),
+
+  newPlan: z.string().trim().optional(),
+
+  additionalDetails: z.string().trim().optional(),
+});
 
 const createPlanChangeRequestHandler = async (
   req: Request,
@@ -134,9 +153,9 @@ const createRefundRequest = async (
   h: ResponseToolkit
 ) => {
   try {
-    const validation = refundRequestValidation.safeParse(
-      request.payload
-    );
+   const validation = CreateRefundRequestValidation.safeParse(
+  request.payload
+);
 
     if (!validation.success) {
       return h.response({
@@ -151,7 +170,7 @@ const createRefundRequest = async (
 
     const result = await createRefundRequestOperation(
       validation.data
-    );
+      );
 
     return h.response({
       success: true,

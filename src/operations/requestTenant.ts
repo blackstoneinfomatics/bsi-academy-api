@@ -19,16 +19,13 @@ import UserModel from "../models/users";
 import { sendNotification } from "./notification";
 import { generateRequestId } from "./rollcounter";
 import PortalRequestModel, { portalRequestValidation } from "../models/portalRequest";
-import { randomUUID } from "crypto";
-import RefundRequestModel, { refundRequestValidation } from "../models/refundRequest";
 import paymenttransaction from "../models/paymenttransaction";
 import mongoose from "mongoose";
+import RefundTransaction from "../models/refundTransaction";
+import { RefundApprovalStatus, RefundStatus } from "../shared/enum";
 
 
 
-type RefundRequestInput = z.infer<
-  typeof refundRequestValidation
->;
 
 export type CreateBackupRequestInput = z.infer<
   typeof backupRequestValidation
@@ -43,6 +40,16 @@ export type CreatePlanChangeRequestInput = z.infer<
 type PortalRequestInput = z.infer<
   typeof portalRequestValidation
 >;
+
+type RefundBaseValidation = {
+  tenantId: string;
+  tenantName: string;
+  paymentId: string;
+  refundMethod: string;
+  refundReason: string;
+  newPlan?: string;
+  additionalDetails?: string;
+};
 
 export type RequestTenantResolution =
   | {
@@ -321,7 +328,7 @@ const REFUND_WINDOW_DAYS = 7;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export const createRefundRequestOperation = async (
-  data: RefundRequestInput
+  data: RefundBaseValidation
 ) => {
 
 // Validate the MongoDB payment ID
@@ -399,10 +406,10 @@ const daysRemaining = Math.ceil(
     throw new Error("REFUND_WINDOW_EXPIRED");
   }
 
-  const existingRequest = await RefundRequestModel.findOne({
+  const existingRequest = await RefundTransaction.findOne({
     tenantId: data.tenantId,
     paymentId: data.paymentId,
-    status: RequestStatus.PENDING,
+    status: RefundApprovalStatus.PENDING,
   });
 
   if (existingRequest) {
@@ -410,26 +417,44 @@ const daysRemaining = Math.ceil(
   }
 
   const requestId = await generateRequestId();
-  const refundRequest = await RefundRequestModel.create({
-    ...data,
+  const requestedDate = new Date();
+  const refundRequest = await RefundTransaction.create({
+    tenantId: data.tenantId,
+    tenantName: data.tenantName,
     requestId,
+    refundNumber: requestId,
+    invoiceId: payment.invoiceId,
+    paymentId: payment._id,
+    subscriptionId: payment.subscriptionId,
+    gateway: payment.gateway,
+    paymentMethod: payment.paymentMethod,
+    refundMethod: data.refundMethod,
+    requestedDate,
     paymentDate,
+    amount: refundAmount,
+    currency: payment.currency,
+    refundReason: data.refundReason,
     paidAmount,
     refundAmount,
+    newPlan: data.newPlan,
+    additionalDetails: data.additionalDetails,
     eligibilityStatus: "ELIGIBLE",
     daysRemaining,
-    status: RequestStatus.PENDING,
+    status: RefundApprovalStatus.PENDING,
+    refundStatus: RefundStatus.PENDING,
+    description: data.additionalDetails,
+    createdBy: data.tenantId,
   });
 
   await notifySuperAdminOfRequest({
-    requestId: refundRequest.requestId,
+    requestId,
     tenant: {
-      tenantId: refundRequest.tenantId,
-      tenantName: refundRequest.tenantName,
+      tenantId: data.tenantId,
+      tenantName: data.tenantName,
     },
     notificationType: "REFUND_REQUEST_SUBMITTED",
-    title: `Refund request from ${refundRequest.tenantName}`,
-    messages: `${refundRequest.tenantName} submitted a refund request for payment ${refundRequest.paymentId}.`,
+    title: `Refund request from ${data.tenantName}`,
+    messages: `${data.tenantName} submitted a refund request for payment ${refundRequest.paymentId}.`,
     metadata: {
       paymentId: refundRequest.paymentId,
       paymentDate: refundRequest.paymentDate.toISOString(),
