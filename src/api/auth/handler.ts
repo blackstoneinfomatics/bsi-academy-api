@@ -117,6 +117,9 @@ export default {
     });
     return unauthorized(authMessages.INCORRECT_PASSWORD);
   }
+  console.info("[auth:signIn] Password verified", {
+    accountType: isTrialMember ? "trialMember" : "user",
+  });
 
   // 5. Generate token
   const jwtPayload = {
@@ -145,6 +148,9 @@ export default {
     isActive: true,
     accessToken,
   });
+  console.info("[auth:signIn] Active session created", {
+    accountType: isTrialMember ? "trialMember" : "user",
+  });
 
   // 9. Get tenant
   const tenantData = isTrialMember
@@ -153,6 +159,11 @@ export default {
         status: Status.TRIAL,
       }).lean()
     : await getActiveTenantRecordByCode(user.tenantId);
+
+  console.info("[auth:signIn] Tenant lookup completed", {
+    found: !!tenantData,
+    accountType: isTrialMember ? "trialMember" : "user",
+  });
 
   if (!tenantData) {
     console.warn("[auth:signIn] Sign-in rejected: tenant unavailable", {

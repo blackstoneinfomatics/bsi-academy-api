@@ -211,7 +211,7 @@ export const getRefundTransactionsService = async (query: any) => {
               refundId: "$_id",
               refundNumber: 1,
               invoiceId: "$invoice.invoiceNumber",
-              tenantName: "$tenant.tenantName",
+              tenantName: { $ifNull: ["$tenantName", "$tenant.tenantName"] },
 
               amount: 1,
               currency: 1,
@@ -370,7 +370,7 @@ export const getRefundTransactionsByIdService = async (refundId: string) => {
 
           tenant: {
             tenantId: "$tenant._id",
-            tenantName: "$tenant.tenantName",
+            tenantName: { $ifNull: ["$tenantName", "$tenant.tenantName"] },
             email: "$tenant.emailId",
             domain: "$tenant.domainName",
             tenantCode: "$tenant.tenantCode",

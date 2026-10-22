@@ -19,6 +19,8 @@ import CustomEnumerator, {
   ChatRoomStatus,
   ChatMessageType,
   ChatSendAccess,
+  RequestStatus,
+  PortalRequestType,
 } from "../src/shared/enum";
 
 enum Status {
@@ -1590,6 +1592,7 @@ export interface INotification extends Document {
   senderTenantId: string;
   receiverTenantId: string;
   title?: string;
+  requestId?: string;
   messages: string;
   senderId: string;
   senderName?: string;
@@ -2750,6 +2753,33 @@ export interface ITenantSubscription extends Document {
 
   deletedAt?: Date | null;
 }
+
+export interface IBackupRequest extends Document {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  backupStartDate: Date;
+  backupEndDate: Date;
+  additionalNotes?: string;
+  status: RequestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPlanChangeRequest extends Document {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  currentPlan: string;
+  newPlan: string;
+  planStartDate: Date;
+  changeReason: string;
+  requestReason: string;
+  status: RequestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface TenantSubscription {
   tenantId: string;
 
@@ -2859,6 +2889,10 @@ export interface IRefundTransaction extends Document {
 
   tenantId: string;
 
+  tenantName?: string;
+
+  requestId?: string;
+
   invoiceId: Types.ObjectId;
 
   paymentId: Types.ObjectId;
@@ -2890,6 +2924,18 @@ export interface IRefundTransaction extends Document {
   netAmount?: number;
 
   refundReason?: string;
+
+  paidAmount?: number;
+
+  refundAmount?: number;
+
+  newPlan?: string;
+
+  additionalDetails?: string;
+
+  eligibilityStatus?: "ELIGIBLE" | "EXPIRED";
+
+  daysRemaining?: number;
 
   status: RefundApprovalStatus;
 
@@ -3317,6 +3363,7 @@ export interface IUserChatRoomMember extends Document {
   name: string;
   role:string;
   groupRole:string;
+  course?:string;
 
   lastSeenMessageId?: Types.ObjectId;
   lastSeenAt?: Date;
@@ -3329,4 +3376,49 @@ export interface IUserChatRoomMember extends Document {
   createdBy: string;
   updatedBy?: string;
   deletedAt?: Date | null;
+}
+
+
+
+
+export interface IPortalRequest {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  requestType: PortalRequestType;
+  portalName?: string;
+  portalId?: string;
+  featureName?: string;
+  featureId?: string;
+  requestReason: string;
+  status: RequestStatus;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  reviewComment?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+
+export interface IRefundRequest {
+  requestId: string;
+  tenantId: string;
+  tenantName: string;
+  paymentId: string;
+  paymentDate: Date;
+  paidAmount: number;
+  refundReason:
+    | "CHANGE_PLAN"
+    | "DUPLICATE_PAYMENT"
+    | "SERVICE_ISSUE"
+    | "OTHER";
+  newPlan?: string;
+  additionalDetails: string;
+  refundAmount: number;
+  refundMethod:string;
+  eligibilityStatus: "ELIGIBLE" | "EXPIRED";
+  daysRemaining: number;
+  status: RequestStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

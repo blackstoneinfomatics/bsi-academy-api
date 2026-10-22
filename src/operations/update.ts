@@ -453,6 +453,10 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
 
     purchaseTenant: payload.purchaseTenant || 0,
 
+    monthlyPrice: payload.monthlyPrice,
+
+    discount: payload.discount,
+
     status: payload.status || "Scheduled",
 
     views: 0,
@@ -726,6 +730,8 @@ export const getUpdatesList = async (
         description: 1,
         category: 1,
         priority: 1,
+        monthlyPrice: 1,
+        discount: 1,
         audience: 1,
         selectedTenantNames: 1,
         createdAt: 1,
@@ -777,6 +783,8 @@ export const getUpdateById = async (id: string) => {
       selectedTenants: 1,
       selectedTenantsCount: 1,
       selectedTenantNames: 1,
+      monthlyPrice: 1,
+      discount: 1,
       publishDate: 1,
       priority: 1,
       createdAt: 1,

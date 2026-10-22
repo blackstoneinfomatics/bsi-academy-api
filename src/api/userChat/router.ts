@@ -18,54 +18,80 @@ const register = async (server: Server): Promise<void> => {
       },
     },
 
-//     {
-//       method: "POST",
-//       path: "/chat/message",
-//       options: {
-//         handler: handler.sendMessage,
-//         description: tenantChatMessages.SEND_MESSAGE,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
 
-//     {
-//        method: "PUT",
-//        path: "/chat-room/{roomId}",
-//       options: {
-//         handler: handler.updateChatRoom,
-//         description: tenantChatMessages.ADD_ROOM_MEMBER,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
+    {
+      method: "POST",
+      path: "/user/chat/{source}/message",
+      options: {
+        handler: handler.sendMessage,
+        description: tenantChatMessages.SEND_MESSAGE,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+     {
+      method: "GET",
+      path: "/user/chat-room/{userId}",
+      handler: handler.getChatRooms,
+      options: {
+        description: tenantChatMessages.GET_CHAT_ROOMS,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
-//     {
-//       method: "POST",
-//       path: "/chat/seen",
-//       options: {
-//         handler: handler.markSeen,
-//         description: tenantChatMessages.MARK_SEEN,
-//         tags: ["api", "Chat"],
-//         // auth: {
-//         //   strategies: ["jwt"],
-//         // },
-//       },
-//     },
+     {
+      method: "GET",
+      path: "/user/chat/{source}/groupuser/{roomId}",
+      handler: handler.getTenantUsersByGroup,
+      options: {
+        description: tenantChatMessages.GET_CHAT_ROOMS,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
 
-//      {
-//     method: "PUT",
-//     path: "/chat/clear",
-//     handler: handler.clearChat,
-//     options: {
-//       description: "Clear chat for current user in a room",
-//       tags: ["api", "chat"],
-//     },
-//   },
+    {
+       method: "PUT",
+       path: "/user/chat-room/{source}/{roomId}",
+      options: {
+        handler: handler.updateChatRoom,
+        description: tenantChatMessages.ADD_ROOM_MEMBER,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+    {
+      method: "POST",
+      path: "/user/chat/{source}/seen",
+      options: {
+        handler: handler.markSeen,
+        description: tenantChatMessages.MARK_SEEN,
+        tags: ["api", "userChat"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+
+     {
+    method: "PUT",
+    path: "/user/chat/{source}/clear",
+    handler: handler.clearChat,
+    options: {
+      description: "Clear chat for current user in a room",
+      tags: ["api", "userChat"],
+    },
+  },
 
 //     {
 //       method: "GET",
@@ -79,63 +105,53 @@ const register = async (server: Server): Promise<void> => {
 //         // },
 //       },
 //     },
-//     {
-//       method: "GET",
-//       path: "/chat/groups/{roomId}",
-//       options: {
-//         handler: handler.getGroupDetails,
-//         description: "Get chat group details and tenant members",
-//         tags: ["api", "Chat"],
-//       },
-//     },
-//     {
-//       method: "GET",
-//       path: "/chat/global",
-//       options: {
-//         handler: handler.getGlobalChatGroups,
-//         description: "Get global chat group details and tenant members",
-//         tags: ["api", "Chat"],
-//       },
-//     },
-//     {
-//       method: "GET",
-//       path: "/chat/{roomId}/messages",
-//       options: {
-//         handler: handler.getRoomMessages,
-//         description: "Get paginated messages for a chat room",
-//         tags: ["api", "Chat"],
-//         auth: false,
-//       },
-//     },
+    {
+      method: "GET",
+      path: "/user/chat/{source}/groups/{roomId}",
+      options: {
+        handler: handler.getGroupDetails,
+        description: "Get chat group details and user members",
+        tags: ["api", "userChat"],
+      },
+    },
+    {
+      method: "GET",
+      path: "/user/chat/{source}/{roomId}/messages",
+      options: {
+        handler: handler.getRoomMessages,
+        description: "Get paginated messages for a chat room",
+        tags: ["api", "userChat"],
+      },
+    },
 
-//     {
-//   method: "GET",
-//   path: "/chat/message/{messageId}/seen/{currentUserId}",
-//   options: {
-//       handler: handler.getSeenUsers,
-//       description: "Get users who have seen a specific message",
-//      tags: ["api", "Chat"],
-//   },
-// },
-//     {
-//     method: "DELETE",
-//     path: "/chat-room/{roomId}",
-//     handler: handler.deleteRoom,
-//     options: {
-//       description: "Soft delete chat room",
-//       tags: ["api", "Chat"],
-//     },
-//   },
+    {
+  method: "GET",
+  path: "/user/chat/{source}/message/{messageId}/seen/{currentUserId}",
+  options: {
+      handler: handler.getSeenUsers,
+      description: "Get users who have seen a specific message",
+     tags: ["api", "userChat"],
+  },
+},
+    {
+    method: "DELETE",
+    path: "/user/chat-room/{roomId}",
+    handler: handler.deleteRoom,
+    options: {
+      description: "Soft delete chat room",
+      tags: ["api", "userChat"],
+    },
+  },
 
-//   {
-//   method: "DELETE",
-//   path: "/chat/message/{messageId}/everyone/{userId}",
-//   handler: handler.deleteForEveryone,
-//   options: {
-//       description: "Soft delete message for everyone",
-//     tags: ["api", "Chat"],
-//   },
-// }
+  {
+  method: "DELETE",
+  path: "/user/chat/{source}/message/{messageId}/everyone/{userId}",
+  handler: handler.deleteForEveryone,
+  options: {
+      description: "Soft delete message for everyone",
+    tags: ["api", "userChat"],
+  },
+}
   ];
   server.route(routes);
 };

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import paymenttransaction from "../models/paymenttransaction";
 import {
   PaymentStatus,
@@ -81,6 +82,27 @@ const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
           preserveNullAndEmptyArrays: true,
         },
       },
+      {
+        $lookup: {
+          from: "customServiceInvoice",
+          localField: "invoiceId",
+          foreignField: "_id",
+          as: "customServiceInvoice",
+        },
+      },
+      {
+        $unwind: {
+          path: "$customServiceInvoice",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          transactionInvoice: {
+            $ifNull: ["$customServiceInvoice", "$invoice"],
+          },
+        },
+      },
 
       {
         $lookup: {
@@ -142,7 +164,7 @@ const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
               },
             },
             {
-              "invoice.invoiceNumber": {
+              "transactionInvoice.invoiceNumber": {
                 $regex: search,
                 $options: "i",
               },
@@ -177,7 +199,7 @@ const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
     if (invoiceNumber) {
       pipeline.push({
         $match: {
-          "invoice.invoiceNumber": {
+          "transactionInvoice.invoiceNumber": {
             $regex: invoiceNumber,
             $options: "i",
           },
@@ -198,16 +220,16 @@ const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
 
       pipeline.push({
         $match: {
-          "invoice.dueDate": dueDate,
+          "transactionInvoice.dueDate": dueDate,
         },
       });
     }
 
     const sortFieldMap: Record<string, string> = {
       createdAt: "createdAt",
-      invoiceDate: "invoice.invoiceDate",
-      dueDate: "invoice.dueDate",
-      invoiceNumber: "invoice.invoiceNumber",
+      invoiceDate: "transactionInvoice.invoiceDate",
+      dueDate: "transactionInvoice.dueDate",
+      invoiceNumber: "transactionInvoice.invoiceNumber",
       totalAmount: "amount",
     };
 
@@ -266,10 +288,12 @@ const fetchTransactions = async (query: any = {}, extraMatch: any = {}) => {
               },
 
               invoice: {
-                invoiceId: "$invoice._id",
-                invoiceNumber: "$invoice.invoiceNumber",
-                invoiceDate: "$invoice.invoiceDate",
-                dueDate: "$invoice.dueDate",
+                invoiceId: {
+                  $ifNull: ["$customServiceInvoice._id", "$invoice._id"],
+                },
+                invoiceNumber: "$transactionInvoice.invoiceNumber",
+                invoiceDate: "$transactionInvoice.invoiceDate",
+                dueDate: "$transactionInvoice.dueDate",
               },
 
               subscription: {
@@ -323,6 +347,24 @@ export const getTenantTransactions = async (
   tenantId: string,
   query: any = {},
 ) => fetchTransactions(query, { tenantId: (tenantId || "").trim() });
+
+export const getTenantTransactionByInvoiceId = async (
+  tenantId: string,
+  invoiceId: string,
+) => {
+  const result = await fetchTransactions(
+    { page: 1, limit: 1, sortBy: "createdAt", sortOrder: "desc" },
+    {
+      tenantId: (tenantId || "").trim(),
+      $or: [
+        { _id: new mongoose.Types.ObjectId(invoiceId) },
+        { invoiceId: new mongoose.Types.ObjectId(invoiceId) },
+      ],
+    },
+  );
+
+  return result.items[0] ?? null;
+};
 
 export const getFinanceTransactionCardCount = async () => {
   try {

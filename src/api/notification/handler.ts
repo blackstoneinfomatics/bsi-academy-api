@@ -1,10 +1,15 @@
 import { ResponseToolkit , Request} from "@hapi/hapi";
-import getAllNotification, { getNotificationsByNotificationId, updateNotification} from "../../operations/notification";
+import getAllNotification, {
+  getNotificationCardDetails,
+  getNotificationRequestList,
+  getNotificationsByNotificationId,
+  updateNotification,
+} from "../../operations/notification";
 import { Types } from "mongoose";
 import { zodnotificationSchema } from "../../models/notification";
 import { z } from "zod";
 import { isNil } from "lodash";
-import { notificationsMessages } from "../../config/messages";
+import { notificationStatus, notificationsMessages } from "../../config/messages";
 import { notFound } from "@hapi/boom";
 import UserModel from "../../models/users";
 import TrialMemberModel from "../../models/trailmember";
@@ -148,6 +153,62 @@ async getnotificationList(req: Request, h: ResponseToolkit) {
   }
 },
 
+async getNotificationRequestListHandler(req: Request, h: ResponseToolkit) {
+  try {
+    const scope = await getAuthenticatedRecipientScope(req);
+    if (!scope) {
+      return h.response({ success: false, message: "Invalid authentication credentials" }).code(401);
+    }
+
+    const result = await getNotificationRequestList(
+      scope.receiverIds,
+      scope.tenantId
+    );
+
+    return h
+      .response({
+        message: "Notification request(s) retrieved successfully",
+        data: result,
+      })
+      .code(200);
+  } catch (error) {
+    return h
+      .response({
+        success: false,
+        error: (error as Error).message || "Internal Server Error",
+      })
+      .code(500);
+  }
+},
+
+async getNotificationCardDetailsHandler(req: Request, h: ResponseToolkit) {
+  try {
+    const scope = await getAuthenticatedRecipientScope(req);
+    if (!scope) {
+      return h.response({ success: false, message: "Invalid authentication credentials" }).code(401);
+    }
+
+    const details = await getNotificationCardDetails(
+      scope.receiverIds,
+      scope.tenantId
+    );
+
+    return h
+      .response({
+        message: "Notification card details retrieved successfully",
+        data: details,
+      })
+      .code(200);
+  } catch (error) {
+    return h
+      .response({
+        success: false,
+        error: (error as Error).message || "Internal Server Error",
+      })
+      .code(500);
+  }
+},
+
 
 
 
@@ -166,9 +227,15 @@ async updateNotificationById(req: Request, h: ResponseToolkit) {
     payload: req.payload,
   });
 
+  const updatePayload =
+    payload.isRead === true ||
+    payload.notificationStatus === notificationStatus.SEEN
+      ? { ...payload, readAt: new Date() }
+      : payload;
+
   const result = await updateNotification(
     notificationId,
-    payload,
+    updatePayload,
     scope.receiverIds,
     scope.tenantId
   );
@@ -182,5 +249,3 @@ async updateNotificationById(req: Request, h: ResponseToolkit) {
 
 
 }
-
-

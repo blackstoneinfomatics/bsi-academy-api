@@ -104,7 +104,7 @@ export const getActiveTenantRecordByCode = async (
 ): Promise<ITenant | null> => {
   return TenantModel.findOne({
     tenantCode,
-    status: appStatus.ACTIVE,
+    status: { $in:[appStatus.ACTIVE, appStatus.TRIAL] },
   }).lean();
 };
 

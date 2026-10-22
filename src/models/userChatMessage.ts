@@ -82,7 +82,7 @@ UserChatMessageSchema.index({ roomId: 1, createdAt: -1 });
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
 
-export const ChatMessageValidation = z.object({
+export const UserChatMessageValidation = z.object({
   roomId: objectId,
 
   senderId: z.string().min(1),
@@ -108,7 +108,7 @@ export const ChatMessageValidation = z.object({
     .optional(),
 });
 
-export const ChatMessageModel = mongoose.model<IUserChatMessage>(
+export const UserChatMessageModel = mongoose.model<IUserChatMessage>(
   "userChatMessages",
   UserChatMessageSchema,
 );

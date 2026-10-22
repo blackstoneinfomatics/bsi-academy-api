@@ -5,12 +5,14 @@ import {
   getFinanceTransactionCardCount,
   getRevenueDashboardSummary,
   getRevenueGrowth,
+  getTenantTransactionByInvoiceId,
   getTenantTransactions,
 } from "../../operations/finance";
 import { z } from "zod";
 import { SubscriptionInvoiceStatus } from "../../shared/enum";
 import { commonMessages, financeMessages } from "../../config/messages";
 import tenantsubscription from "../../models/tenantsubscription";
+import { throwError } from "../../helpers/throwError";
 
 
 
@@ -67,6 +69,13 @@ export const getTenantFinanceTransactionsValidation = z.object({
   query: getSubscriptionInvoicesValidation.shape.query,
 });
 
+export const getTenantFinanceTransactionByInvoiceIdValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+    invoice_id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid invoice ID"),
+  }),
+});
+
 export default {
 
   async getFinanceTransactions(req: Request, h: ResponseToolkit) {
@@ -93,7 +102,7 @@ export default {
 
     const result = await getTenantTransactions(params.tenantId, query);
     const planCycle = await tenantsubscription 
-    .findOne({tenantId:"tenantId"})
+    .findOne({tenantId: params.tenantId})
     .select({duration:"duration"})
     .lean()
     return h
@@ -102,6 +111,32 @@ export default {
         message: financeMessages.TENANT_TRANSACTIONS_FETCHED,
         data: result,
         planCycle
+      })
+      .code(200);
+  },
+
+  async getTenantFinanceTransactionByInvoiceId(
+    req: Request,
+    h: ResponseToolkit,
+  ) {
+    const { params } =
+      getTenantFinanceTransactionByInvoiceIdValidation.parse({
+        params: req.params,
+      });
+    const transaction = await getTenantTransactionByInvoiceId(
+      params.tenantId,
+      params.invoice_id,
+    );
+
+    if (!transaction) {
+      throwError(financeMessages.TRANSACTION_NOT_FOUND, 404);
+    }
+
+    return h
+      .response({
+        success: true,
+        message: financeMessages.TENANT_TRANSACTION_FETCHED,
+        data: transaction,
       })
       .code(200);
   },

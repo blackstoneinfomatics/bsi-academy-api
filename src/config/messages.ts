@@ -54,6 +54,56 @@ export const authMessages: Record<string, string> = Object.freeze({
   TOKEN_NO_LONGER_VALID: "Token is no longer valid",
 });
 
+export const backupRequestMessages: Record<string, string> = Object.freeze({
+  SUBMITTED: "Backup request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit backup request",
+  CATCH_LOG: "[backup-request] Failed to submit request",
+  START_AFTER_END: "Backup start date cannot be after the end date",
+  OUTSIDE_RETENTION: "Backup data must be within the last 30 days",
+  END_IN_FUTURE: "Backup end date cannot be in the future",
+});
+
+export const planChangeRequestMessages: Record<string, string> = Object.freeze({
+  SUBMITTED: "Plan change request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit plan change request",
+  CATCH_LOG: "[plan-change-request] Failed to submit request",
+  START_IN_PAST: "Plan start date cannot be in the past",
+  CURRENT_PLAN_UNAVAILABLE: "Could not determine the tenant's current plan",
+  CURRENT_PLAN_MISMATCH: "Current plan does not match the tenant's current plan",
+  NEW_PLAN_UNAVAILABLE: "New plan is not an available plan",
+  SAME_PLAN: "New plan must differ from the current plan",
+});
+
+export const refundRequestMessages: Record<string, string> = Object.freeze({
+  VALIDATION_FAILED: "Validation failed",
+  SUBMITTED: "Refund request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit refund request",
+  CATCH_LOG: "Create refund request error:",
+  PAYMENT_NOT_FOUND: "Payment not found",
+  INVALID_PAYMENT_DETAILS: "Invalid payment details",
+  REFUND_WINDOW_EXPIRED: "Refund eligibility period has expired",
+  REFUND_REQUEST_ALREADY_EXISTS:
+    "A pending refund request already exists for this payment",
+});
+
+export const requestTenantMessages: Record<string, string> = Object.freeze({
+  TENANT_HEADER_REQUIRED: "The tenantid header is required",
+  TENANT_NOT_FOUND: "Tenant not found or inactive",
+});
+
+export const notificationApiMessages: Record<string, string> = Object.freeze({
+  TENANT_HEADER_REQUIRED: "The tenantid header is required",
+  TENANT_NOT_FOUND: "Tenant not found or inactive",
+  INVALID_NOTIFICATION_ID: "Invalid notification ID",
+  NOTIFICATION_NOT_FOUND: "Notification not found",
+  LIST_SUCCESS: "Notification(s) retrieved successfully",
+  REQUEST_LIST_SUCCESS: "Notification request(s) retrieved successfully",
+  CARD_DETAILS_SUCCESS: "Notification card details retrieved successfully",
+  FETCH_FAILED: "Failed to fetch notifications",
+  INTERNAL_ERROR: "Internal Server Error",
+  INVALID_NOTIFICATION_ID_FORMAT: "Invalid notification ID format",
+});
+
 export const recruitmentMessages: Record<string, string> = Object.freeze({
   LIST: "Retrieve all the candidate list",
   BYID: "Retrieve candidate details by userId",
@@ -95,6 +145,7 @@ export const appStatus: Record<string, any> = Object.freeze({
   DELETED: "Deleted",
   ARCHIVED: "Archived",
   NEW: "New",
+  TRIAL:"Trial"
 });
 
 export const teacherStatus: Record<string, any> = Object.freeze({
@@ -219,6 +270,8 @@ export const financeMessages: Record<string, string> = Object.freeze({
   REVENUE_GROWTH_FETCHED: "Revenue growth fetched successfully",
   TRANSACTIONS_FETCHED: "Finance transactions fetched successfully",
   TENANT_TRANSACTIONS_FETCHED: "Tenant finance transactions fetched successfully",
+  TENANT_TRANSACTION_FETCHED: "Tenant finance transaction fetched successfully",
+  TRANSACTION_NOT_FOUND: "Finance transaction not found for this tenant and invoice",
   TENANT_ID_REQUIRED: "TenantId is required",
   TRANSACTION_CARD_COUNT_FETCHED: "Finance transaction card count fetched successfully",
   TODAY_ACTIVITIES_FETCHED: "Today's finance activities fetched successfully",
@@ -1236,4 +1289,18 @@ export const tenantChatMessages = {
   // 🔹 Generic
   VALIDATION_FAILED: "Validation Failed",
   INTERNAL_SERVER_ERROR: "Internal Server Error",
+};
+
+export const portalRequestMessages = {
+  VALIDATION_FAILED: "Validation failed",
+  SUBMITTED: "Portal request submitted successfully",
+  SUBMIT_FAILED: "Failed to submit portal request",
+  CATCH_LOG: "Create portal request error:",
+  TENANT_ID_REQUIRED: "Tenant ID is required",
+  TENANT_NAME_REQUIRED: "Tenant name is required",
+  PORTAL_NAME_REQUIRED: "Portal name is required",
+  PORTAL_ID_REQUIRED: "Please select a portal",
+  FEATURE_NAME_REQUIRED: "Feature name is required",
+  FEATURE_ID_REQUIRED: "Please select a feature",
+  REQUEST_REASON_REQUIRED: "Reason for request is required",
 };

@@ -26,6 +26,18 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       index: true,
     },
 
+    tenantName: {
+      type: String,
+      trim: true,
+    },
+
+    requestId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      unique: true,
+    },
+
     invoiceId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -116,6 +128,38 @@ export const RefundTransactionSchema = new Schema<IRefundTransaction>(
       type: String,
       trim: true,
       maxlength: 500,
+    },
+
+    paidAmount: {
+      type: Number,
+      min: 0,
+    },
+
+    refundAmount: {
+      type: Number,
+      min: 0,
+    },
+
+    newPlan: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+
+    additionalDetails: {
+      type: String,
+      trim: true,
+      maxlength: 5000,
+    },
+
+    eligibilityStatus: {
+      type: String,
+      enum: ["ELIGIBLE", "EXPIRED"],
+    },
+
+    daysRemaining: {
+      type: Number,
+      min: 0,
     },
 
     status: {

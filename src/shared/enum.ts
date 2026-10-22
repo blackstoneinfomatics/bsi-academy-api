@@ -11,6 +11,12 @@ export enum Status {
   COMPLETED = "Completed",
 }
 
+export enum RequestStatus {
+  PENDING = "Pending",
+  APPROVED = "Approved",
+  REJECTED = "Rejected",
+}
+
 export enum AssignmentStatus {
   ASSIGNED = "Assigned",
   PENDING = "Pending",
@@ -191,6 +197,11 @@ export enum ChatSendAccess {
   ADMIN_ONLY = "ADMIN_ONLY",
 }
 
+export enum ChatSource {
+  TENANT = "TENANT",
+  SUPER_ADMIN = "SUPER_ADMIN"
+}
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;
@@ -312,6 +323,13 @@ export enum TenantGrowthPeriod {
   WEEKLY = "weekly",
   MONTHLY = "monthly",
   YEARLY = "yearly",
+}
+
+export enum PortalRequestType {
+  ADD_PORTAL = "ADD_PORTAL",
+  DISABLE_PORTAL = "DISABLE_PORTAL",
+  ADD_FEATURE = "ADD_FEATURE",
+  DISABLE_FEATURE = "DISABLE_FEATURE",
 }
 
 export default CustomEnumerator;
