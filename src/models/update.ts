@@ -20,6 +20,8 @@ export const createUpdateValidation = z.object({
   recipientEmail: z.string().email("Recipient email must be valid").optional(),
   recipientEmails: z.array(z.string().email("Recipient email must be valid")).default([]),
   purchaseTenant: z.number().min(0).default(0),
+  monthlyPrice: z.number().nonnegative().default(0),
+  discount: z.number().min(0).max(100).default(0),
   status: z.enum(["Scheduled", "Published"]).default("Scheduled"),
 });
 
@@ -55,6 +57,8 @@ const UpdateSchema = new Schema(
     recipientEmail: { type: String },
     recipientEmails: { type: [String], default: [] },
     purchaseTenant: { type: Number, default: 0 },
+    monthlyPrice: { type: Number, default: 0 },
+    discount: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ["Scheduled", "Published"],
