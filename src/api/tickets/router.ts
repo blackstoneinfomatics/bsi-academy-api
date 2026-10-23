@@ -33,6 +33,18 @@ const register = async (server: Server): Promise<void> => {
         description: "Get ticket history",
       },
     },
+
+{
+  method: "GET",
+  path: "/tickets/dashboard/cards",
+  options: {
+    handler: handler.dashboardCards,
+    auth: "jwt",
+    tags: ["api", "tickets"],
+    description: "Get ticket dashboard card counts",
+  },
+},
+
     {
       method: "PATCH",
       path: "/tickets/{ticketId}/forward",
