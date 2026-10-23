@@ -120,11 +120,7 @@ export default {
   console.info("[auth:signIn] Password verified", {
     accountType: isTrialMember ? "trialMember" : "user",
   });
-console.log("LOGIN USER ID CHECK:", {
-  userId: user.userId,
-  mongoId: String(user._id),
-});
-  // 5. Generate token
+// 5. Generate token
   const jwtPayload = {
     userName: user.userName,
     sub: String(user._id),
@@ -139,7 +135,7 @@ console.log("LOGIN USER ID CHECK:", {
 
   // 7. Update last login only for normal users
   if (!isTrialMember) {
-    await updateUser(String(user.userId), {
+    await updateUser(String(user._id), {
       lastLoginDate: new Date(),
     });
   }
