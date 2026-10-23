@@ -571,7 +571,7 @@ export const createTicket = async (
   for (let attempt = 0; attempt < 3 && !ticket; attempt++) {
     try {
       ticket = await TicketModel.create({
-        ticketNumber: `TKT-${uuidv4().toUpperCase()}`,
+      ticketNumber: `TKT-${uuidv4().slice(0, 6).toUpperCase()}`,
         tenantId: actor.tenantId,
         createdBy: actor.userId,
         createdByRole: actor.role[0],
@@ -642,31 +642,37 @@ export const listTickets = async (
   input: TicketListInput,
 ) => {
   const { actor } = await accountFromCredentials(credentials);
-  const canManageTickets = await assertCanWriteTickets(actor);
-  const query: FilterQuery<ITicketDocument> = {
-    tenantId: actor.tenantId,
-  };
 
-  if (!canManageTickets) {
-    if (input.view === "raised") {
-      query.createdBy = actor.userId;
-    } else {
-      query.$or = [
-        { currentAssignedTo: actor.userId },
-        {
-          currentAssignedTo: { $exists: false },
-          recipientIds: actor.userId,
-        },
-      ];
-    }
+  const roles = Array.isArray(actor.role)
+    ? actor.role.map((role: string) => role.trim().toUpperCase())
+    : [String(actor.role).trim().toUpperCase()];
+
+  const isSuperAdmin = roles.includes("SUPERADMIN");
+
+  const query: FilterQuery<ITicketDocument> = {};
+
+  // Tenant users can only access their own tenant's tickets.
+  // SUPERADMIN bypass is allowed only if globally authorized.
+  if (!isSuperAdmin) {
+    query.tenantId = actor.tenantId;
   }
+
+  if (input.view === "raised") {
+    query.createdBy = actor.userId;
+  } else {
+    query.currentAssignedTo = actor.userId;
+    query.currentAssignedRole = { $in: roles };
+  }
+
   if (input.status) query.status = input.status;
   if (input.category) query.category = input.category;
   if (input.priority) query.priority = input.priority;
 
   const [tickets, total] = await Promise.all([
     TicketModel.find(query)
-      .sort({ [input.sortBy]: input.sortOrder === "asc" ? 1 : -1 })
+      .sort({
+        [input.sortBy]: input.sortOrder === "asc" ? 1 : -1,
+      })
       .skip((input.page - 1) * input.limit)
       .limit(input.limit)
       .lean(),
