@@ -53,6 +53,16 @@ const register = async (server: Server): Promise<void> => {
 
 {
   method: "GET",
+  path: "/api/updates/tenant/{tenantId}",
+  handler: handler.getTenantUpdatesHandler,
+  options: {
+    description: "Get updates and purchase status for a tenant",
+    tags: ["api", "updates"],
+  },
+},
+
+{
+  method: "GET",
   path: "/api/updates/{id}",
   handler: handler.getUpdateByIdHandler,
   options: {

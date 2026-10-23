@@ -6,6 +6,8 @@ import TenantModel from "../models/tenants";
 import TrialMemberModel from "../models/trailmember";
 import { appStatus } from "../config/messages";
 import { Status } from "../shared/enum";
+import { Types } from "mongoose";
+import AlStudentModel from "../models/alstudents";
 
 export const validateUserAuth = async (
   decoded: Record<string, unknown>,
@@ -45,13 +47,37 @@ export const validateUserAuth = async (
     const trialMember = user
       ? null
       : await TrialMemberModel.findOne({
-          _id: sub,
+          $or: [
+            { userId: sub },
+            ...(Types.ObjectId.isValid(sub)
+              ? [{ _id: new Types.ObjectId(sub) }]
+              : []),
+          ],
           tenantId,
           status: appStatus.ACTIVE,
         }).lean();
+    const student = user || trialMember
+      ? null
+      : await AlStudentModel.findOne({
+          $or: [
+            { "student.studentId": sub },
+            ...(Types.ObjectId.isValid(sub)
+              ? [{ _id: new Types.ObjectId(sub) }]
+              : []),
+          ],
+          tenantId,
+          status: appStatus.ACTIVE,
+        })
+          .select("tenantId student.studentId role")
+          .lean();
     if (!user) {
       console.info("[auth:jwt] Trial member lookup completed", {
         found: !isNil(trialMember),
+      });
+    }
+    if (!user && !trialMember) {
+      console.info("[auth:jwt] Student lookup completed", {
+        found: !isNil(student),
       });
     }
 
@@ -82,23 +108,29 @@ export const validateUserAuth = async (
 
     if (
       !tenantHeaderMatches ||
-      (isNil(user) && isNil(trialMember)) ||
+      (isNil(user) && isNil(trialMember) && isNil(student)) ||
       isNil(tenant) ||
       isNil(activeSession)
     ) {
       console.warn("[auth:jwt] Validation failed", {
         tenantHeaderMatches,
-        userOrTrialMemberFound: !isNil(user) || !isNil(trialMember),
+        accountFound: !isNil(user) || !isNil(trialMember) || !isNil(student),
         tenantFound: !isNil(tenant),
         activeSessionFound: !isNil(activeSession),
       });
       return { isValid: false };
     }
     console.info("[auth:jwt] Validation successful");
+    const userId =
+      user?.userId ?? trialMember?.userId ?? student?.student?.studentId;
+    const role = user?.role ?? trialMember?.role ??
+      (typeof student?.role === "string" ? [student.role] : undefined);
     return {
       isValid: true,
       credentials: {
         sub,
+        ...(typeof userId === "string" ? { userId } : {}),
+        ...(Array.isArray(role) ? { role } : {}),
         tenantId,
         ...(typeof decoded.userName === "string"
           ? { userName: decoded.userName }

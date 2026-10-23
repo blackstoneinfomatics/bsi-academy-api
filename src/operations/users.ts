@@ -37,7 +37,7 @@ export const getAllUserRecords = async (
   if (role) query.role = role;
 
   // Fetch all users matching the query
-  const users = await UserModel.find(query).exec();
+  const users = await UserModel.find(query).select("-password").exec();
   const totalCount = await UserModel.countDocuments(query);
   return { users, totalCount };
 };
@@ -96,7 +96,12 @@ export const getActiveUserRecord = async (
     status: appStatus.ACTIVE,
   };
 
-  if (!isNil(id)) dbQuery._id = new Types.ObjectId(id);
+  if (!isNil(id)) {
+    dbQuery.$or = [
+      { userId: id },
+      ...(Types.ObjectId.isValid(id) ? [{ _id: new Types.ObjectId(id) }] : []),
+    ];
+  }
   if (!isNil(userName)) dbQuery.userName = userName;
   if (!isNil(tenantId)) dbQuery.tenantId = tenantId;
   if (!isNil(role)) dbQuery.role = role;
