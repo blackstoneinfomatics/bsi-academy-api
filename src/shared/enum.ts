@@ -332,4 +332,35 @@ export enum PortalRequestType {
   DISABLE_FEATURE = "DISABLE_FEATURE",
 }
 
+export enum TICKET_CATEGORIES {
+  TECHNICAL_ISSUE = "TECHNICAL_ISSUE",
+  STUDENT_MANAGEMENT = "STUDENT_MANAGEMENT",
+  TEACHER_MANAGEMENT = "TEACHER_MANAGEMENT",
+  ADMIN_MANAGEMENT = "ADMIN_MANAGEMENT",
+  PLAYER_MANAGEMENT = "PLAYER_MANAGEMENT",
+  PAYMENT_INVOICE = "PAYMENT_INVOICE",
+  SUBSCRIPTION_PLAN = "SUBSCRIPTION_PLAN",
+  FEATURE_REQUEST = "FEATURE_REQUEST",
+  OTHERS = "OTHERS",
+} 
+
+export enum TICKET_PRIORITIES {
+  LOW = "Low",
+  MEDIUM = "Medium",
+  HIGH = "High",
+  CRITICAL = "Critical",
+}
+
+export enum TICKET_STATUSES {
+  OPEN = "Open",
+  ACKNOWLEDGED = "Acknowledged",
+  IN_PROGRESS = "InProgress",
+  FORWARDED = "Forwarded",
+  RESOLVED = "Resolved",
+  CLOSED = "Closed",
+}
+
+
+
+
 export default CustomEnumerator;

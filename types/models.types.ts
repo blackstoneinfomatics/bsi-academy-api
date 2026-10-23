@@ -21,6 +21,9 @@ import CustomEnumerator, {
   ChatSendAccess,
   RequestStatus,
   PortalRequestType,
+  TICKET_CATEGORIES,
+  TICKET_PRIORITIES,
+  TICKET_STATUSES,
 } from "../src/shared/enum";
 
 enum Status {
@@ -3175,13 +3178,17 @@ export interface ITenantDetailsResponse {
 }
 
 export interface ILookup extends Document {
-  tenantId: string;
+  tenantId?: string;
   userId: string;
   lookupKey: string;
   keyName: string;
   keyValue: string;
   dataType: "string" | "number" | "boolean";
   status: "Active" | "Inactive";
+  ticketAssignment?: {
+    scope: "global" | "tenant" | "related";
+    relationship?: "studentClassScheduleTeacher";
+  };
   createdBy: string;
   lastUpdatedBy: string;
   createdAt?: Date;
@@ -3421,4 +3428,49 @@ export interface IRefundRequest {
   status: RequestStatus;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+
+
+
+
+export interface ITicketAttachment {
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+}
+
+export interface ITicket {
+  ticketNumber: string;
+  tenantId: string;
+  createdBy: string;
+  createdByRole: string;
+  recipientRole: string;
+  recipientIds: string[];
+  subject: string;
+  category: TICKET_CATEGORIES;
+  priority: TICKET_PRIORITIES;
+  relatedTo?: string;
+  description: string;
+  attachments: ITicketAttachment[];
+  status: TICKET_STATUSES;
+  acknowledgedBy?: string;
+  acknowledgedAt?: Date;
+  acknowledgementMessage?: string;
+  resolutionNote?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  currentAssignedRole?: string;
+  currentAssignedTo?: string[];
+  history: {
+    action: string;
+    fromUserId: string;
+    fromRole: string;
+    toUserIds: string[];
+    toRole: string;
+    message?: string;
+    createdAt: Date;
+  }[];
 }

@@ -120,12 +120,16 @@ export default {
   console.info("[auth:signIn] Password verified", {
     accountType: isTrialMember ? "trialMember" : "user",
   });
-
+console.log("LOGIN USER ID CHECK:", {
+  userId: user.userId,
+  mongoId: String(user._id),
+});
   // 5. Generate token
   const jwtPayload = {
     userName: user.userName,
     sub: String(user._id),
     tenantId: user.tenantId,
+    role: user.role,
   };
 
   const accessToken = generateAuthToken(jwtPayload);
@@ -135,7 +139,7 @@ export default {
 
   // 7. Update last login only for normal users
   if (!isTrialMember) {
-    await updateUser(String(user._id), {
+    await updateUser(String(user.userId), {
       lastLoginDate: new Date(),
     });
   }
@@ -216,8 +220,13 @@ export default {
 
     // Determine which record to use
     const activeRecord = users;
+    const studentId = activeRecord.student?.studentId;
+    if (typeof studentId !== "string" || !studentId.trim()) {
+      return badRequest("Student custom ID is unavailable");
+    }
+
     // 🔎 Step 1: Find latest session for this user (by loginDate)
-    const latestSession = await ActiveSessionModel.findOne({ userId: String(activeRecord._id) })
+    const latestSession = await ActiveSessionModel.findOne({ userId: studentId })
     .sort({ loginDate: -1 }) // most recent first
     .exec();
 
@@ -231,7 +240,8 @@ export default {
   }
     const jwtPayload = {
       userName:  activeRecord.username,
-      sub: String(activeRecord._id),
+      sub: studentId,
+      tenantId: activeRecord.tenantId,
     };
 
     const accessToken = generateAuthToken(jwtPayload);
@@ -240,7 +250,7 @@ export default {
 
     // Save the session for logout activity
     await createActiveSessionRecord({
-      userId: String(activeRecord._id),
+      userId: studentId,
       loginDate: new Date(),
       isActive: true,
       accessToken,
@@ -329,10 +339,14 @@ export default {
       }
 
       const activeRecord = users;
+      const studentId = activeRecord?.student?.studentId;
+      if (typeof studentId !== "string" || !studentId.trim()) {
+        return badRequest("Student custom ID is unavailable");
+      }
 
     const jwtPayload = {
       userName: activeRecord.userName ,
-      sub: String(activeRecord._id),
+      sub: studentId,
     };
 
     const accessToken = generateAuthToken(jwtPayload);
@@ -340,7 +354,7 @@ export default {
 
     // Save the session for logout activity
     await createActiveSessionRecord({
-      userId: String(activeRecord._id),
+      userId: studentId,
       loginDate: new Date(),
       isActive: true,
       accessToken,
@@ -373,7 +387,6 @@ export default {
     }
 
       const activeRecord = users;
-
        const jwtPayload = {
       userName: user.userName,
       sub: String(user._id),
