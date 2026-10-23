@@ -202,6 +202,37 @@ export enum ChatSource {
   SUPER_ADMIN = "SUPER_ADMIN"
 }
 
+
+export enum PurchaseRequestStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  PAYMENT_PENDING = "PAYMENT_PENDING",
+  PAID = "PAID",
+  SCHEDULED = "SCHEDULED",
+  ACTIVATED = "ACTIVATED",
+  CANCELLED = "CANCELLED",
+  EXPIRED = "EXPIRED",
+  FAILED = "FAILED",
+  DELETED ="DELETED"
+}
+
+export enum PurchaseActivationMode {
+  IMMEDIATE = "IMMEDIATE",
+  NEXT_PLAN = "NEXT_PLAN",
+}
+
+export enum PurchasePaymentStatus {
+  NOT_REQUIRED = "NOT_REQUIRED",
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  PAID = "PAID",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED",
+}
+
+
 export class CustomEnumerator {
   static readonly classStatus = classStatus;
   static readonly Status = Status;

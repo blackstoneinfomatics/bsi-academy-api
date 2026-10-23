@@ -1,6 +1,7 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import {
   createUpdate,
+  getPurchaseQuoteService,
   getTenantUpdates,
   getUpdateById,
   getUpdateDashboardCards,
@@ -9,6 +10,7 @@ import {
 import { createUpdateValidation } from "../../models/update";
 import { z } from "zod";
 import { updateMessage } from "../../config/messages";
+import { throwError } from "../../helpers/throwError";
 
 export const getUpdatesListValidation = z.object({
   query: z.object({
@@ -38,6 +40,19 @@ export const getUpdatesListValidation = z.object({
 export const getTenantUpdatesValidation = z.object({
   params: z.object({
     tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  }),
+});
+
+const objectId = z
+  .string()
+  .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
+export const GetPurchaseQuoteValidation = z.object({
+  params: z.object({
+    featureId: objectId,
+  }),
+  query: z.object({
+    activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
   }),
 });
 
@@ -238,6 +253,43 @@ export default
       })
       .code(err?.statusCode || 500);
   }
+},
+
+async getPurchaseQuote (
+  request: Request,
+  h: ResponseToolkit,
+){
+  try {
+    const parsed = GetPurchaseQuoteValidation.safeParse({
+      params: request.params,
+      query: request.query,
+    });
+       
+    const tenantId = request.headers.tenantid as string;
+
+
+    if (!parsed.success) {
+      throwError(parsed.error.issues[0].message, 400);
+    }
+
+     const paramData = parsed?.data?.params as any;
+     const queryData = parsed?.data?.query as any;
+
+    const result = await getPurchaseQuoteService({
+      tenantId,
+      featureId: paramData.featureId,
+      activationMode: queryData.activationMode,
+    });
+
+    return h.response({
+      success: true,
+      message: "Purchase quote calculated successfully",
+      data: result,
+    }).code(200);
+  } catch (error) {
+    throw error;
+  }
 }
+
 
 }

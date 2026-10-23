@@ -21,7 +21,7 @@ import StudentModel from "../models/student";
 import RecruitmentModel from "../models/recruitment";
 import UserModel from "../models/users";
 import { Lookup } from "../models/lookup";
-import { CHAT_EVENTS, emitChatEventToRoom } from "../shared/socket";
+import { CHAT_EVENTS, emitChatEventToRoom, emitEventToClient } from "../shared/socket";
 
 interface GetChatRoomsInput {
   userId: string;
@@ -893,6 +893,13 @@ export const sendUserMessageService = async (payload: SendMessagePayload) => {
         roomId,
         message: formattedMessage,
       });
+      const members = await UserRoomMemberModel.find({
+  roomId,
+  isActive: true,
+  deletedAt: null,
+})
+  .select("userId")
+  .lean();
 
       let roomname = room.name;
       let course: string | null = null;
@@ -932,16 +939,17 @@ export const sendUserMessageService = async (payload: SendMessagePayload) => {
           isDeleted: false,
         },
         lastMessageAt: newMessage.createdAt.toISOString(),
-        unreadCount: 0,
+        unreadCount: 1,
         isUnread: false,
       };
 
-      emitChatEventToRoom(
-        source,
-        String(roomId),
-        CHAT_EVENTS.ROOM_LIST_UPDATED,
-        roomListUpdate,
-      );
+      for (const member of members) {
+  emitEventToClient(
+    CHAT_EVENTS.ROOM_LIST_UPDATED,
+    roomListUpdate,
+    member.userId,
+  );
+}
     } catch (socketError) {
       console.error("Socket emit failed:", socketError);
     }
