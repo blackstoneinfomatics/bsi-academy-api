@@ -1,5 +1,11 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
-import { createUpdate, getUpdateById, getUpdateDashboardCards, getUpdatesList } from "../../operations/update";
+import {
+  createUpdate,
+  getTenantUpdates,
+  getUpdateById,
+  getUpdateDashboardCards,
+  getUpdatesList,
+} from "../../operations/update";
 import { createUpdateValidation } from "../../models/update";
 import { z } from "zod";
 import { updateMessage } from "../../config/messages";
@@ -26,6 +32,12 @@ export const getUpdatesListValidation = z.object({
     priority: z
       .enum(["Low", "Medium", "High"])
       .optional(),
+  }),
+});
+
+export const getTenantUpdatesValidation = z.object({
+  params: z.object({
+    tenantId: z.string().trim().min(1, "Tenant ID is required"),
   }),
 });
 
@@ -142,6 +154,50 @@ export default
       .code(err?.statusCode || 500);
   }
 },
+
+  async getTenantUpdatesHandler(
+    request: Request,
+    h: ResponseToolkit,
+  ) {
+    const parsed = getTenantUpdatesValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!parsed.success) {
+      return h
+        .response({
+          success: false,
+          message: parsed.error.issues[0]?.message || "Invalid tenant ID",
+          errorCode: 400,
+        })
+        .code(400);
+    }
+
+    try {
+      const result = await getTenantUpdates(parsed.data.params.tenantId);
+
+      return h
+        .response({
+          success: true,
+          message: updateMessage.UPDATE_TABLE_SUCCESS,
+          data: result,
+        })
+        .code(200);
+    } catch (error: unknown) {
+      const err = error as {
+        message?: string;
+        statusCode?: number;
+      };
+
+      return h
+        .response({
+          success: false,
+          message: err.message || "Internal Server Error",
+          errorCode: err.statusCode || 500,
+        })
+        .code(err.statusCode || 500);
+    }
+  },
 
   async getUpdateByIdHandler (
   request: Request,

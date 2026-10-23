@@ -764,6 +764,28 @@ export const getUpdatesList = async (
   };
 };
 
+export const getTenantUpdates = async (tenantId: string) => {
+  const updates = await UpdateModel.find({
+    selectedTenants: tenantId,
+    deletedAt: null,
+  })
+    .select({
+      title: 1,
+      description: 1,
+      category: 1,
+      publishDate: 1,
+      status: 1,
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return updates.map((update) => ({
+    ...update,
+    purchaseStatus:
+      update.status === "Published" ? "Requested" : "Not Purchased",
+  }));
+};
+
 export const getUpdateById = async (id: string) => {
   if (!mongoose.isValidObjectId(id)) {
     const error = new Error("Update not found") as Error & {
