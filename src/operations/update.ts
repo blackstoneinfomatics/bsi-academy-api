@@ -729,13 +729,52 @@ export const getTenantUpdates = async (tenantId: string) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  return updates.map((update) => ({
-    ...update,
-    purchaseStatus:
-      update.status === "Published"
-        ? updateMessage.TENANT_UPDATE_REQUESTED
-        : updateMessage.TENANT_UPDATE_NOT_PURCHASED,
-  }));
+  if (!updates.length) {
+    return [];
+  }
+
+  const updateIds = updates.map((update) => update._id);
+
+  const purchaseRequests = await purchaseRequest.find({
+    "tenant.tenantId": tenantId,
+    "update.updateId": { $in: updateIds },
+    deletedAt: null,
+  })
+    .select({
+      "update.updateId": 1,
+      status: 1,
+      requestedAt: 1,
+    })
+    .sort({ requestedAt: -1 })
+    .lean();
+
+
+  // Keep the latest purchase request for each update.
+  const purchaseRequestMap = new Map<
+    string,
+    { status: string; requestedAt: Date }
+  >();
+
+  for (const purchase of purchaseRequests) {
+    const updateId = String(purchase.update.updateId);
+
+    if (!purchaseRequestMap.has(updateId)) {
+      purchaseRequestMap.set(updateId, {
+        status: purchase.status,
+        requestedAt: purchase.requestedAt,
+      });
+    }
+  }
+
+  return updates.map((update) => {
+    const purchase = purchaseRequestMap.get(String(update._id));
+
+    return {
+      ...update,
+      requestedDate: purchase?.requestedAt ?? null,
+      purchaseStatus: purchase?.status ?? "NOT PURCHASED",
+    };
+  });
 };
 
 export const getUpdateById = async (id: string) => {
@@ -1205,6 +1244,67 @@ export const createPurchaseRequestService = async ({
     activatedAt: null,
     deletedAt: null,
   });
+
+      const superAdminTenant = await Lookup.findOne({
+               lookupKey: "SUPER_ADMIN",
+               status: "Active",
+             }).lean();
+     
+             if (!superAdminTenant) {
+               throwError("Super admin tenant not found", 404);
+             }
+     
+             const superAdminUser = await TenantUsers.findOne({
+               tenantId: superAdminTenant?.tenantId,
+               role: "SUPERADMIN",
+               status: appStatus.ACTIVE,
+             })
+               .select("userId tenantId userName role email")
+               .lean<{
+                 userId: string;
+                 tenantId: string;
+                 userName: string;
+                 email:string;
+                 role: string[];
+               }>();
+
+               const admin = await TenantUsers.findOne({
+                tenantId:tenantId,
+                userId:requestedBy,
+                role:"ADMIN",
+                status:appStatus.ACTIVE,
+               })
+                .select("userId tenantId userName role email")
+               .lean<{
+                 userId: string;
+                 tenantId: string;
+                 userName: string;
+                 email:string;
+                 role: string[];
+               }>();
+
+    await sendNotification({
+      tenantId :superAdminUser?.tenantId,
+      senderTenantId:tenantId,
+      receiverTenantId: superAdminUser?.tenantId,
+      title: `Update Request by ${admin?.userName}`,
+      messages: `New Update purchase request for ${update.title} `,
+      senderId: admin?.userId,
+      senderName: admin?.userName,
+      receiverId: superAdminUser?.userId,
+      receiverName:superAdminUser?.userName,
+      receiverEmail:superAdminUser?.email,
+      notificationType: "UPDATE_REQUESTED",
+      notificationStatus: "Unseen",
+      isRead: false,
+      status: "active",
+      metadata: {
+        updateId,
+        category: update.category,
+      },
+      createdBy: "system",
+      updatedBy: "system",
+    });
 
   // 11. Return only required response fields
   return {
