@@ -8,7 +8,7 @@ import TenantUsers from "../models/users";
 import emailTemplates from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
 import { sendNotification } from "./notification";
-import { appStatus } from "../config/messages";
+import { appStatus, updateMessage } from "../config/messages";
 import { Lookup } from "../models/lookup";
 import { throwError } from "../helpers/throwError";
 import {
@@ -35,6 +35,11 @@ interface CreatePurchaseRequestParams {
   updateId: string;
   activationMode: PurchaseActivationMode;
   requestedBy: string;
+}
+
+interface GetTenantUpdateDetailsInput {
+  updateId: string;
+  tenantId: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -727,7 +732,9 @@ export const getTenantUpdates = async (tenantId: string) => {
   return updates.map((update) => ({
     ...update,
     purchaseStatus:
-      update.status === "Published" ? "Requested" : "Not Purchased",
+      update.status === "Published"
+        ? updateMessage.TENANT_UPDATE_REQUESTED
+        : updateMessage.TENANT_UPDATE_NOT_PURCHASED,
   }));
 };
 
@@ -1205,5 +1212,48 @@ export const createPurchaseRequestService = async ({
     purchaseNumber: PurchaseRequest.purchaseNumber,
     status: PurchaseRequest.status,
     activationMode: PurchaseRequest.activationMode,
+  };
+};
+
+export const getTenantUpdateDetails = async ({
+  updateId,
+  tenantId,
+}: GetTenantUpdateDetailsInput) => {
+  if (!mongoose.isValidObjectId(updateId)) {
+    throw new Error(updateMessage.UPDATE_INVALID_ID);
+  }
+
+  // Fetch update details.
+  const update = await UpdateModel.findOne({
+    _id: updateId,
+    deletedAt: null,
+  })
+    .select("title category description status")
+    .lean();
+
+  if (!update) {
+    throw new Error(updateMessage.UPDATE_NOT_FOUND);
+  }
+
+  // Find the purchase request for this feature and tenant.
+  // updates._id matches purchaserequest.featureId.
+  const purchaseRequestRecord = await purchaseRequest.findOne({
+    featureId: update._id,
+    tenantId,
+    deletedAt: null,
+  })
+    .select("status requestedAt")
+    .sort({ requestedAt: -1 })
+    .lean();
+
+  return {
+    _id: update._id,
+    title: update.title,
+    category: update.category,
+    description: update.description,
+    status: update.status,
+
+    purchaseStatus: purchaseRequestRecord?.status ?? "Not Requested",
+    requestedAt: purchaseRequestRecord?.requestedAt ?? null,
   };
 };

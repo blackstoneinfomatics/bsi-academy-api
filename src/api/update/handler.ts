@@ -3,6 +3,7 @@ import {
   createPurchaseRequestService,
   createUpdate,
   getPurchaseQuoteService,
+  getTenantUpdateDetails,
   getTenantUpdates,
   getUpdateById,
   getUpdateDashboardCards,
@@ -40,7 +41,10 @@ export const getUpdatesListValidation = z.object({
 
 export const getTenantUpdatesValidation = z.object({
   params: z.object({
-    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+    tenantId: z
+      .string()
+      .trim()
+      .min(1, updateMessage.TENANT_UPDATE_TENANT_ID_REQUIRED),
   }),
 });
 
@@ -64,6 +68,12 @@ export const createPurchaseQuoteValidation = z.object({
   query: z.object({
     activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
     requestedBy: z.string().trim().min(1, "Requested By is required")
+  }),
+});
+
+export const getTenantUpdateDetailsValidation = z.object({
+  params: z.object({
+    updateId: objectId,
   }),
 });
 
@@ -193,7 +203,9 @@ export default
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0]?.message || "Invalid tenant ID",
+          message:
+            parsed.error.issues[0]?.message ||
+            updateMessage.TENANT_UPDATE_TENANT_ID_REQUIRED,
           errorCode: 400,
         })
         .code(400);
@@ -205,7 +217,7 @@ export default
       return h
         .response({
           success: true,
-          message: updateMessage.UPDATE_TABLE_SUCCESS,
+          message: updateMessage.TENANT_UPDATES_FETCHED_SUCCESS,
           data: result,
         })
         .code(200);
@@ -218,7 +230,8 @@ export default
       return h
         .response({
           success: false,
-          message: err.message || "Internal Server Error",
+          message:
+            err.message || updateMessage.TENANT_UPDATES_FETCH_FAILED,
           errorCode: err.statusCode || 500,
         })
         .code(err.statusCode || 500);
@@ -334,6 +347,66 @@ async getPurchaseQuote (
     }).code(200);
   } catch (error) {
     throw error;
+  }
+},
+
+async getTenantUpdateDetailsHandler (
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const validation = getTenantUpdateDetailsValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!validation.success) {
+      return h.response({
+        success: false,
+        message: updateMessage.UPDATE_VALIDATION_FAILED,
+        data: null,
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      }).code(400);
+    }
+
+    const tenantId = request.headers.tenantid as string;
+
+    if (!tenantId) {
+      return h.response({
+        success: false,
+        message: updateMessage.UPDATE_TENANT_FAILED,
+        data: null,
+      }).code(401);
+    }
+
+    const result = await getTenantUpdateDetails({
+      updateId: validation.data.params.updateId,
+      tenantId,
+    });
+
+    return h.response({
+      success: true,
+      message: updateMessage.UPDATE_FETCHED_SUCCESS,
+      data: result,
+    }).code(200);
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    const message = err.message || updateMessage.UPDATE_FETCH_FAILED;
+
+    const statusCode =
+      message === updateMessage.UPDATE_INVALID_ID
+        ? 400
+        : message === updateMessage.UPDATE_NOT_FOUND
+          ? 404
+          : 500;
+
+    return h.response({
+      success: false,
+      message,
+      data: null,
+    }).code(statusCode);
   }
 }
 

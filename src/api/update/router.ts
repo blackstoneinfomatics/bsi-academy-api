@@ -56,7 +56,7 @@ const register = async (server: Server): Promise<void> => {
   path: "/api/updates/tenant/{tenantId}",
   handler: handler.getTenantUpdatesHandler,
   options: {
-    description: "Get updates and purchase status for a tenant",
+    description: updateMessage.TENANT_UPDATES_DESCRIPTION,
     tags: ["api", "updates"],
   },
 },
@@ -95,6 +95,19 @@ const register = async (server: Server): Promise<void> => {
     // auth: {
     //   strategies: ["jwt"],
     // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/tenant/updates/{updateId}/details",
+  handler: handler.getTenantUpdateDetailsHandler,
+  options: {
+    // auth: {
+    //   strategy: "jwt",
+    // },
+    description: updateMessage.UPDATE_DETAILS_DESCRIPTION,
+    tags: ["api", "tenant", "updates"],
   },
 },
 
