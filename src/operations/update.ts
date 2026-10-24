@@ -18,6 +18,8 @@ import {
   SubscriptionStatus,
   PaymentStatus,
 } from "../shared/enum";
+import { randomUUID } from "crypto";
+import purchaseRequest from "../models/purchaseRequest";
 
 interface GetUpdatesListParams {
   page: number;
@@ -26,6 +28,13 @@ interface GetUpdatesListParams {
   status?: string;
   category?: string;
   priority?: string;
+}
+
+interface CreatePurchaseRequestParams {
+  tenantId: string;
+  updateId: string;
+  activationMode: PurchaseActivationMode;
+  requestedBy: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -766,7 +775,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 interface GetPurchaseQuoteParams {
   tenantId: string;
-  featureId: string;
+  updateId: string;
   activationMode: PurchaseActivationMode;
 }
 
@@ -781,7 +790,7 @@ const getRemainingDays = (subscriptionEndDate: Date, now: Date): number =>
 
 export const getPurchaseQuoteService = async ({
   tenantId,
-  featureId,
+  updateId,
   activationMode,
 }: GetPurchaseQuoteParams) => {
   // 1. Validate activation mode
@@ -803,13 +812,13 @@ export const getPurchaseQuoteService = async ({
   // 3. Get the latest applicable feature update
   const now = new Date();
 
-  const featureUpdate = await UpdateModel.findOne({
-    _id: new Types.ObjectId(featureId),
+  const update = await UpdateModel.findOne({
+    _id: new Types.ObjectId(updateId),
     deletedAt: null,
   }).lean();
 
-  if (!featureUpdate) {
-    throwError("Active feature pricing not found", 404);
+  if (!update) {
+    throwError("Active update pricing not found", 404);
     return;
   }
 
@@ -874,8 +883,8 @@ export const getPurchaseQuoteService = async ({
   }
 
   const gstRate = Number(gstRateValue);
-  const monthlyAmount = Number(featureUpdate.monthlyPrice);
-  const discountValue = Number(featureUpdate.discount ?? 0);
+  const monthlyAmount = Number(update.monthlyPrice);
+  const discountValue = Number(update.discount ?? 0);
 
   if (
     !Number.isFinite(monthlyAmount) ||
@@ -906,8 +915,9 @@ export const getPurchaseQuoteService = async ({
     subscriptionStartDate,
     subscriptionEndDate,
 
-    featureId: String(featureUpdate._id),
-    featureName: featureUpdate.title,
+    updateId: String(update._id),
+    updateName: update.title,
+    category:update.category,
     monthlyAmount,
     discountValue,
     currency: "INR",
@@ -943,5 +953,257 @@ export const getPurchaseQuoteService = async ({
     gstRate,
     gstAmount,
     totalAmount,
+  };
+};
+
+
+export const createPurchaseRequestService = async ({
+  tenantId,
+  updateId,
+  activationMode,
+  requestedBy,
+}: CreatePurchaseRequestParams) => {
+  const now = new Date();
+
+  const tenant = await Tenants.findOne({
+    tenantCode: tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenant) {
+    throwError("Tenant not found", 404);
+    return;
+  }
+
+   const update = await UpdateModel.findOne({
+    _id: new Types.ObjectId(updateId),
+    deletedAt: null,
+  }).lean();
+
+  if (!update) {
+    throwError("update not found", 404);
+    return;
+  }
+
+  // 3. Validate tenant eligibility
+  if (!update.selectedTenants?.includes(tenantId)) {
+    throwError("update is not available for this tenant", 403);
+    return;
+  }
+
+   const subscription = await TenantSubscription.findOne({
+    tenantId: tenant.tenantCode,
+    status: SubscriptionStatus.ACTIVE,
+    paymentStatus: PaymentStatus.PAID,
+    deletedAt: null,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!subscription) {
+    throwError("Active tenant subscription not found", 404);
+    return;
+  }
+
+  const subscriptionStartDate = subscription.startDate
+    ? new Date(subscription.startDate)
+    : null;
+
+  const subscriptionEndDate = subscription.endDate
+    ? new Date(subscription.endDate)
+    : null;
+
+  if (!subscriptionStartDate || !subscriptionEndDate) {
+    throwError("Subscription  start and end date is required", 400);
+    return;
+  }
+
+  if (
+    Number.isNaN(subscriptionStartDate.getTime()) ||
+    Number.isNaN(subscriptionEndDate.getTime()) ||
+    subscriptionEndDate <= subscriptionStartDate
+  ) {
+    throwError("Invalid subscription dates", 400);
+    return;
+  }
+
+  // 5. Fetch current plan
+  const plan = await planModel.findOne({
+    _id: subscription.planId,
+    deletedAt: null,
+  }).lean();
+
+  if (!plan) {
+    throwError("Subscription plan not found", 404);
+    return;
+  }
+
+  // 6. Read feature pricing
+  const monthlyAmount = Number(update.monthlyPrice);
+  const discountValue = Number(update.discount ?? 0);
+
+  if (
+    !Number.isFinite(monthlyAmount) ||
+    monthlyAmount < 0 ||
+    !Number.isFinite(discountValue) ||
+    discountValue < 0 ||
+    discountValue > 100
+  ) {
+    throwError("Invalid feature pricing or discount", 400);
+    return;
+  }
+
+  // 7. Calculate subscription duration
+  const totalPeriodDays = Math.max(
+    1,
+    Math.ceil(
+      (subscriptionEndDate.getTime() -
+        subscriptionStartDate.getTime()) /
+        DAY_IN_MS,
+    ),
+  );
+
+  const remainingDays = Math.max(
+    0,
+    Math.ceil(
+      (subscriptionEndDate.getTime() - now.getTime()) / DAY_IN_MS,
+    ),
+  );
+
+  // 8. Calculate pricing
+  let subAmount: number;
+  let discountAmount: number;
+  let gstRate: number;
+  let gstAmount: number;
+  let totalAmount: number;
+
+  if (activationMode === PurchaseActivationMode.IMMEDIATE) {
+    if (now < subscriptionStartDate || remainingDays <= 0) {
+      throwError("Subscription is not currently active", 400);
+      return;
+    }
+
+    gstRate = Number(plan.billingPeriods?.[0]?.gstRate ?? 0);
+
+    if (
+      !Number.isFinite(gstRate) ||
+      gstRate < 0 ||
+      gstRate > 100
+    ) {
+      throwError("Invalid GST rate configured on plan", 400);
+      return;
+    }
+
+    subAmount = roundMoney(
+    (monthlyAmount / BILLING_CYCLE_DAYS) * remainingDays,
+  );
+
+   discountAmount = roundMoney(subAmount * (discountValue / 100));
+
+
+  gstAmount = roundMoney(subAmount * (gstRate / 100));
+
+  totalAmount = roundMoney((subAmount + gstAmount) - discountAmount);
+
+  } else {
+    // NEXT_PLAN: store the monthly pricing snapshot.
+    // Recalculate applicable tax when the next subscription takes effect.
+    subAmount = 0;
+    discountAmount =0;
+    gstRate = 0;
+    gstAmount = 0;
+    totalAmount = 0;
+  }
+
+  const existingRequest = await purchaseRequest.findOne({
+    "tenant.tenantId": tenantId,
+    "update.updateId": new Types.ObjectId(updateId),
+    status: {
+      $in: [
+        PurchaseRequestStatus.PENDING_APPROVAL,
+        PurchaseRequestStatus.APPROVED,
+        PurchaseRequestStatus.PAYMENT_PENDING,
+        PurchaseRequestStatus.SCHEDULED,
+      ],
+    },
+    deletedAt: null,
+  }).lean();
+
+  if (existingRequest) {
+    throwError(
+      "A purchase request already exists for this feature",
+      409,
+    );
+    return;
+  }
+
+  // 10. Save using your existing PurchaseRequestSchema
+  const PurchaseRequest = await purchaseRequest.create({
+    purchaseNumber: `PUR-${randomUUID()
+      .replace(/-/g, "")
+      .slice(0, 12)
+      .toUpperCase()}`,
+
+    status: PurchaseRequestStatus.PENDING_APPROVAL,
+    activationMode,
+    requestedAt: now,
+
+    tenant: {
+      tenantId: String(tenant.tenantCode),
+      tenantName: String(tenant.tenantName),
+      requestedBy,
+    },
+
+    subscription: {
+      tenantSubscriptionId: subscription._id,
+      currentPlanId: plan._id,
+      currentPlanName: plan.planName,
+      subscriptionStartDate,
+      subscriptionEndDate,
+      remainingDays,
+      totalPeriodDays,
+    },
+
+    update: {
+      updateId: update._id,
+      updateName: update.title,
+      category:update.category,
+      monthlyAmount,
+      discountValue,
+    },
+
+    pricing: {
+      subAmount,
+      discountAmount,
+      gstRate,
+      gstAmount,
+      totalAmount,
+      currency: "INR",
+    },
+
+    approval: {
+      approvedBy: null,
+      approvedAt: null,
+      rejectionReason: null,
+    },
+
+    payment: {
+      paymentId: null,
+      paymentStatus:
+        activationMode === PurchaseActivationMode.IMMEDIATE
+          ? PurchasePaymentStatus.PENDING
+          : PurchasePaymentStatus.NOT_REQUIRED,
+    },
+
+    activatedAt: null,
+    deletedAt: null,
+  });
+
+  // 11. Return only required response fields
+  return {
+    purchaseRequestId: PurchaseRequest._id,
+    purchaseNumber: PurchaseRequest.purchaseNumber,
+    status: PurchaseRequest.status,
+    activationMode: PurchaseRequest.activationMode,
   };
 };

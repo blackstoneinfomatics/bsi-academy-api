@@ -1183,7 +1183,12 @@ export const updateMessage = {
   UPDATE_TABLE : "Get updates list",
   UPDATE_TABLE_SUCCESS : "Updates fetched successfully",
   UPDATR_GETBYID : "Get update details by ID",
-  UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully"
+  UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully",
+  UPDATE_PURCHASE_CREATE :"create Update purchase ",
+ UPDATE_PURCHASE_SUCCESS :"Update purchase created successfully",
+   UPDATE_PURCHASE_GETBYID_QUOTE :"Get update quote by ID ",
+     UPDATE_PURCHASE_GETBYID_QUOTE_SUCCESS :"Get update quote by ID fetched successfully ",
+
 }
 
 export const auditLogMessages = {

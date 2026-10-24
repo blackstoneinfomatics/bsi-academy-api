@@ -1,5 +1,6 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import {
+  createPurchaseRequestService,
   createUpdate,
   getPurchaseQuoteService,
   getTenantUpdates,
@@ -49,10 +50,20 @@ const objectId = z
 
 export const GetPurchaseQuoteValidation = z.object({
   params: z.object({
-    featureId: objectId,
+    updateId: objectId,
   }),
   query: z.object({
     activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
+  }),
+});
+
+export const createPurchaseQuoteValidation = z.object({
+  params: z.object({
+    updateId: objectId,
+  }),
+  query: z.object({
+    activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
+    requestedBy: z.string().trim().min(1, "Requested By is required")
   }),
 });
 
@@ -255,6 +266,41 @@ export default
   }
 },
 
+async createPurchase(request: Request,
+  h: ResponseToolkit){
+     try {
+    const parsed = createPurchaseQuoteValidation.safeParse({
+      params: request.params,
+      query: request.query,
+    });
+       
+    const tenantId = request.headers.tenantid as string;
+
+
+    if (!parsed.success) {
+      throwError(parsed.error.issues[0].message, 400);
+    }
+
+     const paramData = parsed?.data?.params as any;
+     const queryData = parsed?.data?.query as any;
+
+    const result = await createPurchaseRequestService({
+      tenantId,
+      updateId: paramData.updateId,
+      activationMode: queryData.activationMode,
+      requestedBy:queryData.requestedBy,
+    });
+
+    return h.response({
+      success: true,
+      message: updateMessage.CREATE_UPDATE_SUCCESS,
+      data: result,
+    }).code(200);
+  } catch (error) {
+    throw error;
+  }
+  },
+
 async getPurchaseQuote (
   request: Request,
   h: ResponseToolkit,
@@ -277,7 +323,7 @@ async getPurchaseQuote (
 
     const result = await getPurchaseQuoteService({
       tenantId,
-      featureId: paramData.featureId,
+      updateId: paramData.updateId,
       activationMode: queryData.activationMode,
     });
 

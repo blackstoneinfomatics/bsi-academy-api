@@ -74,11 +74,23 @@ const register = async (server: Server): Promise<void> => {
   },
 },
 {
+  method: "POST",
+  path: "/update/purchase/{updateId}",
+  handler: handler.createPurchase,
+  options: {
+    description: updateMessage.UPDATE_PURCHASE_CREATE,
+    tags: ["api", "updates"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+{
   method: "GET",
-  path: "/update/purchase/quote/{featureId}",
+  path: "/update/purchase/quote/{updateId}",
   handler: handler.getPurchaseQuote,
   options: {
-    description: updateMessage.UPDATR_GETBYID,
+    description: updateMessage.UPDATE_PURCHASE_GETBYID_QUOTE,
     tags: ["api", "updates"],
     // auth: {
     //   strategies: ["jwt"],

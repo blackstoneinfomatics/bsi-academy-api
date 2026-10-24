@@ -3496,9 +3496,10 @@ export interface IPurchaseSubscription {
 }
 
 
-export interface IPurchaseFeature {
-  featureId: Types.ObjectId;
-  featureName: string;
+export interface IPurchaseUpdate {
+  updateId: Types.ObjectId;
+  updateName: string;
+  category:string;
   monthlyAmount: number;
   discountValue: number;
 }
@@ -3536,7 +3537,7 @@ export interface IPurchaseRequest extends Document {
 
   tenant: IPurchaseTenant;
   subscription: IPurchaseSubscription;
-  feature: IPurchaseFeature;
+  update: IPurchaseUpdate;
   pricing: IPurchasePricing;
   approval: IPurchaseApproval;
   payment: IPurchasePayment;

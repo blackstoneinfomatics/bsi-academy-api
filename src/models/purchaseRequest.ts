@@ -97,15 +97,21 @@ export const PurchaseRequestSchema = new Schema<IPurchaseRequest>(
     },
 
     // Purchased feature details
-    feature: {
-      featureId: {
+    update: {
+      updateId: {
         type: Schema.Types.ObjectId,
         required: true,
         index: true,
       },
-      featureName: {
+      updateName: {
         type: String,
         required: true,
+        trim: true,
+      },
+
+      category:{
+       type:String,
+       required: true,
         trim: true,
       },
       monthlyAmount: {
@@ -271,9 +277,10 @@ export const PurchaseRequestBaseValidation = z.object({
     totalPeriodDays: z.number().int().positive(),
   }),
 
-  feature: z.object({
-    featureId: objectId,
-    featureName: z.string().trim().min(1),
+  update: z.object({
+    updateId: objectId,
+    updateName: z.string().trim().min(1),
+    category: z.string().trim().min(1),
     monthlyAmount: nonNegativeAmount,
     discountValue: nonNegativeAmount,
   }),
@@ -308,29 +315,6 @@ export const PurchaseRequestBaseValidation = z.object({
 
 export const CreatePurchaseRequestValidation =
   PurchaseRequestBaseValidation;
-
-// ---------------------------------------------
-// Approval Validation
-// ---------------------------------------------
-
-export const ApprovePurchaseRequestValidation = z.object({
-  purchaseRequestId: objectId,
-  approvedBy: z.string().trim().min(1, "Approver is required"),
-});
-
-// ---------------------------------------------
-// Rejection Validation
-// ---------------------------------------------
-
-export const RejectPurchaseRequestValidation = z.object({
-  purchaseRequestId: objectId,
-  approvedBy: z.string().trim().min(1, "Reviewer is required"),
-  rejectionReason: z
-    .string()
-    .trim()
-    .min(1, "Rejection reason is required")
-    .max(500),
-});
 
 // ---------------------------------------------
 // Model Export
