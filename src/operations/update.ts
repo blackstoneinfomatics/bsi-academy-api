@@ -1,7 +1,8 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import UpdateModel from "../models/update";
 import { CreateUpdateInput } from "../models/update";
 import Tenants from "../models/tenants";
+import planModel from "../models/plan-model";
 import TenantSubscription from "../models/tenantsubscription";
 import TenantUsers from "../models/users";
 import emailTemplates from "../models/emailTemplate";
@@ -9,6 +10,14 @@ import { sendEmailClient } from "../shared/email";
 import { sendNotification } from "./notification";
 import { appStatus } from "../config/messages";
 import { Lookup } from "../models/lookup";
+import { throwError } from "../helpers/throwError";
+import {
+  PurchaseActivationMode,
+  PurchaseRequestStatus,
+  PurchasePaymentStatus,
+  SubscriptionStatus,
+  PaymentStatus,
+} from "../shared/enum";
 
 interface GetUpdatesListParams {
   page: number;
@@ -32,9 +41,7 @@ const escapeHtml = (value: string): string =>
       })[character] ?? character,
   );
 
-const sendUpdateEmail = async (
-  payload: CreateUpdateInput,
-): Promise<void> => {
+const sendUpdateEmail = async (payload: CreateUpdateInput): Promise<void> => {
   const selectedTenantCodes = (payload.selectedTenants || [])
     .map((tenantCode) => tenantCode.trim())
     .filter(Boolean);
@@ -47,10 +54,7 @@ const sendUpdateEmail = async (
     }),
   );
 
-  if (
-    !payload.sendNotification?.email ||
-    selectedTenantCodes.length === 0
-  ) {
+  if (!payload.sendNotification?.email || selectedTenantCodes.length === 0) {
     console.log(
       "sendUpdateEmail >> skipped: notification disabled or no tenants selected",
     );
@@ -66,9 +70,7 @@ const sendUpdateEmail = async (
     .exec();
 
   if (!emailTemplate) {
-    console.log(
-      "❌ sendUpdateEmail >> Email template not found",
-    );
+    console.log("❌ sendUpdateEmail >> Email template not found");
 
     return;
   }
@@ -95,9 +97,7 @@ const sendUpdateEmail = async (
 
   const tenantCodes =
     subscriptions.length > 0
-      ? subscriptions.map(
-          (subscription) => subscription.tenantId,
-        )
+      ? subscriptions.map((subscription) => subscription.tenantId)
       : selectedTenantCodes;
 
   const tenants = await Tenants.find({
@@ -109,10 +109,7 @@ const sendUpdateEmail = async (
     })
     .lean();
 
-  console.log(
-    "sendUpdateEmail >> tenants found",
-    JSON.stringify(tenants),
-  );
+  console.log("sendUpdateEmail >> tenants found", JSON.stringify(tenants));
 
   const recipients = tenants
     .filter((tenant) => tenant.emailId)
@@ -120,32 +117,23 @@ const sendUpdateEmail = async (
       email: tenant.emailId,
     }));
 
-  console.log(
-    "sendUpdateEmail >> recipients",
-    JSON.stringify(recipients),
-  );
+  console.log("sendUpdateEmail >> recipients", JSON.stringify(recipients));
 
   if (recipients.length === 0) {
-    console.log(
-      "sendUpdateEmail >> skipped: no recipients resolved",
-    );
+    console.log("sendUpdateEmail >> skipped: no recipients resolved");
 
     return;
   }
 
   const title = escapeHtml(payload.title);
 
-  const description = escapeHtml(
-    payload.description,
-  ).replace(/\n/g, "<br />");
+  const description = escapeHtml(payload.description).replace(/\n/g, "<br />");
 
   const category = escapeHtml(payload.category);
 
   const priority = escapeHtml(payload.priority || "");
 
-  const publishDate = new Date(
-    payload.publishDate,
-  ).toDateString();
+  const publishDate = new Date(payload.publishDate).toDateString();
 
   const attachments = (payload.attachments || [])
     .map((attachment) => escapeHtml(attachment))
@@ -159,26 +147,15 @@ const sendUpdateEmail = async (
     .replace(/<publishDate>/g, publishDate)
     .replace(/<attachments>/g, attachments);
 
-  console.log(
-    "sendUpdateEmail >> template prepared",
-  );
+  console.log("sendUpdateEmail >> template prepared");
 
   const subject = payload.title;
 
-  console.log(
-    "📨 Sending update email to:",
-    JSON.stringify(recipients),
-  );
+  console.log("📨 Sending update email to:", JSON.stringify(recipients));
 
-  await sendEmailClient(
-    recipients,
-    subject,
-    htmlPart,
-  );
+  await sendEmailClient(recipients, subject, htmlPart);
 
-  console.log(
-    "✅ sendUpdateEmail >> Update email sent successfully",
-  );
+  console.log("✅ sendUpdateEmail >> Update email sent successfully");
 };
 
 const sendUpdateInAppNotification = async (
@@ -231,34 +208,34 @@ const sendUpdateInAppNotification = async (
     );
     return;
   }
-      const sender = await Lookup.findOne({
-      lookupKey: "SUPER_ADMIN",
-      keyValue: "super_admin",
-      status: "Active",
-    })
-      .select("userId keyName")
-      .lean();
+  const sender = await Lookup.findOne({
+    lookupKey: "SUPER_ADMIN",
+    keyValue: "super_admin",
+    status: "Active",
+  })
+    .select("userId keyName")
+    .lean();
 
-    if (!sender?.userId) {
-      console.error(
-        "[update-notification] Active Super Admin lookup with userId was not found; notifications were not sent"
-      );
-      return;
-    }
+  if (!sender?.userId) {
+    console.error(
+      "[update-notification] Active Super Admin lookup with userId was not found; notifications were not sent",
+    );
+    return;
+  }
 
-    const senderTenant = await TenantUsers.findOne({
-      userId: sender.userId,
-      status: appStatus.ACTIVE,
-    })
-      .select("tenantId")
-      .lean();
+  const senderTenant = await TenantUsers.findOne({
+    userId: sender.userId,
+    status: appStatus.ACTIVE,
+  })
+    .select("tenantId")
+    .lean();
 
-    if (!senderTenant?.tenantId) {
-      console.error(
-        `[update-notification] Active TenantUsers record with tenantId was not found for Super Admin ${sender.userId}; notifications were not sent`,
-      );
-      return;
-    }
+  if (!senderTenant?.tenantId) {
+    console.error(
+      `[update-notification] Active TenantUsers record with tenantId was not found for Super Admin ${sender.userId}; notifications were not sent`,
+    );
+    return;
+  }
 
   for (const [tenantId, tenantRecipients] of recipientsByTenant) {
     const result = await sendNotification({
@@ -357,9 +334,7 @@ const resolveAudienceTenantIds = async (
   return [];
 };
 
-const resolveTenantNames = async (
-  tenantCodes: string[],
-): Promise<string[]> => {
+const resolveTenantNames = async (tenantCodes: string[]): Promise<string[]> => {
   if (tenantCodes.length === 0) {
     return [];
   }
@@ -373,10 +348,7 @@ const resolveTenantNames = async (
   return tenants.map((tenant) => tenant.tenantName);
 };
 
-const calculatePercentage = (
-  current: number,
-  previous: number,
-) => {
+const calculatePercentage = (current: number, previous: number) => {
   if (previous === 0) {
     if (current === 0) {
       return {
@@ -391,9 +363,7 @@ const calculatePercentage = (
     };
   }
 
-  const percentage = Math.round(
-    ((current - previous) / previous) * 100,
-  );
+  const percentage = Math.round(((current - previous) / previous) * 100);
 
   let direction: "up" | "down" | "same" = "same";
 
@@ -470,10 +440,7 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   }
 
   try {
-    await sendUpdateInAppNotification(
-      resolvedPayload,
-      update._id.toString(),
-    );
+    await sendUpdateInAppNotification(resolvedPayload, update._id.toString());
   } catch (err: unknown) {
     const error = err as { message?: string };
     console.error(
@@ -493,24 +460,12 @@ export const getUpdateDashboardCards = async () => {
   const now = new Date();
 
   // Current month
-  const currentMonthStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1,
-  );
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const nextMonthStart = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    1,
-  );
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
   // Previous month
-  const previousMonthStart = new Date(
-    now.getFullYear(),
-    now.getMonth() - 1,
-    1,
-  );
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const [
     currentTotalUpdates,
@@ -525,7 +480,6 @@ export const getUpdateDashboardCards = async () => {
     // currentViewsResult,
     // previousViewsResult,
   ] = await Promise.all([
-
     UpdateModel.countDocuments({
       createdAt: {
         $gte: currentMonthStart,
@@ -666,20 +620,10 @@ export const getUpdateDashboardCards = async () => {
     //   direction: totalViewsChange.direction,
     // },
   };
-  
 };
 
-export const getUpdatesList = async (
-  params: GetUpdatesListParams,
-) => {
-  const {
-    page,
-    limit,
-    search,
-    status,
-    category,
-    priority,
-  } = params;
+export const getUpdatesList = async (params: GetUpdatesListParams) => {
+  const { page, limit, search, status, category, priority } = params;
 
   const skip = (page - 1) * limit;
 
@@ -702,10 +646,7 @@ export const getUpdatesList = async (
 
   // Search filter
   if (search?.trim()) {
-    const searchRegex = new RegExp(
-      search.trim(),
-      "i",
-    );
+    const searchRegex = new RegExp(search.trim(), "i");
 
     filter.$or = [
       {
@@ -720,10 +661,7 @@ export const getUpdatesList = async (
     ];
   }
 
-  const [
-    updates,
-    totalRecords,
-  ] = await Promise.all([
+  const [updates, totalRecords] = await Promise.all([
     UpdateModel.find(filter)
       .select({
         title: 1,
@@ -748,9 +686,7 @@ export const getUpdatesList = async (
     UpdateModel.countDocuments(filter),
   ]);
 
-  const totalPages = Math.ceil(
-    totalRecords / limit,
-  );
+  const totalPages = Math.ceil(totalRecords / limit);
 
   return {
     data: updates,
@@ -823,4 +759,189 @@ export const getUpdateById = async (id: string) => {
   }
 
   return update;
+};
+
+const BILLING_CYCLE_DAYS = 30;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+interface GetPurchaseQuoteParams {
+  tenantId: string;
+  featureId: string;
+  activationMode: PurchaseActivationMode;
+}
+
+const roundMoney = (amount: number): number =>
+  Math.round((amount + Number.EPSILON) * 100) / 100;
+
+const getRemainingDays = (subscriptionEndDate: Date, now: Date): number =>
+  Math.max(
+    0,
+    Math.ceil((subscriptionEndDate.getTime() - now.getTime()) / DAY_IN_MS),
+  );
+
+export const getPurchaseQuoteService = async ({
+  tenantId,
+  featureId,
+  activationMode,
+}: GetPurchaseQuoteParams) => {
+  // 1. Validate activation mode
+  if (!Object.values(PurchaseActivationMode).includes(activationMode)) {
+    throwError("Invalid activation mode", 400);
+  }
+
+  // 2. Validate tenant
+  const tenant = await Tenants.findOne({
+    tenantCode: tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenant) {
+    throwError("Tenant not found", 404);
+    return;
+  }
+
+  // 3. Get the latest applicable feature update
+  const now = new Date();
+
+  const featureUpdate = await UpdateModel.findOne({
+    _id: new Types.ObjectId(featureId),
+    deletedAt: null,
+  }).lean();
+
+  if (!featureUpdate) {
+    throwError("Active feature pricing not found", 404);
+    return;
+  }
+
+  // 4. Get the current active tenant subscription
+  const subscription = await TenantSubscription.findOne({
+    tenantId: tenant.tenantCode,
+    status: SubscriptionStatus.ACTIVE,
+    paymentStatus: PaymentStatus.PAID,
+    deletedAt: null,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!subscription) {
+    throwError("Active tenant subscription not found", 404);
+    return;
+  }
+
+  const subscriptionStartDate = subscription.startDate
+    ? new Date(subscription.startDate)
+    : null;
+
+  const subscriptionEndDate = subscription.endDate
+    ? new Date(subscription.endDate)
+    : null;
+
+  if (!subscriptionStartDate || !subscriptionEndDate) {
+    throwError("Subscription  start and end date is required", 400);
+    return;
+  }
+
+  if (
+    Number.isNaN(subscriptionStartDate.getTime()) ||
+    Number.isNaN(subscriptionEndDate.getTime()) ||
+    subscriptionEndDate <= subscriptionStartDate
+  ) {
+    throwError("Invalid subscription billing dates", 400);
+  }
+
+  // 5. Resolve current plan and GST
+  const plan = await planModel
+    .findOne({
+      _id: subscription.planId,
+      status: "Active",
+    })
+    .lean();
+
+  if (!plan) {
+    throwError("Subscription plan not found", 404);
+    return;
+  }
+
+  const gstRateValue = plan.billingPeriods?.[0]?.gstRate;
+
+  if (
+    gstRateValue === undefined ||
+    !Number.isFinite(Number(gstRateValue)) ||
+    Number(gstRateValue) < 0 ||
+    Number(gstRateValue) > 100
+  ) {
+    throwError("Invalid GST rate in plan billing period", 400);
+  }
+
+  const gstRate = Number(gstRateValue);
+  const monthlyAmount = Number(featureUpdate.monthlyPrice);
+  const discountValue = Number(featureUpdate.discount ?? 0);
+
+  if (
+    !Number.isFinite(monthlyAmount) ||
+    monthlyAmount < 0 ||
+    !Number.isFinite(discountValue) ||
+    discountValue < 0 ||
+    discountValue > 100 ||
+    !Number.isFinite(gstRate) ||
+    gstRate < 0 ||
+    gstRate > 100
+  ) {
+    throwError("Invalid feature pricing or plan GST configuration", 400);
+  }
+
+  // 6. Build common response data
+  const totalPeriodDays = BILLING_CYCLE_DAYS;
+
+  const remainingDays = getRemainingDays(subscriptionEndDate, now);
+
+  const commonData = {
+    activationMode,
+    tenantId: String(tenant.tenantCode),
+    tenantName: tenant.tenantName,
+
+    tenantSubscriptionId: String(subscription._id),
+    currentPlanId: String(plan._id),
+    currentPlanName: plan.planName,
+    subscriptionStartDate,
+    subscriptionEndDate,
+
+    featureId: String(featureUpdate._id),
+    featureName: featureUpdate.title,
+    monthlyAmount,
+    discountValue,
+    currency: "INR",
+  };
+
+  if (activationMode === PurchaseActivationMode.NEXT_PLAN) {
+    return {
+      ...commonData,
+    };
+  }
+
+  if (remainingDays <= 0) {
+    throwError("No remaining subscription days", 400);
+  }
+
+  const subAmount = roundMoney(
+    (monthlyAmount / totalPeriodDays) * remainingDays,
+  );
+
+  const discountAmount = roundMoney(subAmount * (discountValue / 100));
+
+
+  const gstAmount = roundMoney(subAmount * (gstRate / 100));
+
+  const totalAmount = roundMoney((subAmount + gstAmount) - discountAmount);
+
+  return {
+    ...commonData,
+    remainingDays,
+    totalPeriodDays,
+    subAmount,
+    discountAmount,
+    gstRate,
+    gstAmount,
+    totalAmount,
+  };
 };

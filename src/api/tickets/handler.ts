@@ -5,6 +5,7 @@ import {
   acknowledgeTicket,
   createTicket,
   forwardTicket,
+  getTicketDashboardCards,
   getTicketDetails,
   getTicketHistory,
   listTickets,
@@ -133,6 +134,19 @@ export default {
       })
       .code(200);
   },
+
+
+async dashboardCards(req: Request, h: ResponseToolkit) {
+  const result = await getTicketDashboardCards(credentials(req));
+
+  return h
+    .response({
+      success: true,
+      message: "Ticket dashboard cards retrieved successfully",
+      data: result,
+    })
+    .code(200);
+},
 
   async forward(req: Request, h: ResponseToolkit) {
     const input = parse(forwardSchema, req.payload);

@@ -1,5 +1,5 @@
 import { badRequest, conflict, forbidden, notFound } from "@hapi/boom";
-import type { FilterQuery, UpdateQuery } from "mongoose";
+import { Types, type FilterQuery, type UpdateQuery } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import type { ITicketAttachment } from "../../types/models.types";
 import ClassScheduleModel from "../models/classShedule";
@@ -7,6 +7,7 @@ import AlStudentModel from "../models/alstudents";
 import { Lookup } from "../models/lookup";
 import RoleAccessModel from "../models/roleacces";
 import StudentModel from "../models/student";
+import TenantModel from "../models/tenants";
 import TicketModel from "../models/tickets";
 import type { ITicketDocument } from "../models/tickets";
 import TrialMemberModel from "../models/trailmember";
@@ -310,6 +311,22 @@ const accountFromCredentials = async (
 const assertCanWriteTickets = async (
   actor: TicketActor,
 ): Promise<boolean> => {
+  const roles = Array.isArray(actor.role)
+    ? actor.role
+    : typeof actor.role === "string"
+      ? [actor.role]
+      : [];
+
+  const isSuperAdmin = roles.some(
+    (role) =>
+      String(role).trim().toUpperCase().replace(/[_\s-]/g, "") ===
+      "SUPERADMIN",
+  );
+
+  if (isSuperAdmin) {
+    return true;
+  }
+
   const [user, trialMember] = await Promise.all([
     UserModel.findOne({
       userId: actor.userId,
@@ -318,6 +335,7 @@ const assertCanWriteTickets = async (
     })
       .select("userId role")
       .lean(),
+
     TrialMemberModel.findOne({
       userId: actor.userId,
       tenantId: actor.tenantId,
@@ -326,6 +344,7 @@ const assertCanWriteTickets = async (
       .select("userId role")
       .lean(),
   ]);
+
   const account = user || trialMember;
 
   if (!account) {
@@ -337,30 +356,12 @@ const assertCanWriteTickets = async (
       .select("student.studentId role")
       .lean();
 
-    if (student) {
-      return false;
-    }
+    if (student) return false;
 
     throw forbidden("Authenticated account is unavailable");
   }
 
-  const roles = Array.isArray(account.role) ? account.role : [];
-
-  if (roles.length === 0) {
-    throw forbidden("No role is configured for this account");
-  }
-
-  const access = await RoleAccessModel.findOne({
-    tenantId: actor.tenantId,
-    employeeId: actor.accountId,
-  })
-    .select("roleAccess")
-    .lean();
-
-  return (
-    hasTenantAdminAccess(access?.roleAccess) ||
-    roles.some((role) => normalized(role) === "super_admin")
-  );
+  return false;
 };
 
 const assignedRecipients = async (
@@ -434,7 +435,13 @@ if (actorRoles.includes("ADMIN")) {
 
 const ticketFilterForId = (
   ticketId: string,
-): FilterQuery<ITicketDocument> => ({ ticketNumber: ticketId });
+): FilterQuery<ITicketDocument> => {
+  if (Types.ObjectId.isValid(ticketId)) {
+    return { _id: new Types.ObjectId(ticketId) };
+  }
+
+  return { ticketNumber: ticketId };
+};
 
 const isTicketParticipant = (
   ticket: ITicketDocument,
@@ -462,16 +469,21 @@ const findAuthorizedTicket = async (
   ticketId: string,
   canManageTickets = false,
 ): Promise<ITicketDocument> => {
-  const ticket = await TicketModel.findOne({
-    tenantId: actor.tenantId,
+  const filter = {
     ...ticketFilterForId(ticketId),
-  });
+    ...(canManageTickets ? {} : { tenantId: actor.tenantId }),
+  };
+
+  const ticket = await TicketModel.findOne(filter);
+
   if (
     !ticket ||
-    (!canManageTickets && !isTicketParticipant(ticket, actor.userId))
+    (!canManageTickets &&
+      !isTicketParticipant(ticket, actor.userId))
   ) {
     throw notFound("Ticket not found");
   }
+
   return ticket;
 };
 
@@ -575,16 +587,13 @@ export const createTicket = async (
         tenantId: actor.tenantId,
         createdBy: actor.userId,
         createdByRole: actor.role[0],
-
         recipientRole: assignment.role,
         recipientIds,
         currentAssignedRole: assignment.role,
         currentAssignedTo: recipientIds,
-
         subject: input.subject,
         category: input.category,
         priority: input.priority,
-        relatedTo: input.relatedTo,
         description: input.description,
         attachments: input.attachments ?? [],
 
@@ -637,6 +646,7 @@ export const createTicket = async (
 };
 
 
+
 export const listTickets = async (
   credentials: unknown,
   input: TicketListInput,
@@ -644,25 +654,28 @@ export const listTickets = async (
   const { actor } = await accountFromCredentials(credentials);
 
   const roles = Array.isArray(actor.role)
-    ? actor.role.map((role: string) => role.trim().toUpperCase())
+    ? actor.role.map((role: string) =>
+        role.trim().toUpperCase(),
+      )
     : [String(actor.role).trim().toUpperCase()];
 
   const isSuperAdmin = roles.includes("SUPERADMIN");
 
   const query: FilterQuery<ITicketDocument> = {};
 
-  // Tenant users can only access their own tenant's tickets.
-  // SUPERADMIN bypass is allowed only if globally authorized.
+  // Tenant users can access only their own tenant's tickets.
   if (!isSuperAdmin) {
     query.tenantId = actor.tenantId;
   }
 
-  if (input.view === "raised") {
-    query.createdBy = actor.userId;
-  } else {
-    query.currentAssignedTo = actor.userId;
-    query.currentAssignedRole = { $in: roles };
-  }
+  // Show tickets raised by the user OR assigned to the user.
+  query.$or = [
+    { createdBy: actor.userId },
+    {
+      currentAssignedTo: actor.userId,
+      currentAssignedRole: { $in: roles },
+    },
+  ];
 
   if (input.status) query.status = input.status;
   if (input.category) query.category = input.category;
@@ -676,11 +689,36 @@ export const listTickets = async (
       .skip((input.page - 1) * input.limit)
       .limit(input.limit)
       .lean(),
+
     TicketModel.countDocuments(query),
   ]);
 
+  const tenantIds = [
+    ...new Set(tickets.map((ticket) => ticket.tenantId)),
+  ];
+
+  const tenants = tenantIds.length
+    ? await TenantModel.find({
+        tenantCode: { $in: tenantIds },
+      })
+        .select("tenantCode tenantName")
+        .lean()
+    : [];
+
+  const tenantNames = new Map(
+    tenants.map((tenant) => [
+      tenant.tenantCode,
+      tenant.tenantName,
+    ]),
+  );
+
   return {
-    tickets,
+    tickets: tickets.map((ticket) => ({
+      ...ticket,
+      tenantName: tenantNames.get(ticket.tenantId) ?? null,
+      resolvedAt: ticket.resolvedAt ?? null,
+    })),
+
     pagination: {
       page: input.page,
       limit: input.limit,
@@ -690,14 +728,163 @@ export const listTickets = async (
   };
 };
 
+
 export const getTicketDetails = async (
   credentials: unknown,
   ticketId: string,
 ) => {
   const { actor } = await accountFromCredentials(credentials);
+
   const canManageTickets = await assertCanWriteTickets(actor);
-  return findAuthorizedTicket(actor, ticketId, canManageTickets);
+
+  return findAuthorizedTicket(
+    actor,
+    ticketId,
+    canManageTickets,
+  );
 };
+
+
+
+
+export const getTicketDashboardCards = async (
+  credentials: unknown,
+) => {
+  const { actor } = await accountFromCredentials(credentials);
+
+  const roles = Array.isArray(actor.role)
+    ? actor.role.map((role: string) => role.trim().toUpperCase())
+    : [String(actor.role).trim().toUpperCase()];
+
+  const isSuperAdmin = roles.includes("SUPERADMIN");
+
+  const now = new Date();
+
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  );
+
+  const nextMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  );
+
+  const previousMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  );
+
+  // SUPERADMIN: all tenants
+  // Other users: their own tenant only
+  const baseFilter = isSuperAdmin
+    ? {}
+    : { tenantId: actor.tenantId };
+
+  const currentMonthFilter = {
+    ...baseFilter,
+    createdAt: {
+      $gte: currentMonthStart,
+      $lt: nextMonthStart,
+    },
+  };
+
+  const previousMonthFilter = {
+    ...baseFilter,
+    createdAt: {
+      $gte: previousMonthStart,
+      $lt: currentMonthStart,
+    },
+  };
+
+  const [
+    totalCurrent,
+    totalPrevious,
+    openCurrent,
+    openPrevious,
+    inProgressCurrent,
+    inProgressPrevious,
+    resolvedCurrent,
+    resolvedPrevious,
+  ] = await Promise.all([
+    TicketModel.countDocuments(currentMonthFilter),
+    TicketModel.countDocuments(previousMonthFilter),
+
+    TicketModel.countDocuments({
+      ...currentMonthFilter,
+      status: TICKET_STATUSES.OPEN,
+    }),
+    TicketModel.countDocuments({
+      ...previousMonthFilter,
+      status: TICKET_STATUSES.OPEN,
+    }),
+
+    TicketModel.countDocuments({
+      ...currentMonthFilter,
+      status: TICKET_STATUSES.IN_PROGRESS,
+    }),
+    TicketModel.countDocuments({
+      ...previousMonthFilter,
+      status: TICKET_STATUSES.IN_PROGRESS,
+    }),
+
+    TicketModel.countDocuments({
+      ...currentMonthFilter,
+      status: TICKET_STATUSES.RESOLVED,
+    }),
+    TicketModel.countDocuments({
+      ...previousMonthFilter,
+      status: TICKET_STATUSES.RESOLVED,
+    }),
+  ]);
+
+  const getPercentage = (
+    current: number,
+    previous: number,
+  ): number => {
+    if (previous === 0) {
+      return current === 0 ? 0 : 100;
+    }
+
+    return Number(
+      (((current - previous) / previous) * 100).toFixed(2),
+    );
+  };
+
+  const getTrend = (
+    current: number,
+    previous: number,
+  ): "up" | "down" | "same" => {
+    if (current > previous) return "up";
+    if (current < previous) return "down";
+    return "same";
+  };
+
+  const buildCard = (
+    currentCount: number,
+    previousMonthCount: number,
+  ) => ({
+    currentCount,
+    previousMonthCount,
+    percentage: getPercentage(currentCount, previousMonthCount),
+    trend: getTrend(currentCount, previousMonthCount),
+  });
+
+  return {
+    totalTickets: buildCard(totalCurrent, totalPrevious),
+    openTickets: buildCard(openCurrent, openPrevious),
+    inProgressTickets: buildCard(
+      inProgressCurrent,
+      inProgressPrevious,
+    ),
+    resolvedTickets: buildCard(resolvedCurrent, resolvedPrevious),
+  };
+};
+
+
 
 export const forwardTicket = async (
   credentials: unknown,
@@ -895,14 +1082,45 @@ export const getTicketHistory = async (
   credentials: unknown,
   ticketId: string,
 ) => {
+  console.log("[tickets:history] Started", { ticketId });
+
   const { actor } = await accountFromCredentials(credentials);
+
+  console.log("[tickets:history] Actor resolved", {
+    userId: actor.userId,
+    tenantId: actor.tenantId,
+    role: actor.role,
+  });
+
   const canManageTickets = await assertCanWriteTickets(actor);
+
+  console.log("[tickets:history] Permission checked", {
+    canManageTickets,
+  });
+
   const ticket = await findAuthorizedTicket(
     actor,
     ticketId,
     canManageTickets,
   );
-  return (ticket.history || [])
-    .slice()
-    .sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime());
+  const tenant = await TenantModel.findOne({ tenantCode: ticket.tenantId })
+    .select("tenantName plan")
+    .lean();
+
+  console.log("[tickets:history] Ticket found", {
+    ticketNumber: ticket.ticketNumber,
+    historyCount: ticket.history?.length ?? 0,
+  });
+
+  return {
+    ...ticket.toObject(),
+    ticketId: String(ticket._id),
+    tenantName: tenant?.tenantName ?? null,
+    plan: tenant?.plan ?? null,
+    history: (ticket.history || []).slice().sort(
+      (first, second) =>
+        new Date(first.createdAt).getTime() -
+        new Date(second.createdAt).getTime(),
+    ),
+  };
 };

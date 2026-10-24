@@ -24,6 +24,9 @@ import CustomEnumerator, {
   TICKET_CATEGORIES,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
+  PurchaseActivationMode,
+  PurchasePaymentStatus,
+  PurchaseRequestStatus,
 } from "../src/shared/enum";
 
 enum Status {
@@ -3473,4 +3476,76 @@ export interface ITicket {
     message?: string;
     createdAt: Date;
   }[];
+}
+
+export interface IPurchaseTenant {
+  tenantId: string;
+  tenantName: string;
+  requestedBy: string;
+}
+
+
+export interface IPurchaseSubscription {
+  tenantSubscriptionId: Types.ObjectId;
+  currentPlanId: Types.ObjectId;
+  currentPlanName: string;
+  subscriptionStartDate: Date;
+  subscriptionEndDate: Date;
+  remainingDays: number;
+  totalPeriodDays: number;
+}
+
+
+export interface IPurchaseFeature {
+  featureId: Types.ObjectId;
+  featureName: string;
+  monthlyAmount: number;
+  discountValue: number;
+}
+
+
+export interface IPurchasePricing {
+  discountAmount: number;
+  subAmount: number;
+  gstRate: number;
+  gstAmount: number;
+  totalAmount: number;
+  currency: string;
+}
+
+
+export interface IPurchaseApproval {
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  rejectionReason: string | null;
+}
+
+export interface IPurchasePayment {
+  paymentId: Types.ObjectId | null;
+  paymentStatus: PurchasePaymentStatus;
+}
+
+export interface IPurchaseRequest extends Document {
+  _id?: Types.ObjectId;
+
+  purchaseNumber: string;
+
+  status: PurchaseRequestStatus;
+  activationMode: PurchaseActivationMode;
+  requestedAt: Date;
+
+  tenant: IPurchaseTenant;
+  subscription: IPurchaseSubscription;
+  feature: IPurchaseFeature;
+  pricing: IPurchasePricing;
+  approval: IPurchaseApproval;
+  payment: IPurchasePayment;
+
+  activatedAt: Date | null;
+
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  deletedAt: Date | null;
+  deletedBy?: string | null;
 }
