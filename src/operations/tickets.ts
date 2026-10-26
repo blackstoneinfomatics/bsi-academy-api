@@ -699,6 +699,62 @@ export const listTickets = async (
   const tenantIds = [
     ...new Set(tickets.map((ticket) => ticket.tenantId)),
   ];
+  const accountIds = [
+    ...new Set(
+      tickets.flatMap((ticket) => [
+        ticket.createdBy,
+        ...(ticket.currentAssignedTo ?? []),
+        ...ticket.recipientIds,
+        ...(ticket.history ?? []).map((event) => event.fromUserId),
+      ]),
+    ),
+  ];
+
+  const [users, trialMembers, alStudents] =
+    tenantIds.length && accountIds.length
+      ? await Promise.all([
+          UserModel.find({
+            tenantId: { $in: tenantIds },
+            userId: { $in: accountIds },
+          })
+            .select("tenantId userId userName")
+            .lean(),
+          TrialMemberModel.find({
+            tenantId: { $in: tenantIds },
+            userId: { $in: accountIds },
+          })
+            .select("tenantId userId userName")
+            .lean(),
+          AlStudentModel.find({
+            tenantId: { $in: tenantIds },
+            "student.studentId": { $in: accountIds },
+          })
+            .select("tenantId username student.studentId")
+            .lean(),
+        ])
+      : [[], [], []];
+
+  const accountNames = new Map<string, string>();
+  const setAccountName = (
+    tenantId: string,
+    userId: string,
+    userName: string,
+  ) => {
+    accountNames.set(`${tenantId}:${userId}`, userName);
+  };
+
+  for (const account of [...users, ...trialMembers]) {
+    if (account.tenantId && account.userId && account.userName) {
+      setAccountName(account.tenantId, account.userId, account.userName);
+    }
+  }
+
+  for (const student of alStudents) {
+    const studentId = student.student?.studentId;
+    if (studentId && student.username) {
+      setAccountName(student.tenantId, studentId, student.username);
+    }
+  }
 
   const tenants = tenantIds.length
     ? await TenantModel.find({
@@ -716,11 +772,30 @@ export const listTickets = async (
   );
 
   return {
-    tickets: tickets.map((ticket) => ({
-      ...ticket,
-      tenantName: tenantNames.get(ticket.tenantId) ?? null,
-      resolvedAt: ticket.resolvedAt ?? null,
-    })),
+    tickets: tickets.map((ticket) => {
+      const latestAssignment = [...(ticket.history ?? [])]
+        .reverse()
+        .find(
+          (event) =>
+            event.action === "FORWARDED" || event.action === "CREATED",
+        );
+      const assignedById = latestAssignment?.fromUserId ?? ticket.createdBy;
+      const assignedToIds = ticket.currentAssignedTo?.length
+        ? ticket.currentAssignedTo
+        : ticket.recipientIds;
+
+      return {
+        ...ticket,
+        assignedByName:
+          accountNames.get(`${ticket.tenantId}:${assignedById}`) ?? null,
+        assignedToName: assignedToIds.map(
+          (userId) =>
+            accountNames.get(`${ticket.tenantId}:${userId}`) ?? null,
+        ),
+        tenantName: tenantNames.get(ticket.tenantId) ?? null,
+        resolvedAt: ticket.resolvedAt ?? null,
+      };
+    }),
 
     pagination: {
       page: input.page,
