@@ -371,15 +371,18 @@ const assignedRecipients = async (
 
   let recipientRole: string;
 
-if (actorRoles.includes("ADMIN")) {
-  recipientRole = "SUPERADMIN";
-} else if (actorRoles.includes("TEACHER")) {
-  recipientRole = "ADMIN";
-} else if (actorRoles.includes("STUDENT")) {
-  recipientRole = "TEACHER";
-} else {
-  throw forbidden("You are not allowed to create this ticket");
-}
+if (actorRoles.includes("STUDENT")) {
+    recipientRole = "TEACHER";
+  } else if (actorRoles.includes("TEACHER")) {
+    recipientRole = "ADMIN";
+  } else if (actorRoles.includes("ADMIN")) {
+    recipientRole = "SUPERADMIN";
+  } else if (actorRoles.includes("SUPERADMIN")) {
+    throw forbidden("Super Admin cannot raise a ticket");
+  } else {
+    // Dynamic roles must be validated against configured tenant roles.
+    recipientRole = "ADMIN";
+  }
 
   const rolePattern = new RegExp(
     `^${recipientRole.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
@@ -1035,20 +1038,30 @@ const updateTicketStatus = async (
       : {}),
   };
 
-  const updated = await TicketModel.findOneAndUpdate(
-    {
-      ticketNumber: ticket.ticketNumber,
-      tenantId: actor.tenantId,
-      status: ticket.status,
-      recipientIds: ticket.recipientIds,
-      updatedAt: ticket.updatedAt,
-    },
-    update,
-    { new: true, runValidators: true },
-  );
-  if (!updated) {
-    throw conflict("Ticket status changed; reload and try again");
-  }
+  const filter: FilterQuery<ITicketDocument> = {
+  _id: ticket._id,
+  status: ticket.status,
+  updatedAt: ticket.updatedAt,
+};
+
+// Super Admin has authorized global access.
+// Tenant users must remain restricted to their own tenant.
+if (!canManageTickets) {
+  filter.tenantId = actor.tenantId;
+}
+
+const updated = await TicketModel.findOneAndUpdate(
+  filter,
+  update,
+  {
+    new: true,
+    runValidators: true,
+  },
+);
+
+if (!updated) {
+  throw conflict("Ticket status changed; reload and try again");
+}
 
   const notificationsSent = await sendTicketNotification(
     actor,
@@ -1064,13 +1077,29 @@ export const acknowledgeTicket = (
   credentials: unknown,
   ticketId: string,
   message?: string,
-) => updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", message);
+) => {
+  console.log("[tickets:acknowledge] Started", { ticketId });
+  return updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", message).then(
+    (result) => {
+      console.log("[tickets:acknowledge] Completed", { ticketId });
+      return result;
+    },
+  );
+};
 
 export const resolveTicket = (
   credentials: unknown,
   ticketId: string,
   message?: string,
-) => updateTicketStatus(credentials, ticketId, "RESOLVED", message);
+) => {
+  console.log("[tickets:resolve] Started", { ticketId });
+  return updateTicketStatus(credentials, ticketId, "RESOLVED", message).then(
+    (result) => {
+      console.log("[tickets:resolve] Completed", { ticketId });
+      return result;
+    },
+  );
+};
 
 export const reopenTicket = (
   credentials: unknown,
