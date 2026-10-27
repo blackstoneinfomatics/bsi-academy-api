@@ -51,7 +51,8 @@ export interface CreateTicketInput {
 }
 
 export interface TicketListInput {
-  view: "received" | "raised";
+  view: "received" | "raised" | "all";
+  role?: string;
   page: number;
   limit: number;
   sortBy: "createdAt" | "updatedAt" | "ticketNumber" | "priority" | "status";
@@ -63,6 +64,13 @@ export interface TicketListInput {
 
 const normalized = (role: string) =>
   role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+
+const roleMatcher = (role: string): RegExp => {
+  const escapedRole = normalized(role)
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/_/g, "[_\\s-]+");
+  return new RegExp(`^${escapedRole}$`, "i");
+};
 
 const getRecipientRole = (creatorRole: string): string => {
   switch (normalized(creatorRole)) {
@@ -656,29 +664,55 @@ export const listTickets = async (
 ) => {
   const { actor } = await accountFromCredentials(credentials);
 
-  const roles = Array.isArray(actor.role)
-    ? actor.role.map((role: string) =>
-        role.trim().toUpperCase(),
-      )
-    : [String(actor.role).trim().toUpperCase()];
-
-  const isSuperAdmin = roles.includes("SUPERADMIN");
+  const roles = actor.role.map(normalized);
+  const isSuperAdmin = roles.some(
+    (role) => role.replace(/_/g, "") === "SUPERADMIN",
+  );
+  if (input.view === "all" && !isSuperAdmin) {
+    throw forbidden("Only Super Admin can list all tickets");
+  }
+  if (
+    input.role &&
+    !isSuperAdmin &&
+    !roles.includes(normalized(input.role))
+  ) {
+    throw forbidden("Cannot list tickets for another role");
+  }
 
   const query: FilterQuery<ITicketDocument> = {};
+  const roleFilter = input.role ? roleMatcher(input.role) : undefined;
 
   // Tenant users can access only their own tenant's tickets.
   if (!isSuperAdmin) {
     query.tenantId = actor.tenantId;
   }
 
-  // Show tickets raised by the user OR assigned to the user.
-  query.$or = [
-    { createdBy: actor.userId },
-    {
-      currentAssignedTo: actor.userId,
-      currentAssignedRole: { $in: roles },
-    },
-  ];
+  if (input.view === "raised") {
+    query.createdBy = actor.userId;
+    if (roleFilter) query.createdByRole = roleFilter;
+  } else if (input.view === "received") {
+    const receivedRoles = roleFilter ? [roleFilter] : roles.map(roleMatcher);
+    query.$or = [
+      {
+        currentAssignedTo: actor.userId,
+        currentAssignedRole: { $in: receivedRoles },
+      },
+      {
+        history: {
+          $elemMatch: {
+            toUserIds: actor.userId,
+            toRole: { $in: receivedRoles },
+          },
+        },
+      },
+    ];
+  } else if (roleFilter) {
+    query.$or = [
+      { createdByRole: roleFilter },
+      { currentAssignedRole: roleFilter },
+      { recipientRole: roleFilter },
+    ];
+  }
 
   if (input.status) query.status = input.status;
   if (input.category) query.category = input.category;

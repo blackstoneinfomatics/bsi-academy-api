@@ -45,7 +45,8 @@ const createSchema = z
 
 const listSchema = z
   .object({
-    view: z.enum(["received", "raised"]).default("received"),
+    view: z.enum(["received", "raised", "all"]).default("received"),
+    role: z.string().trim().min(1).max(100).optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     sortBy: z
