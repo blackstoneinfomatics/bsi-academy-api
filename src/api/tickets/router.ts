@@ -20,7 +20,8 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.list,
         auth: "jwt",
         tags: ["api", "tickets"],
-        description: "List raised or received tickets",
+        description:
+          "List raised, received, or (for Super Admin) all tickets, with optional role and status filters",
       },
     },
     {
@@ -62,7 +63,8 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.acknowledge,
         auth: "jwt",
         tags: ["api", "tickets"],
-        description: "Acknowledge a ticket",
+        description:
+          "Acknowledge a ticket; optionally sendEmail and/or sendNotification",
       },
     },
     {
@@ -72,7 +74,8 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.resolve,
         auth: "jwt",
         tags: ["api", "tickets"],
-        description: "Resolve a ticket",
+        description:
+          "Resolve a ticket; optionally sendEmail and/or sendNotification",
       },
     },
     {

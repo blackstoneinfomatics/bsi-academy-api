@@ -12,6 +12,7 @@ import TicketModel from "../models/tickets";
 import type { ITicketDocument } from "../models/tickets";
 import TrialMemberModel from "../models/trailmember";
 import UserModel from "../models/users";
+import EmailTemplateModel from "../models/emailTemplate";
 import { appStatus } from "../config/messages";
 import {
   TICKET_CATEGORIES,
@@ -19,6 +20,7 @@ import {
   TICKET_STATUSES,
 } from "../shared/enum";
 import AppLogger from "../helpers/logging";
+import { sendEmailClient } from "../shared/email";
 import {
   NotificationAuthorizationError,
   sendNotification,
@@ -547,6 +549,119 @@ const sendTicketNotification = async (
     );
   }
   return notificationsSent;
+};
+
+const sendTicketEmail = async (
+  receiverIds: string[],
+  ticket: ITicketDocument,
+  action: "ACKNOWLEDGED" | "RESOLVED",
+  message: string,
+): Promise<boolean> => {
+  const recipients = [...new Set(receiverIds)];
+  if (recipients.length === 0) return true;
+
+  const [emailTemplate, users, trialMembers, alStudents] = await Promise.all([
+    EmailTemplateModel.findOne({
+      templateKey: "ticket-email",
+      status: appStatus.ACTIVE,
+    })
+      .select("templateContent")
+      .lean(),
+    UserModel.find({ userId: { $in: recipients }, status: appStatus.ACTIVE })
+      .select("userId email")
+      .lean(),
+    TrialMemberModel.find({
+      userId: { $in: recipients },
+      status: appStatus.ACTIVE,
+    })
+      .select("userId email")
+      .lean(),
+    AlStudentModel.find({
+      "student.studentId": { $in: recipients },
+      status: appStatus.ACTIVE,
+    })
+      .select("student.studentId student.studentEmail")
+      .lean(),
+  ]);
+  if (!emailTemplate?.templateContent) {
+    AppLogger.error(
+      `Ticket email template "ticket-email" not found or empty`,
+    );
+    return false;
+  }
+
+  const emails = new Map<string, string>();
+  for (const account of [...users, ...trialMembers]) {
+    if (account.userId && account.email?.trim()) {
+      emails.set(account.userId, account.email.trim());
+    }
+  }
+  for (const student of alStudents) {
+    const userId = student.student?.studentId;
+    const email = student.student?.studentEmail;
+    if (userId && email?.trim()) emails.set(userId, email.trim());
+  }
+
+  const missingRecipients = recipients.filter((userId) => !emails.has(userId));
+  if (missingRecipients.length > 0) {
+    AppLogger.error(
+      `Ticket email delivery skipped for ${ticket.ticketNumber}; recipient email unavailable for ${missingRecipients.join(", ")}`,
+    );
+    return false;
+  }
+
+  const escapeHtml = (value: string): string =>
+    value.replace(/[&<>"']/g, (character) => {
+      const entities: Record<string, string> = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return entities[character];
+    });
+
+  const values: Record<string, { value: string; aliases: string[] }> = {
+    ticketNumber: {
+      value: ticket.ticketNumber,
+      aliases: ["ticketNumber", "Ticket Number"],
+    },
+    subject: { value: ticket.subject, aliases: ["subject", "Ticket Subject"] },
+    status: { value: ticket.status, aliases: ["status", "Ticket Status"] },
+    action: { value: action.toLowerCase(), aliases: ["action", "Action"] },
+    message: { value: message, aliases: ["message", "Message"] },
+  };
+  const html = Object.values(values).reduce((content, { value, aliases }) => {
+    const escapedValue = escapeHtml(value);
+    return aliases.reduce((result, alias) => {
+      const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return result
+        .replace(new RegExp(`{{\\s*${escapedAlias}\\s*}}`, "gi"), escapedValue)
+        .replace(new RegExp(`<${escapedAlias}>`, "gi"), escapedValue);
+    }, content);
+  }, emailTemplate.templateContent);
+  const subject = `Ticket ${ticket.ticketNumber} ${action.toLowerCase()}`;
+
+  try {
+    const result = await sendEmailClient(
+      recipients.map((userId) => ({ email: emails.get(userId)! })),
+      subject,
+      html,
+    );
+    if (!result) {
+      AppLogger.error(`Ticket email delivery failed for ${ticket.ticketNumber}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    AppLogger.error(
+      `Ticket email delivery failed for ${ticket.ticketNumber}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
 };
 
 const buildHistoryEvent = (
@@ -1083,8 +1198,14 @@ const updateTicketStatus = async (
   credentials: unknown,
   ticketId: string,
   action: "ACKNOWLEDGED" | "RESOLVED" | "REOPENED",
-  message?: string,
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  } = {},
 ) => {
+  const { message, sendEmail = false, sendNotification: notify = true } =
+    options;
   const { actor } = await accountFromCredentials(credentials);
   const canManageTickets = await assertCanWriteTickets(actor);
   const ticket = await findAuthorizedTicket(
@@ -1172,23 +1293,44 @@ if (!updated) {
   throw conflict("Ticket status changed; reload and try again");
 }
 
-  const notificationsSent = await sendTicketNotification(
-    actor,
-    [updated.createdBy, ...currentRecipients],
-    updated,
-    `TICKET_${action}`,
-    message || `Ticket ${updated.ticketNumber} was ${action.toLowerCase()}`,
-  );
-  return { ticket: updated, notificationsSent };
+  const notificationRecipients = [updated.createdBy, ...currentRecipients];
+  const notificationMessage =
+    message || `Ticket ${updated.ticketNumber} was ${action.toLowerCase()}`;
+  const notificationsSent =
+    action === "REOPENED" || notify
+      ? await sendTicketNotification(
+          actor,
+          notificationRecipients,
+          updated,
+          `TICKET_${action}`,
+          notificationMessage,
+        )
+      : false;
+  const emailSent =
+    action !== "REOPENED" && sendEmail
+      ? await sendTicketEmail(
+          notificationRecipients.filter(
+            (recipientId) => recipientId !== actor.userId,
+          ),
+          updated,
+          action,
+          notificationMessage,
+        )
+      : false;
+  return { ticket: updated, notificationsSent, emailSent };
 };
 
 export const acknowledgeTicket = (
   credentials: unknown,
   ticketId: string,
-  message?: string,
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  },
 ) => {
   console.log("[tickets:acknowledge] Started", { ticketId });
-  return updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", message).then(
+  return updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", options).then(
     (result) => {
       console.log("[tickets:acknowledge] Completed", { ticketId });
       return result;
@@ -1199,10 +1341,14 @@ export const acknowledgeTicket = (
 export const resolveTicket = (
   credentials: unknown,
   ticketId: string,
-  message?: string,
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  },
 ) => {
   console.log("[tickets:resolve] Started", { ticketId });
-  return updateTicketStatus(credentials, ticketId, "RESOLVED", message).then(
+  return updateTicketStatus(credentials, ticketId, "RESOLVED", options).then(
     (result) => {
       console.log("[tickets:resolve] Completed", { ticketId });
       return result;
@@ -1214,7 +1360,10 @@ export const reopenTicket = (
   credentials: unknown,
   ticketId: string,
   message?: string,
-) => updateTicketStatus(credentials, ticketId, "REOPENED", message);
+) =>
+  updateTicketStatus(credentials, ticketId, "REOPENED", {
+    message,
+  });
 
 export const getTicketHistory = async (
   credentials: unknown,

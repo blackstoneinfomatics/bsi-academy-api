@@ -72,6 +72,8 @@ const statusSchema = z
     message: z.string().trim().max(2000).optional(),
     resolutionNote: z.string().trim().max(2000).optional(),
     acknowledgementMessage: z.string().trim().max(2000).optional(),
+    sendEmail: z.boolean().optional(),
+    sendNotification: z.boolean().optional(),
   })
   .strict();
 
@@ -167,7 +169,11 @@ async dashboardCards(req: Request, h: ResponseToolkit) {
     const result = await acknowledgeTicket(
       credentials(req),
       ticketId(req),
-      input.acknowledgementMessage || input.message,
+      {
+        message: input.acknowledgementMessage || input.message,
+        sendEmail: input.sendEmail,
+        sendNotification: input.sendNotification,
+      },
     );
     return h
       .response({
@@ -175,6 +181,7 @@ async dashboardCards(req: Request, h: ResponseToolkit) {
         message: "Ticket acknowledged successfully",
         data: result.ticket,
         notificationsSent: result.notificationsSent,
+        emailSent: result.emailSent,
       })
       .code(200);
   },
@@ -184,7 +191,11 @@ async dashboardCards(req: Request, h: ResponseToolkit) {
     const result = await resolveTicket(
       credentials(req),
       ticketId(req),
-      input.resolutionNote || input.message,
+      {
+        message: input.resolutionNote || input.message,
+        sendEmail: input.sendEmail,
+        sendNotification: input.sendNotification,
+      },
     );
     return h
       .response({
@@ -192,6 +203,7 @@ async dashboardCards(req: Request, h: ResponseToolkit) {
         message: "Ticket resolved successfully",
         data: result.ticket,
         notificationsSent: result.notificationsSent,
+        emailSent: result.emailSent,
       })
       .code(200);
   },
