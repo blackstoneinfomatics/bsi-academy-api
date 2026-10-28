@@ -1319,7 +1319,7 @@ export const createPurchaseRequestService = async ({
                }>();
 
     await sendNotification({
-      requestId:PurchaseRequest.$clearModifiedPathspurchaseNumber,
+      requestId:PurchaseRequest.purchaseNumber,
       tenantId :superAdminUser?.tenantId,
       senderTenantId:tenantId,
       receiverTenantId: superAdminUser?.tenantId,
