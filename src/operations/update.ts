@@ -506,6 +506,9 @@ export const getUpdateDashboardCards = async () => {
     currentScheduledUpdates,
     previousScheduledUpdates,
 
+    currentTotalPurchaseRequests,
+    previousTotalPurchaseRequests,
+
     // currentViewsResult,
     // previousViewsResult,
   ] = await Promise.all([
@@ -549,6 +552,22 @@ export const getUpdateDashboardCards = async () => {
 
     UpdateModel.countDocuments({
       status: "Scheduled",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    purchaseRequest.countDocuments({
+      deletedAt: null,
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    purchaseRequest.countDocuments({
+      deletedAt: null,
       createdAt: {
         $gte: previousMonthStart,
         $lt: currentMonthStart,
@@ -619,10 +638,11 @@ export const getUpdateDashboardCards = async () => {
     previousScheduledUpdates,
   );
 
-  // const totalViewsChange = calculatePercentage(
-  //   currentTotalViews,
-  //   previousTotalViews,
-  // );
+  const totalPurchaseRequestsChange = calculatePercentage(
+    currentTotalPurchaseRequests,
+    previousTotalPurchaseRequests,
+  );
+
 
   return {
     totalUpdates: {
@@ -641,6 +661,12 @@ export const getUpdateDashboardCards = async () => {
       count: currentScheduledUpdates,
       percentage: scheduledUpdatesChange.percentage,
       direction: scheduledUpdatesChange.direction,
+    },
+
+    totalPurchaseRequests: {
+      count: currentTotalPurchaseRequests,
+      percentage: totalPurchaseRequestsChange.percentage,
+      direction: totalPurchaseRequestsChange.direction,
     },
 
     // totalViews: {
