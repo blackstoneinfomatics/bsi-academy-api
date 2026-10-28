@@ -257,7 +257,7 @@ const sendUpdateInAppNotification = async (
       senderTenantId: senderTenant.tenantId,
       receiverTenantId: tenantId,
       title: payload.title,
-      messages: payload.description,
+      messages: `New update: ${payload.title} featured in ${payload.category} category.`,
       senderId: sender.userId,
       senderName: sender.keyName,
       receiverId: tenantRecipients.map((recipient) => recipient.userId),
