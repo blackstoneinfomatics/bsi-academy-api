@@ -626,6 +626,7 @@ export async function getNotificationRequestList(
     const requestList = notifications.map((item) => {
       const metadataRequestId = item.metadata?.requestId;
       return {
+        _id: item._id,
         requestId:
           item.requestId ??
           (typeof metadataRequestId === "string" ? metadataRequestId : null),
