@@ -1196,7 +1196,7 @@ export const createPurchaseRequestService = async ({
   const PurchaseRequest = await purchaseRequest.create({
     purchaseNumber: `PUR-${randomUUID()
       .replace(/-/g, "")
-      .slice(0, 12)
+      .slice(0, 5)
       .toUpperCase()}`,
 
     status: PurchaseRequestStatus.PENDING_APPROVAL,
@@ -1293,6 +1293,7 @@ export const createPurchaseRequestService = async ({
                }>();
 
     await sendNotification({
+      requestId:PurchaseRequest.$clearModifiedPathspurchaseNumber,
       tenantId :superAdminUser?.tenantId,
       senderTenantId:tenantId,
       receiverTenantId: superAdminUser?.tenantId,
