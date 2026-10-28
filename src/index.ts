@@ -33,6 +33,7 @@ import { TrialExpiredMail } from "./operations/trailExperiedMail";
 import { processReminders } from "./operations/remainder";
 import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
 import { processTrialExpiry, processTrialReminders } from "./operations/subscriptiontrial";
+import { publishScheduledUpdates } from "./operations/update";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -94,6 +95,21 @@ cron.schedule("0 9 * * *", async () => {
   console.log("🧹 Subscription trial expiring soon cronjob");
   await processTrialReminders();
 });
+
+cron.schedule(
+  "0 9 * * *",
+  async () => {
+    try {
+      const publishedCount = await publishScheduledUpdates();
+      AppLogger.info(
+        `${publishedCount} scheduled updates published.`,
+      );
+    } catch (error: unknown) {
+      AppLogger.error("Scheduled update publishing cronjob failed", error);
+    }
+  },
+  { timezone: "Asia/Kolkata" },
+);
 
 cron.schedule("0 0 * * *" , async ()=>{
    console.log("Subscription trial expired cronjob");

@@ -470,6 +470,21 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   };
 };
 
+export const publishScheduledUpdates = async () => {
+  const result = await UpdateModel.updateMany(
+    {
+      status: "Scheduled",
+      publishDate: { $lte: new Date() },
+      deletedAt: null,
+    },
+    {
+      $set: { status: "Published" },
+    },
+  );
+
+  return result.modifiedCount;
+};
+
 export const getUpdateDashboardCards = async () => {
   const now = new Date();
 
@@ -749,7 +764,6 @@ export const getTenantUpdates = async (tenantId: string) => {
     .lean();
 
 
-  // Keep the latest purchase request for each update.
   const purchaseRequestMap = new Map<
     string,
     { status: string; requestedAt: Date }
@@ -839,12 +853,11 @@ export const getPurchaseQuoteService = async ({
   updateId,
   activationMode,
 }: GetPurchaseQuoteParams) => {
-  // 1. Validate activation mode
+
   if (!Object.values(PurchaseActivationMode).includes(activationMode)) {
     throwError("Invalid activation mode", 400);
   }
 
-  // 2. Validate tenant
   const tenant = await Tenants.findOne({
     tenantCode: tenantId,
     deletedAt: null,
@@ -855,7 +868,6 @@ export const getPurchaseQuoteService = async ({
     return;
   }
 
-  // 3. Get the latest applicable feature update
   const now = new Date();
 
   const update = await UpdateModel.findOne({
@@ -868,7 +880,6 @@ export const getPurchaseQuoteService = async ({
     return;
   }
 
-  // 4. Get the current active tenant subscription
   const subscription = await TenantSubscription.findOne({
     tenantId: tenant.tenantCode,
     status: SubscriptionStatus.ACTIVE,
@@ -904,7 +915,6 @@ export const getPurchaseQuoteService = async ({
     throwError("Invalid subscription billing dates", 400);
   }
 
-  // 5. Resolve current plan and GST
   const plan = await planModel
     .findOne({
       _id: subscription.planId,
@@ -945,7 +955,6 @@ export const getPurchaseQuoteService = async ({
     throwError("Invalid feature pricing or plan GST configuration", 400);
   }
 
-  // 6. Build common response data
   const totalPeriodDays = BILLING_CYCLE_DAYS;
 
   const remainingDays = getRemainingDays(subscriptionEndDate, now);
