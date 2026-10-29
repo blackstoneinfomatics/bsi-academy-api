@@ -558,7 +558,17 @@ const sendTicketEmail = async (
   message: string,
 ): Promise<boolean> => {
   const recipients = [...new Set(receiverIds)];
-  if (recipients.length === 0) return true;
+  console.info("[TicketEmail] Step 1: starting recipient lookup", {
+    ticketNumber: ticket.ticketNumber,
+    action,
+    recipientCount: recipients.length,
+  });
+  if (recipients.length === 0) {
+    console.warn("[TicketEmail] Skipped: there are no recipients", {
+      ticketNumber: ticket.ticketNumber,
+    });
+    return false;
+  }
 
   const [emailTemplate, users, trialMembers, alStudents] = await Promise.all([
     EmailTemplateModel.findOne({
@@ -582,8 +592,25 @@ const sendTicketEmail = async (
     })
       .select("student.studentId student.studentEmail")
       .lean(),
-  ]);
+  ]).catch((error: unknown) => {
+    console.error("[TicketEmail] Step 2: database lookup failed", {
+      ticketNumber: ticket.ticketNumber,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  });
+  console.info("[TicketEmail] Step 2: database lookup completed", {
+    ticketNumber: ticket.ticketNumber,
+    templateFound: Boolean(emailTemplate?.templateContent),
+    activeUserCount: users.length,
+    activeTrialMemberCount: trialMembers.length,
+    activeStudentCount: alStudents.length,
+  });
+
   if (!emailTemplate?.templateContent) {
+    console.error("[TicketEmail] Stopped: active ticket-email template is missing or empty", {
+      ticketNumber: ticket.ticketNumber,
+    });
     AppLogger.error(
       `Ticket email template "ticket-email" not found or empty`,
     );
@@ -604,11 +631,20 @@ const sendTicketEmail = async (
 
   const missingRecipients = recipients.filter((userId) => !emails.has(userId));
   if (missingRecipients.length > 0) {
+    console.error("[TicketEmail] Stopped: recipient email address unavailable", {
+      ticketNumber: ticket.ticketNumber,
+      missingRecipientCount: missingRecipients.length,
+      missingRecipientIds: missingRecipients,
+    });
     AppLogger.error(
       `Ticket email delivery skipped for ${ticket.ticketNumber}; recipient email unavailable for ${missingRecipients.join(", ")}`,
     );
     return false;
   }
+  console.info("[TicketEmail] Step 3: recipient email addresses resolved", {
+    ticketNumber: ticket.ticketNumber,
+    recipientCount: emails.size,
+  });
 
   const escapeHtml = (value: string): string =>
     value.replace(/[&<>"']/g, (character) => {
@@ -644,17 +680,31 @@ const sendTicketEmail = async (
   const subject = `Ticket ${ticket.ticketNumber} ${action.toLowerCase()}`;
 
   try {
+    console.info("[TicketEmail] Step 4: submitting email to provider", {
+      ticketNumber: ticket.ticketNumber,
+      recipientCount: recipients.length,
+    });
     const result = await sendEmailClient(
       recipients.map((userId) => ({ email: emails.get(userId)! })),
       subject,
       html,
     );
     if (!result) {
+      console.error("[TicketEmail] Step 5: provider returned an empty response", {
+        ticketNumber: ticket.ticketNumber,
+      });
       AppLogger.error(`Ticket email delivery failed for ${ticket.ticketNumber}`);
       return false;
     }
+    console.info("[TicketEmail] Step 5: provider accepted email request", {
+      ticketNumber: ticket.ticketNumber,
+    });
     return true;
   } catch (error) {
+    console.error("[TicketEmail] Step 5: provider request failed", {
+      ticketNumber: ticket.ticketNumber,
+      error: error instanceof Error ? error.message : String(error),
+    });
     AppLogger.error(
       `Ticket email delivery failed for ${ticket.ticketNumber}: ${
         error instanceof Error ? error.message : String(error)
