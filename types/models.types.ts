@@ -3059,6 +3059,7 @@ export interface Portal {
 }
 
 export interface ITenantPortal extends Document {
+  _id: Types.ObjectId;
   tenantId: string;
   subscriptionId: Types.ObjectId;
 
@@ -3122,6 +3123,7 @@ description?: string;
 }
 
 export interface ITenantPortalConfig extends Document {
+  _id: Types.ObjectId;
   tenantId: string;
   portalId: Types.ObjectId;
   tenantPortalId: Types.ObjectId;

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { throwError } from "../helpers/throwError";
 import { portalModuleMessages, tenantPortalConfigMessages } from "../config/messages";
 import {
@@ -21,6 +21,7 @@ import TenantSubscription from "../models/tenantsubscription";
 import Plan from "../models/plan-model";
 import SubscriptionInvoice from "../models/subscriptionInvoice";
 import PaymentTransaction from "../models/paymenttransaction";
+import PortalCatalog from "../models/portal";
 import TenantPortal from "../models/tenantPortal";
 import TenantPortalConfig, {
   AddTenantChildModuleInput,
@@ -37,6 +38,7 @@ import {
   IParentModule,
   IPortalModule,
   ITenant,
+  ITenantPortal,
   ITenantPortalChildModule,
   ITenantPortalConfig,
   ITenantPortalFeature,
@@ -250,6 +252,7 @@ export const updateParentModuleAccess = async (
   parent.updatedBy = payload.updatedBy;
 
   await parent.save();
+  await syncGlobalAccessToTenantConfigs(parent, payload, { kind: "module" });
 
   return parent;
 };
@@ -345,6 +348,10 @@ export const updateChildModuleAccess = async (
   parent.updatedBy = payload.updatedBy;
 
   await parent.save();
+  await syncGlobalAccessToTenantConfigs(parent, payload, {
+    kind: "child",
+    childModuleId,
+  });
 
   return parent;
 };
@@ -455,6 +462,11 @@ export const updateFeatureAccess = async (
   parent.updatedBy = payload.updatedBy;
 
   await parent.save();
+  await syncGlobalAccessToTenantConfigs(parent, payload, {
+    kind: "feature",
+    childModuleId,
+    featureId,
+  });
 
   return parent;
 };
@@ -549,6 +561,10 @@ export const updateParentFeatureAccess = async (
   parent.updatedBy = payload.updatedBy;
 
   await parent.save();
+  await syncGlobalAccessToTenantConfigs(parent, payload, {
+    kind: "feature",
+    featureId,
+  });
 
   return parent;
 };
@@ -753,11 +769,74 @@ const validateTenantExists = async (tenantId: string): Promise<void> => {
   }
 };
 
+const findConfigByPortalName = async (
+  tenantId: string,
+  portalName: string
+): Promise<ITenantPortalConfig | null> => {
+  const exactName = {
+    $regex: `^${portalName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+    $options: "i",
+  };
+  const [tenantPortals, globalPortals] = await Promise.all([
+    TenantPortal.find({ tenantId, portalName: exactName })
+      .select("_id")
+      .lean<{ _id: mongoose.Types.ObjectId }[]>(),
+    PortalCatalog.find({ portalName: exactName }).select("_id"),
+  ]);
+  const tenantPortalIds = tenantPortals.map((portal) => portal._id);
+  const globalPortalIds = globalPortals.map((portal) => portal._id);
+  const references: FilterQuery<ITenantPortalConfig>[] = [];
+
+  if (tenantPortalIds.length) {
+    references.push({ tenantPortalId: { $in: tenantPortalIds } });
+  }
+  if (globalPortalIds.length) {
+    references.push({ portalId: { $in: globalPortalIds } });
+  }
+  if (!references.length) return null;
+
+  return TenantPortalConfig.findOne({
+    tenantId,
+    deletedAt: null,
+    $or: references,
+  }).sort({ createdAt: 1 });
+};
+
 const findActiveConfig = async (
   tenantId: string,
   portalId: string
 ): Promise<ITenantPortalConfig> => {
-  const config = await TenantPortalConfig.findOne({ tenantId, portalId, deletedAt: null });
+  let config = await TenantPortalConfig.findOne({
+    tenantId,
+    deletedAt: null,
+  }).sort({ createdAt: 1 });
+
+  if (!config) {
+    const portal = await TenantPortal.findOne({
+      tenantId,
+      portalId,
+      deletedAt: null,
+    })
+      .select("_id portalName")
+      .lean<{ _id: mongoose.Types.ObjectId; portalName: string }>();
+
+    if (portal) {
+      config = await TenantPortalConfig.findOne({
+        tenantId,
+        tenantPortalId: portal._id,
+        deletedAt: null,
+      });
+
+      if (!config) {
+        config = await findConfigByPortalName(tenantId, portal.portalName);
+      }
+    }
+  }
+
+  if (!config) {
+    config = await TenantPortalConfig.findOne({ tenantId, deletedAt: null })
+      .sort({ createdAt: 1 });
+  }
 
   if (!config) {
     return throwError(tenantPortalConfigMessages.TENANT_CONFIG_NOT_FOUND, 404);
@@ -820,6 +899,365 @@ const buildDefaultModulesSnapshot = (parents: IPortalModule[]): ITenantPortalMod
   }));
 };
 
+const disabledDefaultFeature = (
+  feature: ITenantPortalFeature
+): ITenantPortalFeature => ({
+  ...feature,
+  isEnabled: false,
+});
+
+const disabledDefaultChild = (
+  child: ITenantPortalChildModule
+): ITenantPortalChildModule => ({
+  ...child,
+  isEnabled: false,
+  features: (child.features ?? []).map(disabledDefaultFeature),
+});
+
+const disabledDefaultModule = (
+  module: ITenantPortalModule
+): ITenantPortalModule => ({
+  ...module,
+  isEnabled: false,
+  features: (module.features ?? []).map(disabledDefaultFeature),
+  children: (module.children ?? []).map(disabledDefaultChild),
+});
+
+const normalizePortalKey = (value: string | null | undefined): string =>
+  (value ?? "").trim().toLocaleUpperCase();
+
+const belongsToTenantPortal = (
+  module: IPortalModule,
+  portal: Pick<ITenantPortal, "portalName" | "portalId" | "portalCode">
+): boolean => {
+  const portalName = normalizePortalKey(portal.portalName);
+  const portalId = portal.portalId.toString();
+  const portalCode = normalizePortalKey(portal.portalCode);
+
+  return (
+    normalizePortalKey(module.portal) === portalName ||
+    normalizePortalKey(module.portal) === portalCode ||
+    normalizePortalKey(module.portalId) === normalizePortalKey(portalId) ||
+    normalizePortalKey(module.portalId) === portalCode
+  );
+};
+
+const addMissingDefaultModules = (
+  tenantModules: ITenantPortalModule[],
+  defaultModules: ITenantPortalModule[]
+): boolean => {
+  let changed = false;
+
+  for (const defaultModule of defaultModules) {
+    const tenantModule = tenantModules.find(
+      (module) => module.moduleId === defaultModule.moduleId
+    );
+
+    if (!tenantModule) {
+      tenantModules.push(disabledDefaultModule(defaultModule));
+      changed = true;
+      continue;
+    }
+
+    for (const defaultFeature of defaultModule.features ?? []) {
+      if (
+        !tenantModule.features.some(
+          (feature) => feature.featureId === defaultFeature.featureId
+        )
+      ) {
+        tenantModule.features.push(disabledDefaultFeature(defaultFeature));
+        changed = true;
+      }
+    }
+
+    for (const defaultChild of defaultModule.children ?? []) {
+      const tenantChild = tenantModule.children.find(
+        (child) => child.childModuleId === defaultChild.childModuleId
+      );
+
+      if (!tenantChild) {
+        tenantModule.children.push(disabledDefaultChild(defaultChild));
+        changed = true;
+        continue;
+      }
+
+      for (const defaultFeature of defaultChild.features ?? []) {
+        if (
+          !tenantChild.features.some(
+            (feature) => feature.featureId === defaultFeature.featureId
+          )
+        ) {
+          tenantChild.features.push(disabledDefaultFeature(defaultFeature));
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return changed;
+};
+
+const mergeTenantConfigModules = (
+  targetModules: ITenantPortalModule[],
+  sourceModules: ITenantPortalModule[]
+): boolean => {
+  let changed = false;
+
+  for (const sourceModule of sourceModules) {
+    const targetModule = targetModules.find(
+      (module) => module.moduleId === sourceModule.moduleId
+    );
+
+    if (!targetModule) {
+      targetModules.push({
+        ...sourceModule,
+        features: (sourceModule.features ?? []).map((feature) => ({ ...feature })),
+        children: (sourceModule.children ?? []).map((child) => ({
+          ...child,
+          features: (child.features ?? []).map((feature) => ({ ...feature })),
+        })),
+      });
+      changed = true;
+      continue;
+    }
+
+    if (sourceModule.isEnabled && !targetModule.isEnabled) {
+      targetModule.isEnabled = true;
+      changed = true;
+    }
+
+    for (const sourceFeature of sourceModule.features ?? []) {
+      const targetFeature = targetModule.features.find(
+        (feature) => feature.featureId === sourceFeature.featureId
+      );
+      if (!targetFeature) {
+        targetModule.features.push({ ...sourceFeature });
+        changed = true;
+      } else if (sourceFeature.isEnabled && !targetFeature.isEnabled) {
+        targetFeature.isEnabled = true;
+        changed = true;
+      }
+    }
+
+    for (const sourceChild of sourceModule.children ?? []) {
+      const targetChild = targetModule.children.find(
+        (child) => child.childModuleId === sourceChild.childModuleId
+      );
+
+      if (!targetChild) {
+        targetModule.children.push({
+          ...sourceChild,
+          features: (sourceChild.features ?? []).map((feature) => ({ ...feature })),
+        });
+        changed = true;
+        continue;
+      }
+
+      if (sourceChild.isEnabled && !targetChild.isEnabled) {
+        targetChild.isEnabled = true;
+        changed = true;
+      }
+
+      for (const sourceFeature of sourceChild.features ?? []) {
+        const targetFeature = targetChild.features.find(
+          (feature) => feature.featureId === sourceFeature.featureId
+        );
+        if (!targetFeature) {
+          targetChild.features.push({ ...sourceFeature });
+          changed = true;
+        } else if (sourceFeature.isEnabled && !targetFeature.isEnabled) {
+          targetFeature.isEnabled = true;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return changed;
+};
+
+const applySavedEnabledFlags = (
+  targetModules: ITenantPortalModule[],
+  savedConfigs: ITenantPortalConfig[]
+): void => {
+  const savedEnabledModuleIds = new Set<string>();
+  const savedEnabledChildIds = new Set<string>();
+  const savedEnabledFeatureIds = new Set<string>();
+
+  for (const config of savedConfigs) {
+    for (const module of config.modules ?? []) {
+      if (module.isEnabled) savedEnabledModuleIds.add(module.moduleId);
+
+      for (const feature of module.features ?? []) {
+        if (feature.isEnabled) {
+          savedEnabledFeatureIds.add(`${module.moduleId}:${feature.featureId}`);
+        }
+      }
+
+      for (const child of module.children ?? []) {
+        if (child.isEnabled) {
+          savedEnabledChildIds.add(`${module.moduleId}:${child.childModuleId}`);
+        }
+
+        for (const feature of child.features ?? []) {
+          if (feature.isEnabled) {
+            savedEnabledFeatureIds.add(
+              `${module.moduleId}:${child.childModuleId}:${feature.featureId}`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  for (const module of targetModules) {
+    if (savedEnabledModuleIds.has(module.moduleId)) module.isEnabled = true;
+
+    for (const feature of module.features ?? []) {
+      if (savedEnabledFeatureIds.has(`${module.moduleId}:${feature.featureId}`)) {
+        feature.isEnabled = true;
+      }
+    }
+
+    for (const child of module.children ?? []) {
+      if (savedEnabledChildIds.has(`${module.moduleId}:${child.childModuleId}`)) {
+        child.isEnabled = true;
+      }
+
+      for (const feature of child.features ?? []) {
+        if (
+          savedEnabledFeatureIds.has(
+            `${module.moduleId}:${child.childModuleId}:${feature.featureId}`
+          )
+        ) {
+          feature.isEnabled = true;
+        }
+      }
+    }
+  }
+};
+
+const cloneTenantConfigModules = (
+  modules: ITenantPortalModule[]
+): ITenantPortalModule[] =>
+  modules.map((module) => ({
+    ...module,
+    features: (module.features ?? []).map((feature) => ({ ...feature })),
+    children: (module.children ?? []).map((child) => ({
+      ...child,
+      features: (child.features ?? []).map((feature) => ({ ...feature })),
+    })),
+  }));
+
+const getCanonicalTenantConfig = async (
+  tenantId: string
+): Promise<ITenantPortalConfig | null> => {
+  const configs = await TenantPortalConfig.find({
+    tenantId,
+    deletedAt: null,
+  }).sort({ createdAt: 1 });
+
+  const canonical = configs[0];
+  if (!canonical) return null;
+
+  let changed = false;
+  for (const duplicate of configs.slice(1)) {
+    changed = mergeTenantConfigModules(canonical.modules, duplicate.modules) || changed;
+    duplicate.deletedAt = new Date();
+    duplicate.updatedBy = "SYSTEM";
+    await duplicate.save();
+  }
+
+  if (changed) await canonical.save();
+
+  return canonical;
+};
+
+type GlobalAccessTarget =
+  | { kind: "module" }
+  | { kind: "child"; childModuleId: string }
+  | { kind: "feature"; featureId: string; childModuleId?: string };
+
+const syncGlobalAccessToTenantConfigs = async (
+  parent: IPortalModule,
+  payload: UpdateAccessInput,
+  target: GlobalAccessTarget
+): Promise<void> => {
+  const tenantPortals = await TenantPortal.find({ deletedAt: null })
+    .select("_id tenantId portalName portalId portalCode")
+    .lean<{
+      _id: mongoose.Types.ObjectId;
+      tenantId: string;
+      portalName: string;
+      portalId: mongoose.Types.ObjectId;
+      portalCode: string;
+    }[]>();
+  const tenantIds = new Set(
+    tenantPortals
+      .filter((portal) => belongsToTenantPortal(parent, portal))
+      .map((portal) => portal.tenantId)
+  );
+  const defaultModule = buildDefaultModulesSnapshot([parent])[0];
+
+  for (const tenantId of tenantIds) {
+    const config = await getCanonicalTenantConfig(tenantId);
+    if (!config) continue;
+
+    if (payload.isEnabled) {
+      addMissingDefaultModules(config.modules, [defaultModule]);
+    }
+
+    const module = config.modules.find(
+      (item) => item.moduleId === parent.parentModuleId && !item.deletedAt
+    );
+    if (!module) continue;
+
+    if (target.kind === "module") {
+      module.isEnabled = payload.isEnabled;
+    } else if (target.kind === "child") {
+      const child = module.children.find(
+        (item) => item.childModuleId === target.childModuleId && !item.deletedAt
+      );
+      if (!child) continue;
+      child.isEnabled = payload.isEnabled;
+      child.updatedAt = new Date();
+    } else {
+      const feature = target.childModuleId
+        ? module.children
+            .find((item) => item.childModuleId === target.childModuleId && !item.deletedAt)
+            ?.features.find((item) => item.featureId === target.featureId && !item.deletedAt)
+        : module.features.find(
+            (item) => item.featureId === target.featureId && !item.deletedAt
+          );
+      if (!feature) continue;
+      feature.isEnabled = payload.isEnabled;
+      feature.updatedAt = new Date();
+    }
+
+    module.updatedAt = new Date();
+    config.updatedBy = payload.updatedBy;
+    await config.save();
+  }
+};
+
+const getTenantAccessConfig = async (
+  tenantId: string,
+  portalId: string
+): Promise<ITenantPortalConfig> => {
+  const config =
+    (await getCanonicalTenantConfig(tenantId)) ??
+    (await TenantPortalConfig.findOne({
+      tenantId,
+      portalId,
+      deletedAt: null,
+    }));
+
+  if (!config) {
+    return throwError(tenantPortalConfigMessages.TENANT_CONFIG_NOT_FOUND, 404);
+  }
+
+  return config;
+};
 
 const findOrCreateActiveConfig = async (
   tenantId: string,
@@ -827,6 +1265,9 @@ const findOrCreateActiveConfig = async (
   createdBy: string
 ): Promise<ITenantPortalConfig> => {
   console.log("[findOrCreateActiveConfig] lookup", { tenantId, portalId });
+
+  const canonicalConfig = await getCanonicalTenantConfig(tenantId);
+  if (canonicalConfig) return canonicalConfig;
 
   const existing = await TenantPortalConfig.findOne({ tenantId, portalId, deletedAt: null });
 
@@ -847,19 +1288,30 @@ const findOrCreateActiveConfig = async (
     portalName: portal?.portalName ?? null,
   });
 
-  const defaultParents = portal
-    ? await PortalModule.find({ portal: portal.portalName, deletedAt: null })
-    : [];
+  if (portal) {
+    const configByTenantPortal =
+      (await TenantPortalConfig.findOne({
+        tenantId,
+        tenantPortalId: portal._id,
+        deletedAt: null,
+      })) ??
+      (await findConfigByPortalName(tenantId, portal.portalName)) ??
+      (await getCanonicalTenantConfig(tenantId));
 
-  console.log("[findOrCreateActiveConfig] default parents snapshot", {
-    count: defaultParents.length,
-  });
+    if (configByTenantPortal) {
+      if (configByTenantPortal.tenantPortalId.toString() !== portal._id.toString()) {
+        configByTenantPortal.tenantPortalId = portal._id;
+        await configByTenantPortal.save();
+      }
+      return configByTenantPortal;
+    }
+  }
 
   const created = await TenantPortalConfig.create({
     tenantId,
     portalId,
     tenantPortalId: portal?._id ?? new mongoose.Types.ObjectId(),
-    modules: buildDefaultModulesSnapshot(defaultParents),
+    modules: [],
     createdBy,
     updatedBy: null,
     deletedAt: null,
@@ -912,6 +1364,114 @@ const findTenantFeatureOrThrow = (
     return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
   }
 
+  return feature;
+};
+
+const findDefaultParentForTenant = async (
+  tenantId: string,
+  portalId: string,
+  parentModuleId: string
+): Promise<IPortalModule> => {
+  const portalQuery: FilterQuery<ITenantPortal> = mongoose.Types.ObjectId.isValid(portalId)
+    ? { tenantId, deletedAt: null, $or: [{ _id: portalId }, { portalId }] }
+    : { tenantId, portalId, deletedAt: null };
+  const [portal, parent] = await Promise.all([
+    TenantPortal.findOne(portalQuery),
+    PortalModule.findOne({ parentModuleId, deletedAt: null }),
+  ]);
+
+  if (!portal || !parent || !belongsToTenantPortal(parent, portal)) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+
+  return parent;
+};
+
+const ensureDefaultModuleForTenant = async (
+  config: ITenantPortalConfig,
+  tenantId: string,
+  portalId: string,
+  parentModuleId: string
+): Promise<ITenantPortalModule> => {
+  let module = config.modules.find(
+    (item) => item.moduleId === parentModuleId && !item.deletedAt
+  );
+  if (module) return module;
+
+  const parent = await findDefaultParentForTenant(tenantId, portalId, parentModuleId);
+  const snapshot = buildDefaultModulesSnapshot([parent])[0];
+  module = disabledDefaultModule({
+    ...snapshot,
+    children: [],
+    features: [],
+  });
+  config.modules.push(module);
+  return module;
+};
+
+const ensureDefaultChildForTenant = async (
+  module: ITenantPortalModule,
+  parent: IPortalModule,
+  childModuleId: string
+): Promise<ITenantPortalChildModule> => {
+  let child = module.children.find(
+    (item) => item.childModuleId === childModuleId && !item.deletedAt
+  );
+  if (child) return child;
+
+  const sourceChild = parent.children.find(
+    (item) => item.childModuleId === childModuleId
+  );
+  if (!sourceChild) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_FOUND, 404);
+  }
+
+  const snapshot = buildDefaultModulesSnapshot([parent])[0].children.find(
+    (item) => item.childModuleId === childModuleId
+  );
+  if (!snapshot) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_FOUND, 404);
+  }
+
+  child = disabledDefaultChild({ ...snapshot, features: [] });
+  module.children.push(child);
+  return child;
+};
+
+const ensureDefaultFeatureForTenant = async (
+  container: ITenantPortalModule | ITenantPortalChildModule,
+  parent: IPortalModule,
+  featureId: string,
+  childModuleId?: string
+): Promise<ITenantPortalFeature> => {
+  let feature = container.features.find(
+    (item) => item.featureId === featureId && !item.deletedAt
+  );
+  if (feature) return feature;
+
+  const sourceContainer = childModuleId
+    ? parent.children.find((child) => child.childModuleId === childModuleId)
+    : parent;
+  const sourceFeature = sourceContainer?.features.find(
+    (item) => item.featureId === featureId
+  );
+  if (!sourceFeature) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
+  }
+
+  const snapshot = buildDefaultModulesSnapshot([parent])[0];
+  const snapshotContainer = childModuleId
+    ? snapshot.children.find((child) => child.childModuleId === childModuleId)
+    : snapshot;
+  const snapshotFeature = snapshotContainer?.features.find(
+    (item) => item.featureId === featureId
+  );
+  if (!snapshotFeature) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
+  }
+
+  feature = disabledDefaultFeature(snapshotFeature);
+  container.features.push(feature);
   return feature;
 };
 
@@ -1037,29 +1597,79 @@ export const getTenantConfig = async (
     return throwError(tenantPortalConfigMessages.TENANT_NOT_FOUND, 404);
   }
 
-  const [tenantPortals, configs] = await Promise.all([
-    TenantPortal.find({ tenantId, deletedAt: null })
+  const tenantPortals = await TenantPortal.find({ tenantId, deletedAt: null })
       .sort({ createdAt: 1 })
-      .lean(),
-    TenantPortalConfig.find({
-      tenantId,
-      deletedAt: null,
-    }).lean(),
-  ]);
+      .lean<{
+        _id: mongoose.Types.ObjectId;
+        tenantId: string;
+        portalName: string;
+        portalId: mongoose.Types.ObjectId;
+        portalCode: string;
+        createdBy: string;
+      }[]>();
 
-  const configByTenantPortalId = new Map(
-    configs.map((config) => [config.tenantPortalId.toString(), config])
-  );
+  const globalModules = tenantPortals.length
+    ? await PortalModule.find({ deletedAt: null })
+    : [];
+  const configs = await TenantPortalConfig.find({
+    tenantId,
+    deletedAt: null,
+  }).sort({ createdAt: 1 });
+  const canonicalConfig = configs[0];
+  const configModules = configs.length
+    ? cloneTenantConfigModules(canonicalConfig.modules)
+    : [];
+  for (const duplicate of configs.slice(1)) {
+    mergeTenantConfigModules(configModules, duplicate.modules);
+  }
 
-  return tenantPortals.map((portal) => {
-    const config = configByTenantPortalId.get(portal._id.toString());
+  const canonicalTenantPortal = canonicalConfig
+    ? await TenantPortal.findOne({
+        tenantId,
+        _id: canonicalConfig.tenantPortalId,
+      }).select("portalName")
+    : null;
+  const canonicalGlobalPortal = canonicalConfig
+    ? await PortalCatalog.findById(canonicalConfig.portalId).select("portalName")
+    : null;
+  const customModulePortalName =
+    canonicalTenantPortal?.portalName ?? canonicalGlobalPortal?.portalName;
+  const moduleIdsByPortal = new Map<string, Set<string>>();
+
+  for (const portal of tenantPortals) {
+    const portalModules = globalModules.filter((module) =>
+      belongsToTenantPortal(module, portal)
+    );
+    const portalModuleIds = new Set(portalModules.map((module) => module.parentModuleId));
+    moduleIdsByPortal.set(normalizePortalKey(portal.portalName), portalModuleIds);
+    addMissingDefaultModules(
+      configModules,
+      buildDefaultModulesSnapshot(portalModules)
+    );
+  }
+
+  applySavedEnabledFlags(configModules, configs);
+
+  const result = tenantPortals.map((portal) => {
+    const portalModuleIds =
+      moduleIdsByPortal.get(normalizePortalKey(portal.portalName)) ?? new Set<string>();
 
     return {
       tenantId,
       portalName: portal.portalName,
-      modules: config?.modules ?? [],
+      modules: configModules.filter(
+        (module) =>
+          portalModuleIds.has(module.moduleId) ||
+          (module.moduleType === PortalType.CUSTOM &&
+            (!customModulePortalName
+              ? tenantPortals.length === 1
+              : normalizePortalKey(portal.portalName) ===
+                normalizePortalKey(customModulePortalName)))
+      ),
     };
   });
+
+  return result;
 };
 
 
@@ -1134,8 +1744,28 @@ export const updateTenantModuleAccess = async (
 
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
-  const module = findTenantModuleOrThrow(config, moduleId);
+  const config = await getTenantAccessConfig(payload.tenantId, payload.portalId);
+  let module = config.modules.find(
+    (item) => item.moduleId === moduleId && !item.deletedAt
+  );
+  if (!module && payload.isEnabled) {
+    module = await ensureDefaultModuleForTenant(
+      config,
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
+  if (!module) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+  if (module.moduleType === PortalType.DEFAULT) {
+    await findDefaultParentForTenant(
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
 
   module.isEnabled = payload.isEnabled;
   module.updatedAt = new Date();
@@ -1278,9 +1908,40 @@ export const updateTenantChildModuleAccess = async (
 
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
-  const module = findTenantModuleOrThrow(config, moduleId);
-  const child = findTenantChildOrThrow(module, childModuleId);
+  const config = await getTenantAccessConfig(payload.tenantId, payload.portalId);
+  let module = config.modules.find(
+    (item) => item.moduleId === moduleId && !item.deletedAt
+  );
+  if (!module && payload.isEnabled) {
+    module = await ensureDefaultModuleForTenant(
+      config,
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
+  if (!module) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+  let parent: IPortalModule | undefined;
+  if (module.moduleType === PortalType.DEFAULT) {
+    parent = await findDefaultParentForTenant(
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
+
+  let child = module.children.find(
+    (item) => item.childModuleId === childModuleId && !item.deletedAt
+  );
+  if (!child && payload.isEnabled) {
+    parent ??= await findDefaultParentForTenant(payload.tenantId, payload.portalId, moduleId);
+    child = await ensureDefaultChildForTenant(module, parent, childModuleId);
+  }
+  if (!child) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_FOUND, 404);
+  }
 
   child.isEnabled = payload.isEnabled;
   child.updatedAt = new Date();
@@ -1526,9 +2187,39 @@ export const updateTenantModuleFeatureAccess = async (
 
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
-  const module = findTenantModuleOrThrow(config, moduleId);
-  const feature = findTenantFeatureOrThrow(module, featureId);
+  const config = await getTenantAccessConfig(payload.tenantId, payload.portalId);
+  let module = config.modules.find(
+    (item) => item.moduleId === moduleId && !item.deletedAt
+  );
+  if (!module && payload.isEnabled) {
+    module = await ensureDefaultModuleForTenant(
+      config,
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
+  if (!module) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+  const parent = module.moduleType === PortalType.DEFAULT
+    ? await findDefaultParentForTenant(payload.tenantId, payload.portalId, moduleId)
+    : undefined;
+
+  let feature = module.features.find(
+    (item) => item.featureId === featureId && !item.deletedAt
+  );
+  if (!feature && payload.isEnabled) {
+    const defaultParent = parent ?? await findDefaultParentForTenant(
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+    feature = await ensureDefaultFeatureForTenant(module, defaultParent, featureId);
+  }
+  if (!feature) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
+  }
 
   feature.isEnabled = payload.isEnabled;
   feature.updatedAt = new Date();
@@ -1554,10 +2245,55 @@ export const updateTenantChildFeatureAccess = async (
 
   await validateTenantExists(payload.tenantId);
 
-  const config = await findActiveConfig(payload.tenantId, payload.portalId);
-  const module = findTenantModuleOrThrow(config, moduleId);
-  const child = findTenantChildOrThrow(module, childModuleId);
-  const feature = findTenantFeatureOrThrow(child, featureId);
+  const config = await getTenantAccessConfig(payload.tenantId, payload.portalId);
+  let module = config.modules.find(
+    (item) => item.moduleId === moduleId && !item.deletedAt
+  );
+  if (!module && payload.isEnabled) {
+    module = await ensureDefaultModuleForTenant(
+      config,
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+  }
+  if (!module) {
+    return throwError(tenantPortalConfigMessages.MODULE_NOT_FOUND, 404);
+  }
+
+  let child = module.children.find(
+    (item) => item.childModuleId === childModuleId && !item.deletedAt
+  );
+  let parent: IPortalModule | undefined = module.moduleType === PortalType.DEFAULT
+    ? await findDefaultParentForTenant(payload.tenantId, payload.portalId, moduleId)
+    : undefined;
+  if (!child && payload.isEnabled) {
+    parent ??= await findDefaultParentForTenant(payload.tenantId, payload.portalId, moduleId);
+    child = await ensureDefaultChildForTenant(module, parent, childModuleId);
+  }
+  if (!child) {
+    return throwError(tenantPortalConfigMessages.CHILD_MODULE_NOT_FOUND, 404);
+  }
+
+  let feature = child.features.find(
+    (item) => item.featureId === featureId && !item.deletedAt
+  );
+  if (!feature && payload.isEnabled) {
+    parent ??= await findDefaultParentForTenant(
+      payload.tenantId,
+      payload.portalId,
+      moduleId
+    );
+    feature = await ensureDefaultFeatureForTenant(
+      child,
+      parent,
+      featureId,
+      childModuleId
+    );
+  }
+  if (!feature) {
+    return throwError(tenantPortalConfigMessages.FEATURE_NOT_FOUND, 404);
+  }
 
   feature.isEnabled = payload.isEnabled;
   feature.updatedAt = new Date();
