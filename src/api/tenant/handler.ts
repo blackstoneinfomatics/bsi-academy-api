@@ -168,7 +168,18 @@ const updateTenantDetailsInput = z.object({
       createdDate: true,
       createdBy: true,
     })
-    .partial(),
+    .partial()
+    .extend({
+      isBackup: z.preprocess(
+        (value) =>
+          value === "true" || value === "on"
+            ? true
+            : value === "false"
+              ? false
+              : value,
+        z.boolean().optional(),
+      ),
+    }),
 });
 
 const createTenantInputValidation = z.object({
