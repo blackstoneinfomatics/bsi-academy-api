@@ -196,6 +196,7 @@ const createTenantInputValidation = z.object({
     tenantJobCode: true,
     website: true,
     domainName: true,
+    isBackup: true,
     status: true,
     adminName: true,
     adminEmail: true,
@@ -203,6 +204,16 @@ const createTenantInputValidation = z.object({
     comments: true,
     createdBy: true,
     lastUpdatedBy: true
+  }).extend({
+    isBackup: z.preprocess(
+      (value) =>
+        value === "true" || value === "on"
+          ? true
+          : value === "false" || value === undefined
+            ? false
+            : value,
+      z.boolean(),
+    ),
   })
 });
 
@@ -276,6 +287,7 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
     street ,
     postalCode,
     country,
+    isBackup,
     companyRegistrationCertificate,
     addressProof,
     plan,
@@ -301,6 +313,7 @@ console.log("VALIDATION PAYLOAD:", validationPayload);
       city,
       street,
       country,
+      isBackup,
       companyRegistrationCertificate,
       addressProof,
       plan,

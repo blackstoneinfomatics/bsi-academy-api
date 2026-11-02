@@ -2284,6 +2284,7 @@ export interface ITenant extends Document {
   tenantName: string;
   tenantLogo: string;
   mobileNumber: string;
+  isBackup?: boolean;
   organizationName: string;
   phoneNumber?: string;
   address?: string;
@@ -2325,6 +2326,7 @@ export interface ITenantCreate {
   organizationName: string;
   phoneNumber?: string;
   state: string;
+  isBackup?: boolean;
   city: string;
   street: string;
   country?: string;

@@ -155,6 +155,11 @@ const tenantSchema = new Schema<ITenant>(
       type: String,
       default: null,
     },
+    isBackup:{
+      type :Boolean,
+      default:false ,   
+      required : false      
+    }
   },
   {
     collection: "tenants",
@@ -164,6 +169,7 @@ const tenantSchema = new Schema<ITenant>(
 
 export const zodTenantSchema = z.object({
   tenantCode: z.string().min(3),
+  isBackup: z.boolean().optional(),
   tenantName: z.string().min(3),
   tenantLogo: z.string().optional(),
   organizationName: z.string(),
