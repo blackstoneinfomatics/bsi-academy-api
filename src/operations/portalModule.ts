@@ -2316,6 +2316,7 @@ interface GetAllFeaturesQuery {
 
 interface FeatureRow {
   portal: string;
+  portalId?: string;
   type: string;
   parentModuleId: string;
   parentModuleName: string;
@@ -2412,12 +2413,20 @@ const paginateFeatureRows = (
 export const getAllFeatures = async (
   query: GetAllFeaturesQuery = {},
 ) => {
-  // 1. Fetch all parent modules
-  const parentModules = await PortalModule.find({
-    deletedAt: null,
-  })
-    .sort({ order: 1, createdAt: -1 })
-    .lean();
+  const [parentModules, portals] = await Promise.all([
+    PortalModule.find({ deletedAt: null })
+      .sort({ order: 1, createdAt: -1 })
+      .lean(),
+    PortalCatalog.find({ deletedAt: null })
+      .select("_id portalName portalCode")
+      .lean(),
+  ]);
+  const portalIdByKey = new Map<string, string>();
+  for (const portal of portals) {
+    portalIdByKey.set(normalizePortalKey(portal._id.toString()), portal.portalCode);
+    portalIdByKey.set(normalizePortalKey(portal.portalName), portal.portalCode);
+    portalIdByKey.set(normalizePortalKey(portal.portalCode), portal.portalCode);
+  }
 
   const rows: FeatureRow[] = [];
 
@@ -2425,10 +2434,16 @@ export const getAllFeatures = async (
   for (const parent of parentModules) {
     const parentId = parent.parentModuleId;
     const parentName = parent.parentModuleName;
+    const resolvedPortalId =
+      portalIdByKey.get(normalizePortalKey(parent.portalId)) ??
+      portalIdByKey.get(normalizePortalKey(parent.portal));
+    const portalId =
+      resolvedPortalId ??
+      (/^[a-f\d]{24}$/i.test(parent.portalId) ? undefined : parent.portalId);
 
     rows.push({
       portal: parent.portal,
-
+      portalId,
       parentModuleId: parentId,
       parentModuleName: parentName,
 
@@ -2451,7 +2466,7 @@ export const getAllFeatures = async (
     for (const feature of parent.features || []) {
       rows.push({
         portal: parent.portal,
-
+        portalId,
         parentModuleId: parentId,
         parentModuleName: parentName,
 
@@ -2475,7 +2490,7 @@ export const getAllFeatures = async (
     for (const child of parent.children || []) {
       rows.push({
         portal: parent.portal,
-
+        portalId,
         parentModuleId: parentId,
         parentModuleName: parentName,
 
@@ -2497,7 +2512,7 @@ export const getAllFeatures = async (
       for (const feature of child.features || []) {
         rows.push({
           portal: parent.portal,
-
+          portalId,
           parentModuleId: parentId,
           parentModuleName: parentName,
 
