@@ -27,6 +27,8 @@ import CustomEnumerator, {
   PurchaseActivationMode,
   PurchasePaymentStatus,
   PurchaseRequestStatus,
+  BackupFormat,
+  BackupStatus,
 } from "../src/shared/enum";
 
 enum Status {
@@ -3553,4 +3555,47 @@ export interface IPurchaseRequest extends Document {
 
   deletedAt: Date | null;
   deletedBy?: string | null;
+}
+
+export interface ITenantBackup extends Document {
+  backupId: string;
+
+  tenantId: string;
+  tenantName: string;
+
+  subscriptionId: Types.ObjectId;
+
+  requestedBy: string;
+
+  additionalNotes?: string;
+
+  dateRange: {
+    fromDate: Date;
+    toDate: Date;
+  };
+
+  format: BackupFormat;
+
+  status: BackupStatus;
+
+  fileDetails: {
+    fileId?: Types.ObjectId | null;
+    fileName?: string | null;
+    mimeType?: string | null;
+    fileSize: number;
+    totalRecords: number;
+    collectionCounts: Map<string, number>;
+    generatedAt?: Date | null;
+    expiresAt?: Date | null;
+  };
+
+  errorMessage?: string | null;
+
+  createdBy: string;
+  updatedBy?: string | null;
+
+  deletedAt?: Date | null;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }

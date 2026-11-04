@@ -232,6 +232,18 @@ export enum PurchasePaymentStatus {
   PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED",
 }
 
+export enum BackupStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  EXPIRED = "EXPIRED",
+}
+
+export enum BackupFormat {
+  EXCEL = "EXCEL",
+}
+
 
 export class CustomEnumerator {
   static readonly classStatus = classStatus;

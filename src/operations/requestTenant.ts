@@ -1,15 +1,13 @@
 import { Request } from "@hapi/hapi";
 import { getActiveTenantRecordByCode } from "./tenants";
 import { z } from "zod";
-import BackupRequestModel, {
-  backupRequestValidation,
-} from "../models/backupRequest";
+import BackupRequestModel from "../models/tenantBackup";
 import PlanModel from "../models/plan-model";
 import PlanChangeRequestModel, {
   planChangeRequestValidation,
 } from "../models/planChangeRequest";
 import TenantSubscriptionModel from "../models/tenantsubscription";
-import { RequestStatus, SubscriptionStatus } from "../shared/enum";
+import { BackupFormat, BackupStatus, RequestStatus, SubscriptionStatus } from "../shared/enum";
 import {
   planChangeRequestMessages,
   requestTenantMessages,
@@ -23,13 +21,8 @@ import paymenttransaction from "../models/paymenttransaction";
 import mongoose from "mongoose";
 import RefundTransaction from "../models/refundTransaction";
 import { RefundApprovalStatus, RefundStatus } from "../shared/enum";
-
-
-
-
-export type CreateBackupRequestInput = z.infer<
-  typeof backupRequestValidation
->;
+import { throwError } from "../helpers/throwError";
+import { randomUUID } from "crypto";
 
 export type CreatePlanChangeRequestInput = z.infer<
   typeof planChangeRequestValidation
@@ -84,31 +77,131 @@ export const resolveRequestTenant = async (
 };
 
 export const createBackupRequest = async (
-  payload: CreateBackupRequestInput,
-  tenant: { tenantId: string; tenantName: string }
+  payload: any,
+  tenant: {
+    tenantId: string;
+    tenantName: string;
+  },
 ) => {
-  const requestId = await generateRequestId();
-  const request = await BackupRequestModel.create({
-    ...payload,
-    requestId,
+  // 1. Validate date range
+  const { fromDate, toDate } = payload.dateRange;
+  const {requestedBy , additionalNotes} = payload;
+
+  if (new Date(fromDate) > new Date(toDate)) {
+    throwError("From date cannot be greater than To date", 400);
+  }
+
+  // 2. Get active tenant subscription
+  const subscription = await TenantSubscriptionModel.findOne({
+    tenantId: tenant.tenantId,
+    status: SubscriptionStatus.ACTIVE,
+    deletedAt: null,
+  }).lean();
+
+  if (!subscription) {
+    throwError("Active subscription not found", 404);
+    return;
+  }
+
+  // 3. Generate backup ID
+  const backupId = `BKU-${randomUUID()
+        .replace(/-/g, "")
+        .slice(0, 5)
+        .toUpperCase()}`;
+
+  // 4. Create backup record
+  const backup = await BackupRequestModel.create({
+    backupId,
+
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
+
+    subscriptionId: subscription._id,
+
+    requestedBy: requestedBy,
+
+    dateRange: {
+      fromDate: new Date(fromDate),
+      toDate: new Date(toDate),
+    },
+
+    // Excel is the default format
+    format: BackupFormat.EXCEL,
+
+    status: BackupStatus.PENDING,
+
+    additionalNotes: additionalNotes,
+
+    fileDetails: {
+      fileId: null,
+      fileName: null,
+      mimeType: null,
+      fileSize: 0,
+      totalRecords: 0,
+      collectionCounts: {},
+      generatedAt: null,
+      expiresAt: null,
+    },
+
+    createdBy: requestedBy,
   });
 
-  await notifySuperAdminOfRequest({
-    requestId: request.requestId,
+    await notifySuperAdminOfRequest({
+    requestId: backup.backupId,
     tenant,
     notificationType: "BACKUP_REQUEST_SUBMITTED",
     title: `Backup request from ${tenant.tenantName}`,
     messages: `${tenant.tenantName} submitted a backup request.`,
     metadata: {
-      backupStartDate: request.backupStartDate.toISOString(),
-      backupEndDate: request.backupEndDate.toISOString(),
-      additionalNotes: request.additionalNotes,
+      backupStartDate: backup.dateRange.fromDate.toISOString(),
+      backupEndDate: backup.dateRange.toDate.toISOString(),
+      additionalNotes: backup.additionalNotes,
     },
   });
 
-  return request;
+  // // 5. Add background job
+  // try {
+  //   await backupQueue.add(
+  //     "generate-tenant-backup",
+  //     {
+  //       backupId: backup.backupId,
+  //       tenantId: tenant.tenantId,
+  //     },
+  //     {
+  //       jobId: backup.backupId,
+  //       attempts: 3,
+  //       backoff: {
+  //         type: "exponential",
+  //         delay: 5000,
+  //       },
+  //       removeOnComplete: true,
+  //       removeOnFail: false,
+  //     },
+  //   );
+  // } catch (error) {
+  //   await BackupRequestModel.updateOne(
+  //     { _id: backup._id },
+  //     {
+  //       $set: {
+  //         status: BackupStatus.FAILED,
+  //         errorMessage: "Unable to schedule backup generation",
+  //       },
+  //     },
+  //   );
+
+  //   throwError("Unable to schedule backup generation", 500);
+  // }
+
+  // 6. Return immediately
+  return {
+    backupId: backup.backupId,
+    tenantId: backup.tenantId,
+    tenantName: backup.tenantName,
+    subscriptionId: backup.subscriptionId,
+    status: backup.status,
+    format: backup.format,
+    dateRange: backup.dateRange,
+  };
 };
 
 const notifySuperAdminOfRequest = async ({

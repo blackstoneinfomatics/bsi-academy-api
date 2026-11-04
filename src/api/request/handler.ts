@@ -1,6 +1,5 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import { planChangeRequestValidation } from "../../models/planChangeRequest";
-import { backupRequestValidation } from "../../models/backupRequest";
 import {
   createBackupRequest,
   createPlanChangeRequest,
@@ -34,6 +33,15 @@ export const CreateRefundRequestValidation = z.object({
   newPlan: z.string().trim().optional(),
 
   additionalDetails: z.string().trim().optional(),
+});
+
+export const backupRequestValidation = z.object({
+  additionalNotes: z.string().trim().optional(),
+  dateRange: z.object({
+    fromDate: z.coerce.date().optional(),
+    toDate: z.coerce.date().optional(),
+  }),
+   requestedBy: z.string().trim().min(1, "Requested by is required"),
 });
 
 const createPlanChangeRequestHandler = async (
