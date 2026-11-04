@@ -5,6 +5,8 @@ import {
   createPlanChangeRequest,
   createPortalRequestOperation,
   createRefundRequestOperation,
+  getTenantBackupCards,
+  getTenantBackupList,
   resolveRequestTenant,
 } from "../../operations/requestTenant";
 import {
@@ -154,8 +156,6 @@ const createPortalRequest = async (
   }
 };
 
-
-
 const createRefundRequest = async (
   request: Request,
   h: ResponseToolkit
@@ -226,10 +226,74 @@ const createRefundRequest = async (
   }
 };
 
+const getTenantBackupCardsHandler = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const result = await getTenantBackupCards();
+
+    return h.response({
+      success: true,
+      message: backupRequestMessages.GET_BACKUP_CARDS_SUCCESS,
+      data: result,
+    }).code(200);
+
+  } catch (error) {
+    console.error("Get Backup Cards Error:", error);
+
+    return h.response({
+      success: false,
+      message: backupRequestMessages.GET_BACKUP_CARDS_FAILED,
+    }).code(500);
+  }
+};
+
+const getTenantBackupListHandler = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      status = "",
+    } = request.query as {
+      page?: number;
+      limit?: number;
+      search?: string;
+      status?: string;
+    };
+
+    const result = await getTenantBackupList({
+      page: Number(page),
+      limit: Number(limit),
+      search: String(search),
+      status: String(status),
+    });
+
+    return h.response({
+      success: true,
+      message: backupRequestMessages.GET_BACKUP_LIST_SUCCESS,
+      data: result,
+    }).code(200);
+
+  } catch (error) {
+    console.error("Get Tenant Backup List Error:", error);
+
+    return h.response({
+      success: false,
+      message: backupRequestMessages.GET_BACKUP_LIST_FAILED,
+    }).code(500);
+  }
+}
 
 export default {
   createPlanChangeRequestHandler,
   createBackupRequestHandler,
   createPortalRequest,
   createRefundRequest,
+  getTenantBackupCardsHandler,
+  getTenantBackupListHandler,
 };

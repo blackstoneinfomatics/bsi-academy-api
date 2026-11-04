@@ -23,6 +23,7 @@ import RefundTransaction from "../models/refundTransaction";
 import { RefundApprovalStatus, RefundStatus } from "../shared/enum";
 import { throwError } from "../helpers/throwError";
 import { randomUUID } from "crypto";
+import tenantBackup from "../models/tenantBackup";
 
 export type CreatePlanChangeRequestInput = z.infer<
   typeof planChangeRequestValidation
@@ -563,4 +564,204 @@ const daysRemaining = Math.ceil(
   });
 
   return refundRequest;
+};
+
+export const getTenantBackupCards = async () => {
+  try {
+    const currentDate = new Date();
+
+    const currentMonthStart = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+
+    const previousMonthStart = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() - 1,
+      1
+    );
+
+    const baseFilter = {
+      deletedAt: null,
+      backupId: { $exists: true, $ne: "" },
+    };
+
+    const [
+      totalBackups,
+      currentMonthBackups,
+      previousMonthBackups,
+      currentMonthDelivered,
+      previousMonthDelivered,
+    ] = await Promise.all([
+
+      // Total backups - All time
+      tenantBackup.countDocuments(baseFilter),
+
+      // Current month backups
+      tenantBackup.countDocuments({
+        ...baseFilter,
+        createdAt: {
+          $gte: currentMonthStart,
+          $lt: new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            1
+          ),
+        },
+      }),
+
+      // Previous month backups
+      tenantBackup.countDocuments({
+        ...baseFilter,
+        createdAt: {
+          $gte: previousMonthStart,
+          $lt: currentMonthStart,
+        },
+      }),
+
+      // Current month delivered backups
+      tenantBackup.countDocuments({
+        ...baseFilter,
+        status: "COMPLETED",
+        createdAt: {
+          $gte: currentMonthStart,
+          $lt: new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            1
+          ),
+        },
+      }),
+
+      // Previous month delivered backups
+      tenantBackup.countDocuments({
+        ...baseFilter,
+        status: "COMPLETED",
+        createdAt: {
+          $gte: previousMonthStart,
+          $lt: currentMonthStart,
+        },
+      }),
+
+    ]);
+
+    // Percentage calculation
+    const calculatePercentage = (
+      current: number,
+      previous: number
+    ) => {
+      let percentage = 0;
+
+      if (previous === 0) {
+        percentage = current > 0 ? 100 : 0;
+      } else {
+        percentage = Math.abs(
+          ((current - previous) / previous) * 100
+        );
+      }
+
+      return {
+        percentage: Number(percentage.toFixed(2)),
+        trend:
+          current > previous
+            ? "UP"
+            : current < previous
+              ? "DOWN"
+              : "SAME",
+      };
+    };
+
+    return {
+      totalBackups,
+
+      currentMonthBackups: {
+        count: currentMonthBackups,
+        ...calculatePercentage(
+          currentMonthBackups,
+          previousMonthBackups
+        ),
+      },
+
+      backupsDelivered: {
+        count: currentMonthDelivered,
+        ...calculatePercentage(
+          currentMonthDelivered,
+          previousMonthDelivered
+        ),
+      },
+    };
+
+  } catch (error) {
+    console.error("Get Backup Cards Error:", error);
+    throw error;
+  }
+};
+
+export const getTenantBackupList = async ({
+  page,
+  limit,
+  search,
+  status,
+}: {
+  page: number;
+  limit: number;
+  search: string;
+  status: string;
+}) => {
+  try {
+    const skip = (page - 1) * limit;
+
+    const filter: any = {
+      deletedAt: null,
+    };
+
+    // Search by tenant name
+    if (search) {
+      filter.tenantName = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    // Status filter
+    if (status) {
+      filter.status = status;
+    }
+
+    const [backupList, totalRecords] = await Promise.all([
+      tenantBackup
+        .find(filter)
+        .select({
+          _id: 1,
+          backupId: 1,
+          createdAt: 1,
+          tenantName: 1,
+          "dateRange.fromDate": 1,
+          "dateRange.toDate": 1,
+          "fileDetails.fileSize": 1,
+          status: 1,
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      tenantBackup.countDocuments(filter),
+    ]);
+
+    return {
+      backupList,
+      pagination: {
+        totalRecords,
+        currentPage: page,
+        totalPages: Math.ceil(totalRecords / limit),
+        limit,
+      },
+    };
+
+  } catch (error) {
+    console.error("Get Tenant Backup List Operation Error:", error);
+    throw error;
+  }
 };

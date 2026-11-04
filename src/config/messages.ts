@@ -61,6 +61,9 @@ export const backupRequestMessages: Record<string, string> = Object.freeze({
   START_AFTER_END: "Backup start date cannot be after the end date",
   OUTSIDE_RETENTION: "Backup data must be within the last 30 days",
   END_IN_FUTURE: "Backup end date cannot be in the future",
+  GET_BACKUP_LIST_FAILED: "Failed to retrieve backup list",
+  GET_BACKUP_LIST_SUCCESS: "Backup list retrieved successfully",
+  GET_BACKUP_LIST: "Get tenant backup list",
 });
 
 export const planChangeRequestMessages: Record<string, string> = Object.freeze({

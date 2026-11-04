@@ -1,5 +1,6 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from "./handler";
+import { backupRequestMessages } from "../../config/messages";
 
 const register = async (server: Server): Promise<void> => {
   const routes: ServerRoute[] = [
@@ -43,6 +44,33 @@ const register = async (server: Server): Promise<void> => {
         description: "Create a refund request",
       },
     },
+
+{
+  method: "GET",
+  path: "/tenant/backup/dashboard/cards",
+  handler: handler.getTenantBackupCardsHandler,
+  options: {
+    // auth: {
+    //   strategy: "jwt",
+    // },
+    description: "Get tenant backup dashboard cards",
+    tags: ["api", "tenant", "backup"],
+  },
+},
+
+{
+  method: "GET",
+  path: "/tenant/backup/list",
+  handler: handler.getTenantBackupListHandler,
+  options: {
+    description: backupRequestMessages.GET_BACKUP_LIST,
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
   ];
 
   server.route(routes);
