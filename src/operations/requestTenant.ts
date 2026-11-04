@@ -332,15 +332,15 @@ export const createPlanChangeRequest = async (
     };
   }
 
-  const newPlan = await findPlanByReference(payload.newPlan, true);
-  if (!newPlan) {
+  const selectedPlan = await findPlanByReference(payload.newPlan, true);
+  if (!selectedPlan) {
     return {
       error: planChangeRequestMessages.NEW_PLAN_UNAVAILABLE,
       statusCode: 400 as const,
     };
   }
 
-  if (String(newPlan._id) === String(currentPlan._id)) {
+  if (String(selectedPlan._id) === String(currentPlan._id)) {
     return {
       error: planChangeRequestMessages.SAME_PLAN,
       statusCode: 400 as const,
@@ -354,7 +354,7 @@ export const createPlanChangeRequest = async (
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
     currentPlan: currentPlan.planName,
-    newPlan: newPlan.planName,
+    newPlan: selectedPlan.planName,
   });
 
   await notifySuperAdminOfRequest({
@@ -362,10 +362,10 @@ export const createPlanChangeRequest = async (
     tenant,
     notificationType: "PLAN_CHANGE_REQUEST_SUBMITTED",
     title: `Plan change request from ${tenant.tenantName}`,
-    messages: `${tenant.tenantName} requested a change from ${currentPlan.planName} to ${newPlan.planName}.`,
+    messages: `${tenant.tenantName} requested a change from ${currentPlan.planName} to ${selectedPlan.planName}.`,
     metadata: {
       currentPlan: currentPlan.planName,
-      newPlan: newPlan.planName,
+      newPlan: selectedPlan.planName,
       planStartDate: request.planStartDate.toISOString(),
       changeReason: request.changeReason,
       requestReason: request.requestReason,
