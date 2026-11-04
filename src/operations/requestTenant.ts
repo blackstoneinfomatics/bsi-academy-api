@@ -740,6 +740,7 @@ export const getTenantBackupList = async ({
           "dateRange.fromDate": 1,
           "dateRange.toDate": 1,
           "fileDetails.fileSize": 1,
+          additionalNotes: 1,
           status: 1,
         })
         .sort({ createdAt: -1 })
