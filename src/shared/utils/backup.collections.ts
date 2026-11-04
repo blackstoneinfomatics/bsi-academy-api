@@ -21,7 +21,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
 //     ],
 //   },
   {
-    collectionName: "tenantUsers",
+    collectionName: "users",
     sheetName: "Users",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -34,7 +34,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
     ],
   },
   {
-    collectionName: "paymenttransactions",
+    collectionName: "paymenttransaction",
     sheetName: "Payments",
     tenantField: "tenantId",
     dateField: "createdAt",
