@@ -548,9 +548,9 @@ const daysRemaining = Math.ceil(
     },
     notificationType: "REFUND_REQUEST_SUBMITTED",
     title: `Refund request from ${data.tenantName}`,
-    messages: `${data.tenantName} submitted a refund request for payment ${refundRequest.paymentId}.`,
+    messages: `${data.tenantName} submitted a refund request for payment ${payment.paymentNumber}.`,
     metadata: {
-      paymentId: refundRequest.paymentId,
+      paymentNumber: payment.paymentNumber,
       paymentDate: refundRequest.paymentDate.toISOString(),
       paidAmount: refundRequest.paidAmount,
       refundAmount: refundRequest.refundAmount,
