@@ -34,6 +34,7 @@ import { processReminders } from "./operations/remainder";
 import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
 import { processTrialExpiry, processTrialReminders } from "./operations/subscriptiontrial";
 import { publishScheduledUpdates } from "./operations/update";
+import { closeBullMQ, initializeBullMQ } from "./bullMQ";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -54,6 +55,7 @@ const start = async () => {
   // Initialize Socket.IO service
   initializeSocket(server.listener);
    await connectProducer();
+     await initializeBullMQ();
     await startInvoiceConsumer();
   // Initialize and Start the Application
   await server.initialize();
@@ -73,6 +75,7 @@ process.on("unhandledRejection", (err) => {
 process.on('SIGINT', async () => {
   console.log('Shutting down...');
   await shutdownKafkaConsumer();
+   await closeBullMQ();
   await disconnectProducer();
   process.exit(0);
 });

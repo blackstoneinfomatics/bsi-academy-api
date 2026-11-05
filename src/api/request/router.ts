@@ -13,6 +13,32 @@ const register = async (server: Server): Promise<void> => {
         description: "Submit a tenant backup request",
       },
     },
+
+    {
+  method: "GET",
+  path: "/backup/download/{backupId}",
+  options: {
+    handler: handler.downloadTenantBackup,
+    description: "Download tenant backup Excel file",
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/backup/status/{backupId}",
+  options: {
+    handler: handler.getTenantBackupStatus,
+    description: "Get tenant backup status",
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
     {
       method: "POST",
       path: "/plan-change-request",

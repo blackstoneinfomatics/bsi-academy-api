@@ -7,6 +7,8 @@ import {
   createRefundRequestOperation,
   getTenantBackupCards,
   getTenantBackupList,
+  getTenantBackupStatusService,
+  downloadTenantBackupService,
   resolveRequestTenant,
 } from "../../operations/requestTenant";
 import {
@@ -17,6 +19,7 @@ import {
 } from "../../config/messages";
 import { portalRequestValidation } from "../../models/portalRequest";
 import { z } from "zod";
+import { throwError } from "../../helpers/throwError";
 
 
 export const CreateRefundRequestValidation = z.object({
@@ -35,6 +38,19 @@ export const CreateRefundRequestValidation = z.object({
   newPlan: z.string().trim().optional(),
 
   additionalDetails: z.string().trim().optional(),
+});
+
+export const backupStatusValidation = z.object({
+  backupId: z
+    .string()
+    .trim()
+    .min(1, "Backup ID is required"),
+});
+
+export const downloadTenantBackupValidation = z.object({
+  params: z.object({
+    backupId: z.string().trim().min(1, "Backup ID is required"),
+  }),
 });
 
 export const backupRequestValidation = z.object({
@@ -81,6 +97,95 @@ const createPlanChangeRequestHandler = async (
     return h
       .response({ error: planChangeRequestMessages.SUBMIT_FAILED })
       .code(500);
+  }
+};
+
+const getTenantBackupStatus = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const { backupId } = request.params as {
+      backupId: string;
+    };
+
+   const tenantId = request.headers["tenantid"] as string;
+
+    if (!tenantId) {
+      throwError("Tenant ID is required", 400);
+    }
+
+    const result = await getTenantBackupStatusService({
+      backupId,
+      tenantId:tenantId,
+    });
+
+    return h.response({
+      success: true,
+      message: "Backup status fetched successfully",
+      data: result,
+    }).code(200);
+
+  } catch (error) {
+    console.error("[Backup Status] Failed:", error);
+
+    return h.response({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch backup status",
+    }).code(
+      error instanceof Error &&
+      "statusCode" in error
+        ? Number(error.statusCode)
+        : 500
+    );
+  }
+};
+
+
+const downloadTenantBackup = async (
+  request: Request,
+  h: ResponseToolkit
+) => {
+  try {
+    const { params } = downloadTenantBackupValidation.parse({
+      params: request.params,
+    });
+
+    const tenantId = request.headers["tenantid"] as string;
+
+    if (!tenantId) {
+      throwError("Tenant ID is required", 400);
+    }
+
+    const result = await downloadTenantBackupService({
+      backupId: params.backupId,
+      tenantId,
+    });
+
+    return h
+      .response(result?.stream)
+      .type(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      )
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${result?.fileName.replace(/[\r\n"]/g, "_")}"`
+      )
+      .header("Content-Length", String(result?.fileSize));
+
+  } catch (error: any) {
+    console.error("Error in downloadTenantBackup:", error);
+
+    return h
+      .response({
+        success: false,
+        message: error.message || "Internal Server Error",
+        errorCode: error.statusCode || 500,
+      })
+      .code(error.statusCode || 500);
   }
 };
 
@@ -293,7 +398,9 @@ export default {
   createPlanChangeRequestHandler,
   createBackupRequestHandler,
   createPortalRequest,
+  downloadTenantBackup,
   createRefundRequest,
+  getTenantBackupStatus,
   getTenantBackupCardsHandler,
   getTenantBackupListHandler,
 };
