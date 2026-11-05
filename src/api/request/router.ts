@@ -53,7 +53,7 @@ const register = async (server: Server): Promise<void> => {
     // auth: {
     //   strategy: "jwt",
     // },
-    description: "Get tenant backup dashboard cards",
+    description: backupRequestMessages.GET_BACKUP_CARDS,
     tags: ["api", "tenant", "backup"],
   },
 },

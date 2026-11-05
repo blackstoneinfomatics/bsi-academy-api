@@ -64,6 +64,7 @@ export const backupRequestMessages: Record<string, string> = Object.freeze({
   GET_BACKUP_LIST_FAILED: "Failed to retrieve backup list",
   GET_BACKUP_LIST_SUCCESS: "Backup list retrieved successfully",
   GET_BACKUP_LIST: "Get tenant backup list",
+  GET_BACKUP_CARDS: "Get tenant backup dashboard cards",
 });
 
 export const planChangeRequestMessages: Record<string, string> = Object.freeze({

@@ -21,10 +21,10 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
 //     ],
 //   },
   {
-    collectionName: "users",
+    collectionName: "tenantUsers",
     sheetName: "Users",
     tenantField: "tenantId",
-    dateField: "createdAt",
+    dateField: "createdDate",
     excludedFields: [
       "password",
       "passwordHash",
@@ -57,7 +57,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "tenantsubscription",
+    collectionName: "tenantsubscriptions",
     sheetName: "Tenant Subscriptions",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -73,7 +73,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
   {
-    collectionName: "subcriptionTrial",
+    collectionName: "subscriptiontrials",
     sheetName: "Subscription Trials",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -81,7 +81,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "refundTransaction",
+    collectionName: "refundtransaction",
     sheetName: "Refund Transactions",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -89,7 +89,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "purchaseRequest",
+    collectionName: "purchaserequest",
     sheetName: "Purchase Requests",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -97,7 +97,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "portalRequest",
+    collectionName: "portalRequests",
     sheetName: "Portal Requests",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -105,7 +105,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "planChangeRequest",
+    collectionName: "planChangeRequests",
     sheetName: "Plan Change Requests",
     tenantField: "tenantId",
     dateField: "createdAt",
@@ -129,7 +129,7 @@ export const BACKUP_COLLECTIONS: BackupCollectionConfig[] = [
   },
 
     {
-    collectionName: "tenantPortalConfiguration",
+    collectionName: "tenantPortalConfig",
     sheetName: "Tenant Portal Configurations",
     tenantField: "tenantId",
     dateField: "createdAt",
