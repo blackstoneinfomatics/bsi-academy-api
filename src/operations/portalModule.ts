@@ -1614,7 +1614,29 @@ export const getTenantConfig = async (
   const configs = await TenantPortalConfig.find({
     tenantId,
     deletedAt: null,
-  }).sort({ createdAt: 1 });
+  })
+    .sort({ createdAt: 1 })
+    .lean<ITenantPortalConfig[]>();
+  console.log("[getTenantConfig] loaded config records", JSON.stringify({
+    tenantId,
+    tenantPortals: tenantPortals.map((portal) => ({
+      id: portal._id.toString(),
+      portalId: portal.portalId.toString(),
+      portalName: portal.portalName,
+    })),
+    configs: configs.map((config) => ({
+      id: config._id.toString(),
+      portalId: config.portalId.toString(),
+      tenantPortalId: config.tenantPortalId.toString(),
+      deletedAt: config.deletedAt,
+      modules: config.modules.map((module) => ({
+        moduleId: module.moduleId,
+        moduleName: module.moduleName,
+        moduleType: module.moduleType,
+        deletedAt: module.deletedAt,
+      })),
+    })),
+  }));
   const canonicalConfig = configs[0];
   const configModules = configs.length
     ? cloneTenantConfigModules(canonicalConfig.modules)
@@ -1634,6 +1656,19 @@ export const getTenantConfig = async (
     : null;
   const customModulePortalName =
     canonicalTenantPortal?.portalName ?? canonicalGlobalPortal?.portalName;
+  console.log("[getTenantConfig] custom module filter inputs", JSON.stringify({
+    tenantId,
+    customModulePortalName,
+    canonicalTenantPortalName: canonicalTenantPortal?.portalName ?? null,
+    canonicalGlobalPortalName: canonicalGlobalPortal?.portalName ?? null,
+    configModules: configModules.map((module) => ({
+      moduleId: module.moduleId,
+      moduleName: module.moduleName,
+      moduleType: module.moduleType,
+      deletedAt: module.deletedAt,
+      isCustom: module.moduleType === PortalType.CUSTOM,
+    })),
+  }));
   const moduleIdsByPortal = new Map<string, Set<string>>();
 
   for (const portal of tenantPortals) {
@@ -1668,6 +1703,19 @@ export const getTenantConfig = async (
       ),
     };
   });
+
+  console.log("[getTenantConfig] response custom modules", JSON.stringify({
+    tenantId,
+    portals: result.map((portal) => ({
+      portalName: portal.portalName,
+      customModules: portal.modules
+        .filter((module) => module.moduleType === PortalType.CUSTOM)
+        .map((module) => ({
+          moduleId: module.moduleId,
+          moduleName: module.moduleName,
+        })),
+    })),
+  }));
 
   return result;
 };
