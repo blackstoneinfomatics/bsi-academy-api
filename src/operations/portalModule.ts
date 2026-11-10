@@ -1266,8 +1266,8 @@ const findOrCreateActiveConfig = async (
 ): Promise<ITenantPortalConfig> => {
   console.log("[findOrCreateActiveConfig] lookup", { tenantId, portalId });
 
-  const canonicalConfig = await getCanonicalTenantConfig(tenantId);
-  if (canonicalConfig) return canonicalConfig;
+  // const canonicalConfig = await getCanonicalTenantConfig(tenantId);
+  // if (canonicalConfig) return canonicalConfig;
 
   const existing = await TenantPortalConfig.findOne({ tenantId, portalId, deletedAt: null });
 
@@ -1819,6 +1819,7 @@ export const updateTenantModuleAccess = async (
   module.updatedAt = new Date();
 
   config.updatedBy = payload.updatedBy;
+  config.markModified("modules");
 
   await config.save();
 
@@ -1995,6 +1996,7 @@ export const updateTenantChildModuleAccess = async (
   child.updatedAt = new Date();
 
   config.updatedBy = payload.updatedBy;
+  config.markModified("modules");
 
   await config.save();
 
@@ -2043,6 +2045,7 @@ export const updateTenantChildModule = async (
 
   module.updatedAt = new Date();
   config.updatedBy = payload.updatedBy;
+  config.markModified("modules");
 
   await config.save();
 
@@ -2272,6 +2275,7 @@ export const updateTenantModuleFeatureAccess = async (
   feature.isEnabled = payload.isEnabled;
   feature.updatedAt = new Date();
   config.updatedBy = payload.updatedBy;
+  config.markModified("modules");
 
   await config.save();
 
@@ -2346,6 +2350,7 @@ export const updateTenantChildFeatureAccess = async (
   feature.isEnabled = payload.isEnabled;
   feature.updatedAt = new Date();
   config.updatedBy = payload.updatedBy;
+  config.markModified("modules");
 
   await config.save();
 
