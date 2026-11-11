@@ -703,6 +703,17 @@ const notifySuperAdminOfRequest = async ({
   metadata: Record<string, unknown>;
 }) => {
   try {
+    const reason = [
+      metadata.requestReason,
+      metadata.refundReason,
+      metadata.changeReason,
+      metadata.additionalNotes,
+      metadata.additionalDetails,
+    ].find(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    );
+
     const superAdmin = await Lookup.findOne({
       lookupKey: "SUPER_ADMIN",
       keyValue: "super_admin",
@@ -751,6 +762,7 @@ const notifySuperAdminOfRequest = async ({
       requestId,
       metadata: {
         ...metadata,
+        ...(reason ? { reason } : {}),
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
       },
@@ -838,6 +850,7 @@ export const createPlanChangeRequest = async (
     tenantName: tenant.tenantName,
     currentPlan: currentPlan.planName,
     newPlan: selectedPlan.planName,
+    planStartDate: new Date(payload.planStartDate),
   });
 
   await notifySuperAdminOfRequest({
@@ -845,7 +858,7 @@ export const createPlanChangeRequest = async (
     tenant,
     notificationType: "PLAN_CHANGE_REQUEST_SUBMITTED",
     title: `Plan change request from ${tenant.tenantName}`,
-    messages: `${tenant.tenantName} requested a change from ${currentPlan.planName} to ${selectedPlan.planName}.`,
+    messages: `${tenant.tenantName} requested a change from ${currentPlan.planName} to ${selectedPlan.planName} from ${request.planStartDate}.`,
     metadata: {
       currentPlan: currentPlan.planName,
       newPlan: selectedPlan.planName,
