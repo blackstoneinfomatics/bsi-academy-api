@@ -11,7 +11,8 @@ export function getRedisClient() : Redis {
  host: process.env.REDIS_HOST,                       
     port: Number(process.env.REDIS_PORT) || 6379,       
     password: process.env.REDIS_PASSWORD,               
-    connectTimeout: 10000,                              
+    connectTimeout: 10000, 
+    maxRetriesPerRequest: null,                             
     retryStrategy: (times) => Math.min(times * 100, 3000), 
   });
 

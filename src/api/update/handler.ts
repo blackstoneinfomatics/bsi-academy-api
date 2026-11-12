@@ -1,7 +1,9 @@
 import { Request, ResponseToolkit } from "@hapi/hapi";
 import {
+  createPurchaseRequestService,
   createUpdate,
   getPurchaseQuoteService,
+  getTenantUpdateDetails,
   getTenantUpdates,
   getUpdateById,
   getUpdateDashboardCards,
@@ -39,7 +41,10 @@ export const getUpdatesListValidation = z.object({
 
 export const getTenantUpdatesValidation = z.object({
   params: z.object({
-    tenantId: z.string().trim().min(1, "Tenant ID is required"),
+    tenantId: z
+      .string()
+      .trim()
+      .min(1, updateMessage.TENANT_UPDATE_TENANT_ID_REQUIRED),
   }),
 });
 
@@ -49,10 +54,26 @@ const objectId = z
 
 export const GetPurchaseQuoteValidation = z.object({
   params: z.object({
-    featureId: objectId,
+    updateId: objectId,
   }),
   query: z.object({
     activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
+  }),
+});
+
+export const createPurchaseQuoteValidation = z.object({
+  params: z.object({
+    updateId: objectId,
+  }),
+  query: z.object({
+    activationMode: z.enum(["IMMEDIATE", "NEXT_PLAN"]),
+    requestedBy: z.string().trim().min(1, "Requested By is required")
+  }),
+});
+
+export const getTenantUpdateDetailsValidation = z.object({
+  params: z.object({
+    updateId: objectId,
   }),
 });
 
@@ -182,7 +203,9 @@ export default
       return h
         .response({
           success: false,
-          message: parsed.error.issues[0]?.message || "Invalid tenant ID",
+          message:
+            parsed.error.issues[0]?.message ||
+            updateMessage.TENANT_UPDATE_TENANT_ID_REQUIRED,
           errorCode: 400,
         })
         .code(400);
@@ -194,7 +217,7 @@ export default
       return h
         .response({
           success: true,
-          message: updateMessage.UPDATE_TABLE_SUCCESS,
+          message: updateMessage.TENANT_UPDATES_FETCHED_SUCCESS,
           data: result,
         })
         .code(200);
@@ -207,7 +230,8 @@ export default
       return h
         .response({
           success: false,
-          message: err.message || "Internal Server Error",
+          message:
+            err.message || updateMessage.TENANT_UPDATES_FETCH_FAILED,
           errorCode: err.statusCode || 500,
         })
         .code(err.statusCode || 500);
@@ -255,6 +279,41 @@ export default
   }
 },
 
+async createPurchase(request: Request,
+  h: ResponseToolkit){
+     try {
+    const parsed = createPurchaseQuoteValidation.safeParse({
+      params: request.params,
+      query: request.query,
+    });
+       
+    const tenantId = request.headers.tenantid as string;
+
+
+    if (!parsed.success) {
+      throwError(parsed.error.issues[0].message, 400);
+    }
+
+     const paramData = parsed?.data?.params as any;
+     const queryData = parsed?.data?.query as any;
+
+    const result = await createPurchaseRequestService({
+      tenantId,
+      updateId: paramData.updateId,
+      activationMode: queryData.activationMode,
+      requestedBy:queryData.requestedBy,
+    });
+
+    return h.response({
+      success: true,
+      message: updateMessage.CREATE_UPDATE_SUCCESS,
+      data: result,
+    }).code(200);
+  } catch (error) {
+    throw error;
+  }
+  },
+
 async getPurchaseQuote (
   request: Request,
   h: ResponseToolkit,
@@ -277,7 +336,7 @@ async getPurchaseQuote (
 
     const result = await getPurchaseQuoteService({
       tenantId,
-      featureId: paramData.featureId,
+      updateId: paramData.updateId,
       activationMode: queryData.activationMode,
     });
 
@@ -288,6 +347,66 @@ async getPurchaseQuote (
     }).code(200);
   } catch (error) {
     throw error;
+  }
+},
+
+async getTenantUpdateDetailsHandler (
+  request: Request,
+  h: ResponseToolkit
+) {
+  try {
+    const validation = getTenantUpdateDetailsValidation.safeParse({
+      params: request.params,
+    });
+
+    if (!validation.success) {
+      return h.response({
+        success: false,
+        message: updateMessage.UPDATE_VALIDATION_FAILED,
+        data: null,
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      }).code(400);
+    }
+
+    const tenantId = request.headers.tenantid as string;
+
+    if (!tenantId) {
+      return h.response({
+        success: false,
+        message: updateMessage.UPDATE_TENANT_FAILED,
+        data: null,
+      }).code(401);
+    }
+
+    const result = await getTenantUpdateDetails({
+      updateId: validation.data.params.updateId,
+      tenantId,
+    });
+
+    return h.response({
+      success: true,
+      message: updateMessage.UPDATE_FETCHED_SUCCESS,
+      data: result,
+    }).code(200);
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    const message = err.message || updateMessage.UPDATE_FETCH_FAILED;
+
+    const statusCode =
+      message === updateMessage.UPDATE_INVALID_ID
+        ? 400
+        : message === updateMessage.UPDATE_NOT_FOUND
+          ? 404
+          : 500;
+
+    return h.response({
+      success: false,
+      message,
+      data: null,
+    }).code(statusCode);
   }
 }
 

@@ -625,13 +625,27 @@ export async function getNotificationRequestList(
 
     const requestList = notifications.map((item) => {
       const metadataRequestId = item.metadata?.requestId;
+      const reason = [
+        item.metadata?.reason,
+        item.metadata?.requestReason,
+        item.metadata?.refundReason,
+        item.metadata?.changeReason,
+        item.metadata?.additionalNotes,
+        item.metadata?.additionalDetails,
+      ].find(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0
+      );
+
       return {
+        _id: item._id,
         requestId:
           item.requestId ??
           (typeof metadataRequestId === "string" ? metadataRequestId : null),
         tenantName: tenantNames.get(item.senderTenantId) ?? null,
         notificationCategory: item.title || item.notificationType,
         description: item.messages,
+        reason: reason ?? null,
         receivedDate: item.createdDate ?? null,
         seenDate: item.readAt ?? null,
       };

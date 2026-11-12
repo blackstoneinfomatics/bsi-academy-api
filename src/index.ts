@@ -33,6 +33,8 @@ import { TrialExpiredMail } from "./operations/trailExperiedMail";
 import { processReminders } from "./operations/remainder";
 import { processSubscriptionInvoiceReminders } from "./operations/subcriptionInvoice";
 import { processTrialExpiry, processTrialReminders } from "./operations/subscriptiontrial";
+import { publishScheduledUpdates } from "./operations/update";
+import { closeBullMQ, initializeBullMQ } from "./bullMQ";
 const start = async () => {
   // Create the server with server settings
   const server: Server = Hapi.server(serverSettings);
@@ -53,6 +55,7 @@ const start = async () => {
   // Initialize Socket.IO service
   initializeSocket(server.listener);
    await connectProducer();
+     await initializeBullMQ();
     await startInvoiceConsumer();
   // Initialize and Start the Application
   await server.initialize();
@@ -72,6 +75,7 @@ process.on("unhandledRejection", (err) => {
 process.on('SIGINT', async () => {
   console.log('Shutting down...');
   await shutdownKafkaConsumer();
+   await closeBullMQ();
   await disconnectProducer();
   process.exit(0);
 });
@@ -94,6 +98,21 @@ cron.schedule("0 9 * * *", async () => {
   console.log("🧹 Subscription trial expiring soon cronjob");
   await processTrialReminders();
 });
+
+cron.schedule(
+  "0 9 * * *",
+  async () => {
+    try {
+      const publishedCount = await publishScheduledUpdates();
+      AppLogger.info(
+        `${publishedCount} scheduled updates published.`,
+      );
+    } catch (error: unknown) {
+      AppLogger.error("Scheduled update publishing cronjob failed", error);
+    }
+  },
+  { timezone: "Asia/Kolkata" },
+);
 
 cron.schedule("0 0 * * *" , async ()=>{
    console.log("Subscription trial expired cronjob");

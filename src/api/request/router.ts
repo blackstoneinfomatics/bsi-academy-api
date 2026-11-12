@@ -1,5 +1,6 @@
 import { Server, ServerRoute } from "@hapi/hapi";
 import handler from "./handler";
+import { backupRequestMessages } from "../../config/messages";
 
 const register = async (server: Server): Promise<void> => {
   const routes: ServerRoute[] = [
@@ -12,6 +13,32 @@ const register = async (server: Server): Promise<void> => {
         description: "Submit a tenant backup request",
       },
     },
+
+    {
+  method: "GET",
+  path: "/backup/download/{backupId}",
+  options: {
+    handler: handler.downloadTenantBackup,
+    description: "Download tenant backup Excel file",
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
+{
+  method: "GET",
+  path: "/backup/status/{backupId}",
+  options: {
+    handler: handler.getTenantBackupStatus,
+    description: "Get tenant backup status",
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
     {
       method: "POST",
       path: "/plan-change-request",
@@ -43,6 +70,33 @@ const register = async (server: Server): Promise<void> => {
         description: "Create a refund request",
       },
     },
+
+{
+  method: "GET",
+  path: "/tenant/backup/dashboard/cards",
+  handler: handler.getTenantBackupCardsHandler,
+  options: {
+    // auth: {
+    //   strategy: "jwt",
+    // },
+    description: backupRequestMessages.GET_BACKUP_CARDS,
+    tags: ["api", "tenant", "backup"],
+  },
+},
+
+{
+  method: "GET",
+  path: "/tenant/backup/list",
+  handler: handler.getTenantBackupListHandler,
+  options: {
+    description: backupRequestMessages.GET_BACKUP_LIST,
+    tags: ["api", "backup"],
+    // auth: {
+    //   strategies: ["jwt"],
+    // },
+  },
+},
+
   ];
 
   server.route(routes);

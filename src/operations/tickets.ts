@@ -12,6 +12,7 @@ import TicketModel from "../models/tickets";
 import type { ITicketDocument } from "../models/tickets";
 import TrialMemberModel from "../models/trailmember";
 import UserModel from "../models/users";
+import EmailTemplateModel from "../models/emailTemplate";
 import { appStatus } from "../config/messages";
 import {
   TICKET_CATEGORIES,
@@ -19,6 +20,7 @@ import {
   TICKET_STATUSES,
 } from "../shared/enum";
 import AppLogger from "../helpers/logging";
+import { sendEmailClient } from "../shared/email";
 import {
   NotificationAuthorizationError,
   sendNotification,
@@ -51,7 +53,8 @@ export interface CreateTicketInput {
 }
 
 export interface TicketListInput {
-  view: "received" | "raised";
+  view: "received" | "raised" | "all";
+  role?: string;
   page: number;
   limit: number;
   sortBy: "createdAt" | "updatedAt" | "ticketNumber" | "priority" | "status";
@@ -63,6 +66,13 @@ export interface TicketListInput {
 
 const normalized = (role: string) =>
   role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+
+const roleMatcher = (role: string): RegExp => {
+  const escapedRole = normalized(role)
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/_/g, "[_\\s-]+");
+  return new RegExp(`^${escapedRole}$`, "i");
+};
 
 const getRecipientRole = (creatorRole: string): string => {
   switch (normalized(creatorRole)) {
@@ -371,15 +381,18 @@ const assignedRecipients = async (
 
   let recipientRole: string;
 
-if (actorRoles.includes("ADMIN")) {
-  recipientRole = "SUPERADMIN";
-} else if (actorRoles.includes("TEACHER")) {
-  recipientRole = "ADMIN";
-} else if (actorRoles.includes("STUDENT")) {
-  recipientRole = "TEACHER";
-} else {
-  throw forbidden("You are not allowed to create this ticket");
-}
+if (actorRoles.includes("STUDENT")) {
+    recipientRole = "TEACHER";
+  } else if (actorRoles.includes("TEACHER")) {
+    recipientRole = "ADMIN";
+  } else if (actorRoles.includes("ADMIN")) {
+    recipientRole = "SUPERADMIN";
+  } else if (actorRoles.includes("SUPERADMIN")) {
+    throw forbidden("Super Admin cannot raise a ticket");
+  } else {
+    // Dynamic roles must be validated against configured tenant roles.
+    recipientRole = "ADMIN";
+  }
 
   const rolePattern = new RegExp(
     `^${recipientRole.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
@@ -538,6 +551,169 @@ const sendTicketNotification = async (
   return notificationsSent;
 };
 
+const sendTicketEmail = async (
+  receiverIds: string[],
+  ticket: ITicketDocument,
+  action: "ACKNOWLEDGED" | "RESOLVED",
+  message: string,
+): Promise<boolean> => {
+  const recipients = [...new Set(receiverIds)];
+  console.info("[TicketEmail] Step 1: starting recipient lookup", {
+    ticketNumber: ticket.ticketNumber,
+    action,
+    recipientCount: recipients.length,
+  });
+  if (recipients.length === 0) {
+    console.warn("[TicketEmail] Skipped: there are no recipients", {
+      ticketNumber: ticket.ticketNumber,
+    });
+    return false;
+  }
+
+  const [emailTemplate, users, trialMembers, alStudents] = await Promise.all([
+    EmailTemplateModel.findOne({
+      templateKey: "ticket-email",
+      status: appStatus.ACTIVE,
+    })
+      .select("templateContent")
+      .lean(),
+    UserModel.find({ userId: { $in: recipients }, status: appStatus.ACTIVE })
+      .select("userId email")
+      .lean(),
+    TrialMemberModel.find({
+      userId: { $in: recipients },
+      status: appStatus.ACTIVE,
+    })
+      .select("userId email")
+      .lean(),
+    AlStudentModel.find({
+      "student.studentId": { $in: recipients },
+      status: appStatus.ACTIVE,
+    })
+      .select("student.studentId student.studentEmail")
+      .lean(),
+  ]).catch((error: unknown) => {
+    console.error("[TicketEmail] Step 2: database lookup failed", {
+      ticketNumber: ticket.ticketNumber,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  });
+  console.info("[TicketEmail] Step 2: database lookup completed", {
+    ticketNumber: ticket.ticketNumber,
+    templateFound: Boolean(emailTemplate?.templateContent),
+    activeUserCount: users.length,
+    activeTrialMemberCount: trialMembers.length,
+    activeStudentCount: alStudents.length,
+  });
+
+  if (!emailTemplate?.templateContent) {
+    console.error("[TicketEmail] Stopped: active ticket-email template is missing or empty", {
+      ticketNumber: ticket.ticketNumber,
+    });
+    AppLogger.error(
+      `Ticket email template "ticket-email" not found or empty`,
+    );
+    return false;
+  }
+
+  const emails = new Map<string, string>();
+  for (const account of [...users, ...trialMembers]) {
+    if (account.userId && account.email?.trim()) {
+      emails.set(account.userId, account.email.trim());
+    }
+  }
+  for (const student of alStudents) {
+    const userId = student.student?.studentId;
+    const email = student.student?.studentEmail;
+    if (userId && email?.trim()) emails.set(userId, email.trim());
+  }
+
+  const missingRecipients = recipients.filter((userId) => !emails.has(userId));
+  if (missingRecipients.length > 0) {
+    console.error("[TicketEmail] Stopped: recipient email address unavailable", {
+      ticketNumber: ticket.ticketNumber,
+      missingRecipientCount: missingRecipients.length,
+      missingRecipientIds: missingRecipients,
+    });
+    AppLogger.error(
+      `Ticket email delivery skipped for ${ticket.ticketNumber}; recipient email unavailable for ${missingRecipients.join(", ")}`,
+    );
+    return false;
+  }
+  console.info("[TicketEmail] Step 3: recipient email addresses resolved", {
+    ticketNumber: ticket.ticketNumber,
+    recipientCount: emails.size,
+  });
+
+  const escapeHtml = (value: string): string =>
+    value.replace(/[&<>"']/g, (character) => {
+      const entities: Record<string, string> = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return entities[character];
+    });
+
+  const values: Record<string, { value: string; aliases: string[] }> = {
+    ticketNumber: {
+      value: ticket.ticketNumber,
+      aliases: ["ticketNumber", "Ticket Number"],
+    },
+    subject: { value: ticket.subject, aliases: ["subject", "Ticket Subject"] },
+    status: { value: ticket.status, aliases: ["status", "Ticket Status"] },
+    action: { value: action.toLowerCase(), aliases: ["action", "Action"] },
+    message: { value: message, aliases: ["message", "Message"] },
+  };
+  const html = Object.values(values).reduce((content, { value, aliases }) => {
+    const escapedValue = escapeHtml(value);
+    return aliases.reduce((result, alias) => {
+      const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return result
+        .replace(new RegExp(`{{\\s*${escapedAlias}\\s*}}`, "gi"), escapedValue)
+        .replace(new RegExp(`<${escapedAlias}>`, "gi"), escapedValue);
+    }, content);
+  }, emailTemplate.templateContent);
+  const subject = `Ticket ${ticket.ticketNumber} ${action.toLowerCase()}`;
+
+  try {
+    console.info("[TicketEmail] Step 4: submitting email to provider", {
+      ticketNumber: ticket.ticketNumber,
+      recipientCount: recipients.length,
+    });
+    const result = await sendEmailClient(
+      recipients.map((userId) => ({ email: emails.get(userId)! })),
+      subject,
+      html,
+    );
+    if (!result) {
+      console.error("[TicketEmail] Step 5: provider returned an empty response", {
+        ticketNumber: ticket.ticketNumber,
+      });
+      AppLogger.error(`Ticket email delivery failed for ${ticket.ticketNumber}`);
+      return false;
+    }
+    console.info("[TicketEmail] Step 5: provider accepted email request", {
+      ticketNumber: ticket.ticketNumber,
+    });
+    return true;
+  } catch (error) {
+    console.error("[TicketEmail] Step 5: provider request failed", {
+      ticketNumber: ticket.ticketNumber,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    AppLogger.error(
+      `Ticket email delivery failed for ${ticket.ticketNumber}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
+};
+
 const buildHistoryEvent = (
   action: string,
   actor: TicketActor,
@@ -653,29 +829,55 @@ export const listTickets = async (
 ) => {
   const { actor } = await accountFromCredentials(credentials);
 
-  const roles = Array.isArray(actor.role)
-    ? actor.role.map((role: string) =>
-        role.trim().toUpperCase(),
-      )
-    : [String(actor.role).trim().toUpperCase()];
-
-  const isSuperAdmin = roles.includes("SUPERADMIN");
+  const roles = actor.role.map(normalized);
+  const isSuperAdmin = roles.some(
+    (role) => role.replace(/_/g, "") === "SUPERADMIN",
+  );
+  if (input.view === "all" && !isSuperAdmin) {
+    throw forbidden("Only Super Admin can list all tickets");
+  }
+  if (
+    input.role &&
+    !isSuperAdmin &&
+    !roles.includes(normalized(input.role))
+  ) {
+    throw forbidden("Cannot list tickets for another role");
+  }
 
   const query: FilterQuery<ITicketDocument> = {};
+  const roleFilter = input.role ? roleMatcher(input.role) : undefined;
 
   // Tenant users can access only their own tenant's tickets.
   if (!isSuperAdmin) {
     query.tenantId = actor.tenantId;
   }
 
-  // Show tickets raised by the user OR assigned to the user.
-  query.$or = [
-    { createdBy: actor.userId },
-    {
-      currentAssignedTo: actor.userId,
-      currentAssignedRole: { $in: roles },
-    },
-  ];
+  if (input.view === "raised") {
+    query.createdBy = actor.userId;
+    if (roleFilter) query.createdByRole = roleFilter;
+  } else if (input.view === "received") {
+    const receivedRoles = roleFilter ? [roleFilter] : roles.map(roleMatcher);
+    query.$or = [
+      {
+        currentAssignedTo: actor.userId,
+        currentAssignedRole: { $in: receivedRoles },
+      },
+      {
+        history: {
+          $elemMatch: {
+            toUserIds: actor.userId,
+            toRole: { $in: receivedRoles },
+          },
+        },
+      },
+    ];
+  } else if (roleFilter) {
+    query.$or = [
+      { createdByRole: roleFilter },
+      { currentAssignedRole: roleFilter },
+      { recipientRole: roleFilter },
+    ];
+  }
 
   if (input.status) query.status = input.status;
   if (input.category) query.category = input.category;
@@ -696,6 +898,62 @@ export const listTickets = async (
   const tenantIds = [
     ...new Set(tickets.map((ticket) => ticket.tenantId)),
   ];
+  const accountIds = [
+    ...new Set(
+      tickets.flatMap((ticket) => [
+        ticket.createdBy,
+        ...(ticket.currentAssignedTo ?? []),
+        ...ticket.recipientIds,
+        ...(ticket.history ?? []).map((event) => event.fromUserId),
+      ]),
+    ),
+  ];
+
+  const [users, trialMembers, alStudents] =
+    tenantIds.length && accountIds.length
+      ? await Promise.all([
+          UserModel.find({
+            tenantId: { $in: tenantIds },
+            userId: { $in: accountIds },
+          })
+            .select("tenantId userId userName")
+            .lean(),
+          TrialMemberModel.find({
+            tenantId: { $in: tenantIds },
+            userId: { $in: accountIds },
+          })
+            .select("tenantId userId userName")
+            .lean(),
+          AlStudentModel.find({
+            tenantId: { $in: tenantIds },
+            "student.studentId": { $in: accountIds },
+          })
+            .select("tenantId username student.studentId")
+            .lean(),
+        ])
+      : [[], [], []];
+
+  const accountNames = new Map<string, string>();
+  const setAccountName = (
+    tenantId: string,
+    userId: string,
+    userName: string,
+  ) => {
+    accountNames.set(`${tenantId}:${userId}`, userName);
+  };
+
+  for (const account of [...users, ...trialMembers]) {
+    if (account.tenantId && account.userId && account.userName) {
+      setAccountName(account.tenantId, account.userId, account.userName);
+    }
+  }
+
+  for (const student of alStudents) {
+    const studentId = student.student?.studentId;
+    if (studentId && student.username) {
+      setAccountName(student.tenantId, studentId, student.username);
+    }
+  }
 
   const tenants = tenantIds.length
     ? await TenantModel.find({
@@ -713,11 +971,30 @@ export const listTickets = async (
   );
 
   return {
-    tickets: tickets.map((ticket) => ({
-      ...ticket,
-      tenantName: tenantNames.get(ticket.tenantId) ?? null,
-      resolvedAt: ticket.resolvedAt ?? null,
-    })),
+    tickets: tickets.map((ticket) => {
+      const latestAssignment = [...(ticket.history ?? [])]
+        .reverse()
+        .find(
+          (event) =>
+            event.action === "FORWARDED" || event.action === "CREATED",
+        );
+      const assignedById = latestAssignment?.fromUserId ?? ticket.createdBy;
+      const assignedToIds = ticket.currentAssignedTo?.length
+        ? ticket.currentAssignedTo
+        : ticket.recipientIds;
+
+      return {
+        ...ticket,
+        assignedByName:
+          accountNames.get(`${ticket.tenantId}:${assignedById}`) ?? null,
+        assignedToName: assignedToIds.map(
+          (userId) =>
+            accountNames.get(`${ticket.tenantId}:${userId}`) ?? null,
+        ),
+        tenantName: tenantNames.get(ticket.tenantId) ?? null,
+        resolvedAt: ticket.resolvedAt ?? null,
+      };
+    }),
 
     pagination: {
       page: input.page,
@@ -971,8 +1248,14 @@ const updateTicketStatus = async (
   credentials: unknown,
   ticketId: string,
   action: "ACKNOWLEDGED" | "RESOLVED" | "REOPENED",
-  message?: string,
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  } = {},
 ) => {
+  const { message, sendEmail = false, sendNotification: notify = true } =
+    options;
   const { actor } = await accountFromCredentials(credentials);
   const canManageTickets = await assertCanWriteTickets(actor);
   const ticket = await findAuthorizedTicket(
@@ -1035,48 +1318,102 @@ const updateTicketStatus = async (
       : {}),
   };
 
-  const updated = await TicketModel.findOneAndUpdate(
-    {
-      ticketNumber: ticket.ticketNumber,
-      tenantId: actor.tenantId,
-      status: ticket.status,
-      recipientIds: ticket.recipientIds,
-      updatedAt: ticket.updatedAt,
-    },
-    update,
-    { new: true, runValidators: true },
-  );
-  if (!updated) {
-    throw conflict("Ticket status changed; reload and try again");
-  }
+  const filter: FilterQuery<ITicketDocument> = {
+  _id: ticket._id,
+  status: ticket.status,
+  updatedAt: ticket.updatedAt,
+};
 
-  const notificationsSent = await sendTicketNotification(
-    actor,
-    [updated.createdBy, ...currentRecipients],
-    updated,
-    `TICKET_${action}`,
-    message || `Ticket ${updated.ticketNumber} was ${action.toLowerCase()}`,
-  );
-  return { ticket: updated, notificationsSent };
+// Super Admin has authorized global access.
+// Tenant users must remain restricted to their own tenant.
+if (!canManageTickets) {
+  filter.tenantId = actor.tenantId;
+}
+
+const updated = await TicketModel.findOneAndUpdate(
+  filter,
+  update,
+  {
+    new: true,
+    runValidators: true,
+  },
+);
+
+if (!updated) {
+  throw conflict("Ticket status changed; reload and try again");
+}
+
+  const notificationRecipients = [updated.createdBy, ...currentRecipients];
+  const notificationMessage =
+    message || `Ticket ${updated.ticketNumber} was ${action.toLowerCase()}`;
+  const notificationsSent =
+    action === "REOPENED" || notify
+      ? await sendTicketNotification(
+          actor,
+          notificationRecipients,
+          updated,
+          `TICKET_${action}`,
+          notificationMessage,
+        )
+      : false;
+  const emailSent =
+    action !== "REOPENED" && sendEmail
+      ? await sendTicketEmail(
+          notificationRecipients.filter(
+            (recipientId) => recipientId !== actor.userId,
+          ),
+          updated,
+          action,
+          notificationMessage,
+        )
+      : false;
+  return { ticket: updated, notificationsSent, emailSent };
 };
 
 export const acknowledgeTicket = (
   credentials: unknown,
   ticketId: string,
-  message?: string,
-) => updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", message);
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  },
+) => {
+  console.log("[tickets:acknowledge] Started", { ticketId });
+  return updateTicketStatus(credentials, ticketId, "ACKNOWLEDGED", options).then(
+    (result) => {
+      console.log("[tickets:acknowledge] Completed", { ticketId });
+      return result;
+    },
+  );
+};
 
 export const resolveTicket = (
   credentials: unknown,
   ticketId: string,
-  message?: string,
-) => updateTicketStatus(credentials, ticketId, "RESOLVED", message);
+  options: {
+    message?: string;
+    sendEmail?: boolean;
+    sendNotification?: boolean;
+  },
+) => {
+  console.log("[tickets:resolve] Started", { ticketId });
+  return updateTicketStatus(credentials, ticketId, "RESOLVED", options).then(
+    (result) => {
+      console.log("[tickets:resolve] Completed", { ticketId });
+      return result;
+    },
+  );
+};
 
 export const reopenTicket = (
   credentials: unknown,
   ticketId: string,
   message?: string,
-) => updateTicketStatus(credentials, ticketId, "REOPENED", message);
+) =>
+  updateTicketStatus(credentials, ticketId, "REOPENED", {
+    message,
+  });
 
 export const getTicketHistory = async (
   credentials: unknown,

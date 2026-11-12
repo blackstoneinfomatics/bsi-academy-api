@@ -61,6 +61,10 @@ export const backupRequestMessages: Record<string, string> = Object.freeze({
   START_AFTER_END: "Backup start date cannot be after the end date",
   OUTSIDE_RETENTION: "Backup data must be within the last 30 days",
   END_IN_FUTURE: "Backup end date cannot be in the future",
+  GET_BACKUP_LIST_FAILED: "Failed to retrieve backup list",
+  GET_BACKUP_LIST_SUCCESS: "Backup list retrieved successfully",
+  GET_BACKUP_LIST: "Get tenant backup list",
+  GET_BACKUP_CARDS: "Get tenant backup dashboard cards",
 });
 
 export const planChangeRequestMessages: Record<string, string> = Object.freeze({
@@ -1183,7 +1187,24 @@ export const updateMessage = {
   UPDATE_TABLE : "Get updates list",
   UPDATE_TABLE_SUCCESS : "Updates fetched successfully",
   UPDATR_GETBYID : "Get update details by ID",
-  UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully"
+  UPDATE_GETBYID_SUCCESS : "Update details by ID fetched successfully",
+  UPDATE_PURCHASE_CREATE :"create Update purchase ",
+  UPDATE_PURCHASE_SUCCESS :"Update purchase created successfully",
+  UPDATE_PURCHASE_GETBYID_QUOTE :"Get update quote by ID ",
+  UPDATE_PURCHASE_GETBYID_QUOTE_SUCCESS :"Get update quote by ID fetched successfully ",
+  UPDATE_DETAILS_DESCRIPTION : "Get tenant update details",
+  UPDATE_VALIDATION_FAILED : "Validation failed",
+  UPDATE_TENANT_FAILED : "Tenant identity not found",
+  UPDATE_FETCHED_SUCCESS : "Update details fetched successfully",
+  UPDATE_FETCH_FAILED : "Failed to fetch update details",
+  UPDATE_INVALID_ID : "Invalid update ID",
+  UPDATE_NOT_FOUND : "Update not found",
+  TENANT_UPDATES_DESCRIPTION : "Get updates and purchase status for a tenant",
+  TENANT_UPDATE_TENANT_ID_REQUIRED : "Tenant ID is required",
+  TENANT_UPDATES_FETCHED_SUCCESS : "Tenant updates fetched successfully",
+  TENANT_UPDATES_FETCH_FAILED : "Failed to fetch tenant updates",
+  TENANT_UPDATE_REQUESTED : "Requested",
+  TENANT_UPDATE_NOT_PURCHASED : "Not Purchased",
 }
 
 export const auditLogMessages = {

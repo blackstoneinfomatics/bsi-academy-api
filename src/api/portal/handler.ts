@@ -88,7 +88,7 @@ export const getAllPortalValidation = z.object({
       .optional(),
 
     sortBy: z
-      .enum(["portalName", "portalId", "createdAt"])
+      .enum(["portalName", "portalId", "portalCode", "createdAt"])
       .default("createdAt"),
 
     sortOrder: z.enum(["asc", "desc"]).default("desc"),

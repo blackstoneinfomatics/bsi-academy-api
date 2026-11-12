@@ -61,7 +61,7 @@ export const getAllPortalService = async (query: any) => {
     if (search) {
       filter.$or = [
         { portalName: { $regex: search, $options: "i" } },
-        { portalId: { $regex: search, $options: "i" } },
+        { portalCode: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -73,8 +73,9 @@ export const getAllPortalService = async (query: any) => {
       filter.roleType = roleType;
     }
 
-    const sort: any = {
-      [sortBy]: sortOrder === "asc" ? 1 : -1,
+    const sortField = sortBy === "portalId" ? "portalCode" : sortBy;
+    const sort: Record<string, 1 | -1> = {
+      [sortField]: sortOrder === "asc" ? 1 : -1,
     };
 
     const skip = (page - 1) * limit;
@@ -82,7 +83,7 @@ export const getAllPortalService = async (query: any) => {
     const [items, totalRecords] = await Promise.all([
       PortalModal.find(filter)
         .select(
-          "portalId portalName portalType description roleType status createdAt",
+          "portalCode portalName portalType description roleType status createdAt",
         )
         .sort(sort)
         .skip(skip)
@@ -92,9 +93,16 @@ export const getAllPortalService = async (query: any) => {
     ]);
 
     const totalPages = Math.ceil(totalRecords / limit);
+    const portals = items.map((item) => {
+      const portal = item.toObject();
+      return {
+        ...portal,
+        portalId: portal.portalCode,
+      };
+    });
 
     return {
-      items,
+      items: portals,
       pagination: {
         page,
         limit,
@@ -151,4 +159,3 @@ export const getPortalDashboardCountService = async () => {
     throw error;
   }
 };
-

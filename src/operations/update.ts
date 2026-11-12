@@ -8,7 +8,7 @@ import TenantUsers from "../models/users";
 import emailTemplates from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
 import { sendNotification } from "./notification";
-import { appStatus } from "../config/messages";
+import { appStatus, updateMessage } from "../config/messages";
 import { Lookup } from "../models/lookup";
 import { throwError } from "../helpers/throwError";
 import {
@@ -18,6 +18,8 @@ import {
   SubscriptionStatus,
   PaymentStatus,
 } from "../shared/enum";
+import { randomUUID } from "crypto";
+import purchaseRequest from "../models/purchaseRequest";
 
 interface GetUpdatesListParams {
   page: number;
@@ -26,6 +28,18 @@ interface GetUpdatesListParams {
   status?: string;
   category?: string;
   priority?: string;
+}
+
+interface CreatePurchaseRequestParams {
+  tenantId: string;
+  updateId: string;
+  activationMode: PurchaseActivationMode;
+  requestedBy: string;
+}
+
+interface GetTenantUpdateDetailsInput {
+  updateId: string;
+  tenantId: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -243,7 +257,7 @@ const sendUpdateInAppNotification = async (
       senderTenantId: senderTenant.tenantId,
       receiverTenantId: tenantId,
       title: payload.title,
-      messages: payload.description,
+      messages: `New update: ${payload.title} featured in ${payload.category} category.`,
       senderId: sender.userId,
       senderName: sender.keyName,
       receiverId: tenantRecipients.map((recipient) => recipient.userId),
@@ -456,6 +470,21 @@ export const createUpdate = async (payload: CreateUpdateInput) => {
   };
 };
 
+export const publishScheduledUpdates = async () => {
+  const result = await UpdateModel.updateMany(
+    {
+      status: "Scheduled",
+      publishDate: { $lte: new Date() },
+      deletedAt: null,
+    },
+    {
+      $set: { status: "Published" },
+    },
+  );
+
+  return result.modifiedCount;
+};
+
 export const getUpdateDashboardCards = async () => {
   const now = new Date();
 
@@ -476,6 +505,9 @@ export const getUpdateDashboardCards = async () => {
 
     currentScheduledUpdates,
     previousScheduledUpdates,
+
+    currentTotalPurchaseRequests,
+    previousTotalPurchaseRequests,
 
     // currentViewsResult,
     // previousViewsResult,
@@ -520,6 +552,22 @@ export const getUpdateDashboardCards = async () => {
 
     UpdateModel.countDocuments({
       status: "Scheduled",
+      createdAt: {
+        $gte: previousMonthStart,
+        $lt: currentMonthStart,
+      },
+    }),
+
+    purchaseRequest.countDocuments({
+      deletedAt: null,
+      createdAt: {
+        $gte: currentMonthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    purchaseRequest.countDocuments({
+      deletedAt: null,
       createdAt: {
         $gte: previousMonthStart,
         $lt: currentMonthStart,
@@ -590,10 +638,11 @@ export const getUpdateDashboardCards = async () => {
     previousScheduledUpdates,
   );
 
-  // const totalViewsChange = calculatePercentage(
-  //   currentTotalViews,
-  //   previousTotalViews,
-  // );
+  const totalPurchaseRequestsChange = calculatePercentage(
+    currentTotalPurchaseRequests,
+    previousTotalPurchaseRequests,
+  );
+
 
   return {
     totalUpdates: {
@@ -612,6 +661,12 @@ export const getUpdateDashboardCards = async () => {
       count: currentScheduledUpdates,
       percentage: scheduledUpdatesChange.percentage,
       direction: scheduledUpdatesChange.direction,
+    },
+
+    totalPurchaseRequests: {
+      count: currentTotalPurchaseRequests,
+      percentage: totalPurchaseRequestsChange.percentage,
+      direction: totalPurchaseRequestsChange.direction,
     },
 
     // totalViews: {
@@ -715,11 +770,51 @@ export const getTenantUpdates = async (tenantId: string) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  return updates.map((update) => ({
-    ...update,
-    purchaseStatus:
-      update.status === "Published" ? "Requested" : "Not Purchased",
-  }));
+  if (!updates.length) {
+    return [];
+  }
+
+  const updateIds = updates.map((update) => update._id);
+
+  const purchaseRequests = await purchaseRequest.find({
+    "tenant.tenantId": tenantId,
+    "update.updateId": { $in: updateIds },
+    deletedAt: null,
+  })
+    .select({
+      "update.updateId": 1,
+      status: 1,
+      requestedAt: 1,
+    })
+    .sort({ requestedAt: -1 })
+    .lean();
+
+
+  const purchaseRequestMap = new Map<
+    string,
+    { status: string; requestedAt: Date }
+  >();
+
+  for (const purchase of purchaseRequests) {
+    const updateId = String(purchase.update.updateId);
+
+    if (!purchaseRequestMap.has(updateId)) {
+      purchaseRequestMap.set(updateId, {
+        status: purchase.status,
+        requestedAt: purchase.requestedAt,
+      });
+    }
+  }
+
+  return updates.map((update) => {
+    const purchase = purchaseRequestMap.get(String(update._id));
+
+    return {
+      ...update,
+      requestedDate: purchase?.requestedAt ?? null,
+      purchaseStatus: purchase?.status ?? "NOT PURCHASED",
+    };
+  });
 };
 
 export const getUpdateById = async (id: string) => {
@@ -766,7 +861,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 interface GetPurchaseQuoteParams {
   tenantId: string;
-  featureId: string;
+  updateId: string;
   activationMode: PurchaseActivationMode;
 }
 
@@ -781,15 +876,14 @@ const getRemainingDays = (subscriptionEndDate: Date, now: Date): number =>
 
 export const getPurchaseQuoteService = async ({
   tenantId,
-  featureId,
+  updateId,
   activationMode,
 }: GetPurchaseQuoteParams) => {
-  // 1. Validate activation mode
+
   if (!Object.values(PurchaseActivationMode).includes(activationMode)) {
     throwError("Invalid activation mode", 400);
   }
 
-  // 2. Validate tenant
   const tenant = await Tenants.findOne({
     tenantCode: tenantId,
     deletedAt: null,
@@ -800,20 +894,18 @@ export const getPurchaseQuoteService = async ({
     return;
   }
 
-  // 3. Get the latest applicable feature update
   const now = new Date();
 
-  const featureUpdate = await UpdateModel.findOne({
-    _id: new Types.ObjectId(featureId),
+  const update = await UpdateModel.findOne({
+    _id: new Types.ObjectId(updateId),
     deletedAt: null,
   }).lean();
 
-  if (!featureUpdate) {
-    throwError("Active feature pricing not found", 404);
+  if (!update) {
+    throwError("Active update pricing not found", 404);
     return;
   }
 
-  // 4. Get the current active tenant subscription
   const subscription = await TenantSubscription.findOne({
     tenantId: tenant.tenantCode,
     status: SubscriptionStatus.ACTIVE,
@@ -849,7 +941,6 @@ export const getPurchaseQuoteService = async ({
     throwError("Invalid subscription billing dates", 400);
   }
 
-  // 5. Resolve current plan and GST
   const plan = await planModel
     .findOne({
       _id: subscription.planId,
@@ -874,8 +965,8 @@ export const getPurchaseQuoteService = async ({
   }
 
   const gstRate = Number(gstRateValue);
-  const monthlyAmount = Number(featureUpdate.monthlyPrice);
-  const discountValue = Number(featureUpdate.discount ?? 0);
+  const monthlyAmount = Number(update.monthlyPrice);
+  const discountValue = Number(update.discount ?? 0);
 
   if (
     !Number.isFinite(monthlyAmount) ||
@@ -890,7 +981,6 @@ export const getPurchaseQuoteService = async ({
     throwError("Invalid feature pricing or plan GST configuration", 400);
   }
 
-  // 6. Build common response data
   const totalPeriodDays = BILLING_CYCLE_DAYS;
 
   const remainingDays = getRemainingDays(subscriptionEndDate, now);
@@ -906,8 +996,9 @@ export const getPurchaseQuoteService = async ({
     subscriptionStartDate,
     subscriptionEndDate,
 
-    featureId: String(featureUpdate._id),
-    featureName: featureUpdate.title,
+    updateId: String(update._id),
+    updateName: update.title,
+    category:update.category,
     monthlyAmount,
     discountValue,
     currency: "INR",
@@ -943,5 +1034,362 @@ export const getPurchaseQuoteService = async ({
     gstRate,
     gstAmount,
     totalAmount,
+  };
+};
+
+
+export const createPurchaseRequestService = async ({
+  tenantId,
+  updateId,
+  activationMode,
+  requestedBy,
+}: CreatePurchaseRequestParams) => {
+  const now = new Date();
+
+  const tenant = await Tenants.findOne({
+    tenantCode: tenantId,
+    deletedAt: null,
+  }).lean();
+
+  if (!tenant) {
+    throwError("Tenant not found", 404);
+    return;
+  }
+
+   const update = await UpdateModel.findOne({
+    _id: new Types.ObjectId(updateId),
+    deletedAt: null,
+  }).lean();
+
+  if (!update) {
+    throwError("update not found", 404);
+    return;
+  }
+
+  // 3. Validate tenant eligibility
+  if (!update.selectedTenants?.includes(tenantId)) {
+    throwError("update is not available for this tenant", 403);
+    return;
+  }
+
+   const subscription = await TenantSubscription.findOne({
+    tenantId: tenant.tenantCode,
+    status: SubscriptionStatus.ACTIVE,
+    paymentStatus: PaymentStatus.PAID,
+    deletedAt: null,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!subscription) {
+    throwError("Active tenant subscription not found", 404);
+    return;
+  }
+
+  const subscriptionStartDate = subscription.startDate
+    ? new Date(subscription.startDate)
+    : null;
+
+  const subscriptionEndDate = subscription.endDate
+    ? new Date(subscription.endDate)
+    : null;
+
+  if (!subscriptionStartDate || !subscriptionEndDate) {
+    throwError("Subscription  start and end date is required", 400);
+    return;
+  }
+
+  if (
+    Number.isNaN(subscriptionStartDate.getTime()) ||
+    Number.isNaN(subscriptionEndDate.getTime()) ||
+    subscriptionEndDate <= subscriptionStartDate
+  ) {
+    throwError("Invalid subscription dates", 400);
+    return;
+  }
+
+  // 5. Fetch current plan
+  const plan = await planModel.findOne({
+    _id: subscription.planId,
+    deletedAt: null,
+  }).lean();
+
+  if (!plan) {
+    throwError("Subscription plan not found", 404);
+    return;
+  }
+
+  // 6. Read feature pricing
+  const monthlyAmount = Number(update.monthlyPrice);
+  const discountValue = Number(update.discount ?? 0);
+
+  if (
+    !Number.isFinite(monthlyAmount) ||
+    monthlyAmount < 0 ||
+    !Number.isFinite(discountValue) ||
+    discountValue < 0 ||
+    discountValue > 100
+  ) {
+    throwError("Invalid feature pricing or discount", 400);
+    return;
+  }
+
+  // 7. Calculate subscription duration
+  const totalPeriodDays = Math.max(
+    1,
+    Math.ceil(
+      (subscriptionEndDate.getTime() -
+        subscriptionStartDate.getTime()) /
+        DAY_IN_MS,
+    ),
+  );
+
+  const remainingDays = Math.max(
+    0,
+    Math.ceil(
+      (subscriptionEndDate.getTime() - now.getTime()) / DAY_IN_MS,
+    ),
+  );
+
+  // 8. Calculate pricing
+  let subAmount: number;
+  let discountAmount: number;
+  let gstRate: number;
+  let gstAmount: number;
+  let totalAmount: number;
+
+  if (activationMode === PurchaseActivationMode.IMMEDIATE) {
+    if (now < subscriptionStartDate || remainingDays <= 0) {
+      throwError("Subscription is not currently active", 400);
+      return;
+    }
+
+    gstRate = Number(plan.billingPeriods?.[0]?.gstRate ?? 0);
+
+    if (
+      !Number.isFinite(gstRate) ||
+      gstRate < 0 ||
+      gstRate > 100
+    ) {
+      throwError("Invalid GST rate configured on plan", 400);
+      return;
+    }
+
+    subAmount = roundMoney(
+    (monthlyAmount / BILLING_CYCLE_DAYS) * remainingDays,
+  );
+
+   discountAmount = roundMoney(subAmount * (discountValue / 100));
+
+
+  gstAmount = roundMoney(subAmount * (gstRate / 100));
+
+  totalAmount = roundMoney((subAmount + gstAmount) - discountAmount);
+
+  } else {
+    // NEXT_PLAN: store the monthly pricing snapshot.
+    // Recalculate applicable tax when the next subscription takes effect.
+    subAmount = 0;
+    discountAmount =0;
+    gstRate = 0;
+    gstAmount = 0;
+    totalAmount = 0;
+  }
+
+  const existingRequest = await purchaseRequest.findOne({
+    "tenant.tenantId": tenantId,
+    "update.updateId": new Types.ObjectId(updateId),
+    status: {
+      $in: [
+        PurchaseRequestStatus.PENDING_APPROVAL,
+        PurchaseRequestStatus.APPROVED,
+        PurchaseRequestStatus.PAYMENT_PENDING,
+        PurchaseRequestStatus.SCHEDULED,
+      ],
+    },
+    deletedAt: null,
+  }).lean();
+
+  if (existingRequest) {
+    throwError(
+      "A purchase request already exists for this feature",
+      409,
+    );
+    return;
+  }
+
+  // 10. Save using your existing PurchaseRequestSchema
+  const PurchaseRequest = await purchaseRequest.create({
+    purchaseNumber: `PUR-${randomUUID()
+      .replace(/-/g, "")
+      .slice(0, 5)
+      .toUpperCase()}`,
+
+    status: PurchaseRequestStatus.PENDING_APPROVAL,
+    activationMode,
+    requestedAt: now,
+
+    tenant: {
+      tenantId: String(tenant.tenantCode),
+      tenantName: String(tenant.tenantName),
+      requestedBy,
+    },
+
+    subscription: {
+      tenantSubscriptionId: subscription._id,
+      currentPlanId: plan._id,
+      currentPlanName: plan.planName,
+      subscriptionStartDate,
+      subscriptionEndDate,
+      remainingDays,
+      totalPeriodDays,
+    },
+
+    update: {
+      updateId: update._id,
+      updateName: update.title,
+      category:update.category,
+      monthlyAmount,
+      discountValue,
+    },
+
+    pricing: {
+      subAmount,
+      discountAmount,
+      gstRate,
+      gstAmount,
+      totalAmount,
+      currency: "INR",
+    },
+
+    approval: {
+      approvedBy: null,
+      approvedAt: null,
+      rejectionReason: null,
+    },
+
+    payment: {
+      paymentId: null,
+      paymentStatus:
+        activationMode === PurchaseActivationMode.IMMEDIATE
+          ? PurchasePaymentStatus.PENDING
+          : PurchasePaymentStatus.NOT_REQUIRED,
+    },
+
+    activatedAt: null,
+    deletedAt: null,
+  });
+
+      const superAdminTenant = await Lookup.findOne({
+               lookupKey: "SUPER_ADMIN",
+               status: "Active",
+             }).lean();
+     
+             if (!superAdminTenant) {
+               throwError("Super admin tenant not found", 404);
+             }
+     
+             const superAdminUser = await TenantUsers.findOne({
+               tenantId: superAdminTenant?.tenantId,
+               role: "SUPERADMIN",
+               status: appStatus.ACTIVE,
+             })
+               .select("userId tenantId userName role email")
+               .lean<{
+                 userId: string;
+                 tenantId: string;
+                 userName: string;
+                 email:string;
+                 role: string[];
+               }>();
+
+               const admin = await TenantUsers.findOne({
+                tenantId:tenantId,
+                userId:requestedBy,
+                role:"ADMIN",
+                status:appStatus.ACTIVE,
+               })
+                .select("userId tenantId userName role email")
+               .lean<{
+                 userId: string;
+                 tenantId: string;
+                 userName: string;
+                 email:string;
+                 role: string[];
+               }>();
+
+    await sendNotification({
+      requestId:PurchaseRequest.purchaseNumber,
+      tenantId :superAdminUser?.tenantId,
+      senderTenantId:tenantId,
+      receiverTenantId: superAdminUser?.tenantId,
+      title: `Update Request by ${admin?.userName}`,
+      messages: `New Update purchase request for ${update.title} `,
+      senderId: admin?.userId,
+      senderName: admin?.userName,
+      receiverId: superAdminUser?.userId,
+      receiverName:superAdminUser?.userName,
+      receiverEmail:superAdminUser?.email,
+      notificationType: "UPDATE_REQUESTED",
+      notificationStatus: "Unseen",
+      isRead: false,
+      status: "active",
+      metadata: {
+        updateId,
+        category: update.category,
+      },
+      createdBy: "system",
+      updatedBy: "system",
+    });
+
+  // 11. Return only required response fields
+  return {
+    purchaseRequestId: PurchaseRequest._id,
+    purchaseNumber: PurchaseRequest.purchaseNumber,
+    status: PurchaseRequest.status,
+    activationMode: PurchaseRequest.activationMode,
+  };
+};
+
+export const getTenantUpdateDetails = async ({
+  updateId,
+  tenantId,
+}: GetTenantUpdateDetailsInput) => {
+  if (!mongoose.isValidObjectId(updateId)) {
+    throw new Error(updateMessage.UPDATE_INVALID_ID);
+  }
+
+  // Fetch update details.
+  const update = await UpdateModel.findOne({
+    _id: updateId,
+    deletedAt: null,
+  })
+    .select("title category description status")
+    .lean();
+
+  if (!update) {
+    throw new Error(updateMessage.UPDATE_NOT_FOUND);
+  }
+
+  // Find the purchase request for this feature and tenant.
+  // updates._id matches purchaserequest.featureId.
+  const purchaseRequestRecord = await purchaseRequest.findOne({
+    featureId: update._id,
+    tenantId,
+    deletedAt: null,
+  })
+    .select("status requestedAt")
+    .sort({ requestedAt: -1 })
+    .lean();
+
+  return {
+    _id: update._id,
+    title: update.title,
+    category: update.category,
+    description: update.description,
+    status: update.status,
+
+    purchaseStatus: purchaseRequestRecord?.status ?? "Not Requested",
+    requestedAt: purchaseRequestRecord?.requestedAt ?? null,
   };
 };

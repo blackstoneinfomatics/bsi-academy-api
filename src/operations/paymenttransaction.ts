@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Stripe from "stripe";
 import { config } from "../config/env";
 import PaymentModel from "../models/paymenttransaction";
+import PaymentNumberCounter from "../models/paymentNumberCounter";
 import InvoiceModel from "../models/subscriptionInvoice";
 import CustomServiceInvoiceModel from "../models/finance_invoice";
 import SubscriptionModel from "../models/tenantsubscription";
@@ -516,8 +517,49 @@ export class PaymentService {
 
   private async generatePaymentNumber() {
     const year = new Date().getFullYear();
-    const count = await PaymentModel.countDocuments();
-    return `PAY-${year}-${String(count + 1).padStart(6, "0")}`;
+    const prefix = `PAY-${year}`;
+    const counterId = `payment-number-${year}`;
+    const existingCounter = await PaymentNumberCounter.findById(counterId)
+      .select("_id")
+      .lean();
+
+    if (!existingCounter) {
+      const lastPayment = await PaymentModel.findOne({
+        paymentNumber: new RegExp(`^${prefix}-\\d+$`),
+      })
+        .sort({ paymentNumber: -1 })
+        .select("paymentNumber")
+        .lean();
+      const lastSequence = Number(lastPayment?.paymentNumber.split("-").pop()) || 0;
+
+      try {
+        await PaymentNumberCounter.create({
+          _id: counterId,
+          sequence: lastSequence,
+        });
+      } catch (error) {
+        if (
+          !error ||
+          typeof error !== "object" ||
+          !("code" in error) ||
+          error.code !== 11000
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    const counter = await PaymentNumberCounter.findOneAndUpdate(
+      { _id: counterId },
+      { $inc: { sequence: 1 } },
+      { new: true },
+    );
+
+    if (!counter) {
+      throw new Error(`Failed to allocate payment number for ${year}`);
+    }
+
+    return `${prefix}-${String(counter.sequence).padStart(6, "0")}`;
   }
 
   private calculateEndDate(start: Date, durationInMonths: number): Date {
