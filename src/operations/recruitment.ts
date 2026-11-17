@@ -3,6 +3,7 @@
 
 import { IRecruitment, IRecruitmentCreate } from "../../types/models.types";
 import RecruitModel from "../models/recruitment"
+import RecruitmentInterviewScheduleModel from "../models/recruitmentInterviewSchedule";
 import { GetAllApplicationsRecordsParams, GetAllTeachersRecordsParams } from "../shared/enum";
 import { applicationStatus } from "../config/messages";
 import AppLogger from "../helpers/logging";
@@ -16,6 +17,8 @@ import { generateSlotsFromUserSchedule } from "../redis/handler/teacherSlotHande
 import { academicAvailableTeachers } from "../kafka/producers/academicProducer";
 import SalaryAndWages from "../models/empwages";
 import classShedule from "../models/classShedule"
+import { RecruitmentInterviewPlatform } from "../shared/enum";
+import { IRecruitmentInterviewSchedule } from "../../types/models.types";
 import { hashPassword } from "../shared/common";
 
 export interface IRecruitmentUpdate{
@@ -68,6 +71,42 @@ export const createRecruitment = async (  payload: IRecruitmentCreate
     
       return savedUser;
 }
+
+export const createRecruitmentInterviewSchedule = async (
+  recruitmentId: string,
+  interviewDate: Date,
+  interviewTime: string,
+  interviewPlatform: RecruitmentInterviewPlatform
+): Promise<IRecruitmentInterviewSchedule | { duplicate: true } | null> => {
+  const recruitment = await RecruitModel.findById(recruitmentId)
+    .select("tenantId candidateFirstName position teachingExperience")
+    .exec();
+
+  if (!recruitment) {
+    return null;
+  }
+
+  const existingSchedule = await RecruitmentInterviewScheduleModel.exists({
+    recruitmentId: recruitment._id,
+  });
+
+  if (existingSchedule) {
+    return { duplicate: true };
+  }
+
+  const schedule = new RecruitmentInterviewScheduleModel({
+    recruitmentId: recruitment._id,
+    tenantId: recruitment.tenantId,
+    candidateFirstName: recruitment.candidateFirstName,
+    position: recruitment.position,
+    teachingExperience: recruitment.teachingExperience,
+    interviewDate,
+    interviewTime,
+    interviewPlatform,
+  });
+
+  return schedule.save();
+};
 
 export const getAllApplicantsRecords = async (
   params: GetAllApplicationsRecordsParams

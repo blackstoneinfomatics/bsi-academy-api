@@ -9,6 +9,18 @@ const register = async (server: Server): Promise<void> => {
   const routes: ServerRoute[] = [
     {
       method: "POST",
+      path: "/interview-schedule",
+      options: {
+        handler: handler.createInterviewSchedule,
+        description: "Schedule an interview for a recruitment applicant",
+        tags: ["api", "recruitment", "interview"],
+        // auth: {
+        //   strategies: ["jwt"],
+        // },
+      },
+    },
+    {
+      method: "POST",
       path: "/recruit",
       options: {
         handler: handler.createRecruitement,

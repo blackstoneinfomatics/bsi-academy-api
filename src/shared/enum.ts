@@ -31,6 +31,11 @@ export enum RecruitmentDays{
   SUNDAY = "Sunday"
 }
 
+export enum RecruitmentInterviewPlatform {
+  GOOGLE_MEET = "Google Meet",
+  ZOOM = "Zoom",
+}
+
 // Use an enum for better type safety
 export enum Status {
   ACTIVE = "Active",

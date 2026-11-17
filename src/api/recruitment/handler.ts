@@ -12,6 +12,8 @@ import { supervisorCardCount, supervisorRecruitmentList, supervisorTeacherList }
 import { sendNotification } from "../../operations/notification";
 import { uploadFileToSharePoint } from "../../shared/sharepoint";
 import users from "../../models/users";
+import { zodRecruitmentInterviewScheduleSchema } from "../../models/recruitmentInterviewSchedule";
+import { createRecruitmentInterviewSchedule } from "../../operations/recruitment";
 
 
 
@@ -101,6 +103,51 @@ const getTeacherInputValidation = z.object({
 
 
 export default{
+  async createInterviewSchedule(req: Request, h: ResponseToolkit) {
+    try {
+      const payload = zodRecruitmentInterviewScheduleSchema.parse(req.payload);
+      const schedule = await createRecruitmentInterviewSchedule(
+        payload._id,
+        payload.interviewDate,
+        payload.interviewTime,
+        payload.interviewPlatform
+      );
+
+      if (!schedule) {
+        return h.response({ message: "Recruitment record not found" }).code(404);
+      }
+
+      if ("duplicate" in schedule) {
+        return h.response({
+          message: "An interview schedule already exists for this recruitment record",
+        }).code(409);
+      }
+
+      return h.response(schedule).code(201);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return h.response({
+          message: "Invalid interview schedule payload",
+          errors: error.issues,
+        }).code(400);
+      }
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === 11000
+      ) {
+        return h.response({
+          message: "An interview schedule already exists for this recruitment record",
+        }).code(409);
+      }
+
+      console.error("Interview schedule creation error:", error);
+      return h.response({ message: "Internal Server Error" }).code(500);
+    }
+  },
+
   async createRecruitement(req: Request, h: ResponseToolkit) {
   try {
     let rawPayload = req.payload as any;
