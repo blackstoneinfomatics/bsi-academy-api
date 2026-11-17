@@ -17,31 +17,36 @@ import users from "../../models/users";
 
 const createInputValidation = z.object({
   payload: zodRecruitmentSchema.pick({
+    tenantId: true,
     supervisor: true,
     candidateFirstName: true,
     candidateLastName: true,
     gender: true,
+    dateOfBirth: true,
+    address: true,
+    highestQualification: true,
+    specialization: true,
+    university: true,
+    completionYear: true,
+    experienceType: true,
+    teachingExperience: true,
+    previousInstitutionName: true,
+    previousDesignation: true,
+    technicalSkills: true,
+    teachingSkills: true,
+    languages: true,
+    employmentType: true,
+    teachingMode: true,
+    availableWorkingDays: true,
+    currentSalary: true,
+    joiningAvailability: true,
     applicationDate: true,
     candidateEmail: true,
     candidatePhoneNumber: true,
     candidateCountry: true,
     candidateCity: true,
-    positionApplied: true,
     currency: true,
     expectedSalary: true,
-    preferedWorkingHours: true,
-    comments: true,
-    applicationStatus: true,
-    level: true,
-    quranReading: true,
-    tajweed: true,
-    arabicWriting: true,
-    arabicSpeaking: true,
-    englishSpeaking: true,
-    preferedWorkingDays: true,
-    overallRating: true,
-    skills: true,
-    status: true,
     createdDate: true,
     createdBy: true,
     updatedDate: true,
@@ -51,7 +56,6 @@ const createInputValidation = z.object({
  const updateInputValidation = z.object({
   payload: zodRecruitmentSchema.pick({
     supervisor: true,
-    comments: true,
     applicationStatus: true,
     level: true,
     quranReading: true,
@@ -98,36 +102,36 @@ const getTeacherInputValidation = z.object({
 export default{
   async createRecruitement(req: Request, h: ResponseToolkit) {
   try {
-    const { payload } = createInputValidation.parse({
-      payload: req.payload,
-    });
+    let rawPayload = req.payload as any;
+    const contentType = String(req.headers["content-type"] || "").toLowerCase();
 
-    const rawPayload = req.payload as any;
+    // With payload.output set to "stream", Hapi returns JSON bodies as a
+    // readable stream. Multipart requests are already parsed into fields/files.
+    if (contentType.includes("application/json") && rawPayload instanceof Readable) {
+      const jsonBuffer = await streamToBuffer(rawPayload);
+      rawPayload = JSON.parse(jsonBuffer.toString("utf8"));
+    }
+
+    const { payload } = createInputValidation.parse({
+      payload: rawPayload,
+    });
 
     const uploadFileBuffer = rawPayload.uploadResume
       ? await streamToBuffer(rawPayload.uploadResume)
       : null;
 
-    const experience = rawPayload.uploadResume
-      ? await extractResumeDetails(uploadFileBuffer)
-      : null;
-
-//save the resume in sharepoint
-        // derive filename from the upload object (hapi or generic) or fallback
-        const fileName =
-          (rawPayload.uploadResume &&
-            (rawPayload.uploadResume.hapi?.filename || rawPayload.uploadResume.filename)) ||
-          "resume.pdf";
-
-
-        // uploadFileToSharePoint expects (accessToken, siteId, driveId, fileName, fileContent)
-        const shareLink = await uploadFileToSharePoint(
+    const fileName =
+      rawPayload.uploadResume?.hapi?.filename ||
+      rawPayload.uploadResume?.filename ||
+      "resume.pdf";
+    const shareLink = uploadFileBuffer
+      ? await uploadFileToSharePoint(
           uploadFileBuffer as Buffer,
           fileName
-        );
+        )
+      : null;
 
-        console.log("File uploaded to SharePoint. Link:", shareLink.fileId);
-const generateTeacherId = generateAFTCode("AFT");
+const generateTeacherId = generateAFTCode("BA");
     const supervisorList = (await users.find({ role: "SUPERVISOR", status: "Active" }).exec()) as Array<{
       _id?: unknown;
       userName?: string;
@@ -135,6 +139,7 @@ const generateTeacherId = generateAFTCode("AFT");
     }>;
     const supervisor = supervisorList[0];
     const result = await createRecruitment({
+      tenantId: payload.tenantId,
       candidateId: generateTeacherId,
       supervisor: {
         supervisorId: supervisor?._id ? String(supervisor._id) : "",
@@ -145,29 +150,32 @@ const generateTeacherId = generateAFTCode("AFT");
       candidateFirstName: payload.candidateFirstName,
       candidateLastName: payload.candidateLastName,
       gender: payload.gender || undefined,
+      dateOfBirth: payload.dateOfBirth,
+      address: payload.address,
+      highestQualification: payload.highestQualification,
+      specialization: payload.specialization,
+      university: payload.university,
+      completionYear: payload.completionYear,
+      experienceType: payload.experienceType,
+      teachingExperience: payload.teachingExperience,
+      previousInstitutionName: payload.previousInstitutionName,
+      previousDesignation: payload.previousDesignation,
+      technicalSkills: payload.technicalSkills,
+      teachingSkills: payload.teachingSkills,
+      languages: payload.languages,
+      employmentType: payload.employmentType,
+      teachingMode: payload.teachingMode,
+      availableWorkingDays: payload.availableWorkingDays,
+      currentSalary: payload.currentSalary,
+      joiningAvailability: payload.joiningAvailability,
       applicationDate: payload.applicationDate || new Date(),
       candidateEmail: payload.candidateEmail,
       candidatePhoneNumber: payload.candidatePhoneNumber,
       candidateCountry: payload.candidateCountry,
       candidateCity: payload.candidateCity,
-      positionApplied: payload.positionApplied,
       currency: payload.currency,
       expectedSalary: payload.expectedSalary,
-      preferedWorkingHours: payload.preferedWorkingHours,
-      uploadResume: shareLink.fileId || "",
-      comments: payload.comments || "",
-      applicationStatus: payload.applicationStatus,
-      level: payload.level,
-      quranReading: payload.quranReading,
-      tajweed: payload.tajweed,
-      arabicWriting: payload.arabicWriting,
-      arabicSpeaking: payload.arabicSpeaking,
-      englishSpeaking: payload.englishSpeaking,
-      preferedWorkingDays: payload.preferedWorkingDays,
-      overallRating: payload.overallRating,
-      professionalExperience: JSON.parse(rawPayload.professionalExperience),
-      skills: payload.skills || " ",
-      status: payload.status,
+      uploadResume: shareLink?.fileId || "",
       createdDate: payload.createdDate || new Date(),
       createdBy: payload.createdBy || payload.candidateFirstName,
       updatedDate: payload.updatedDate,
@@ -183,6 +191,9 @@ const generateTeacherId = generateAFTCode("AFT");
     return h.response(result).code(201);
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return h.response({ message: "Invalid recruitment payload", errors: error.issues }).code(400);
+    }
     console.error("Recruitment creation error:", error);
     return h.response({ message: "Internal Server Error", error }).code(500);
   }

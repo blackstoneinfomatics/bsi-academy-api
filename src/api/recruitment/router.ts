@@ -19,7 +19,7 @@ const register = async (server: Server): Promise<void> => {
           parse: true,
           maxBytes: 50 * 1024 * 1024,
           multipart: true,
-          allow: "multipart/form-data",
+          allow: ["multipart/form-data", "application/json"],
         },
       },
     },

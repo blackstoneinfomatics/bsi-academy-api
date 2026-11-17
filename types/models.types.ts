@@ -1390,6 +1390,7 @@ export interface ISuperviosrFeedback extends Document {
 }
 
 export interface IRecruitment extends Document {
+  applicationStatus: string;
   tenantId: string;
   candidateId: string;
   candidateFirstName: string;
@@ -1401,35 +1402,36 @@ export interface IRecruitment extends Document {
     supervisorRole: string;
   };
   gender?: string;
+  dateOfBirth?: Date;
+  address?: string;
+  highestQualification?: string;
+  specialization?: string;
+  university?: string;
+  completionYear?: number;
+  experienceType?: "fresher" | "experienced";
+  teachingExperience?: number;
+  previousInstitutionName?: string;
+  previousDesignation?: string;
+  technicalSkills?: string[];
+  teachingSkills?: string[];
+  languages?: string[];
+  employmentType?: "full-time" | "half-time" | "hourly";
+  teachingMode?: ("online" | "offline")[];
+  availableWorkingDays?: string[];
+  currentSalary?: number;
+  joiningAvailability?: string;
   applicationDate: Date;
   candidateEmail: string;
   candidatePhoneNumber: number;
-  candidateCountry: string;
-  candidateCity: string;
-  positionApplied: string;
-  currency: string;
+  candidateCountry?: string;
+  candidateCity?: string;
+  positionApplied?: string;
+  currency?: string;
   expectedSalary: number;
-  preferedWorkingHours: string;
+  preferedWorkingHours?: string;
   uploadResume?: Buffer;
-  comments: string;
-  applicationStatus?: string;
-  level?: string;
-  quranReading?: string;
-  tajweed?: string;
-  arabicWriting?: string;
-  arabicSpeaking?: string;
-  englishSpeaking?: string;
-  preferedWorkingDays?: string;
-  overallRating?: number;
-  professionalExperience: {
-    jobRole?: string;
-    organizationName?: string;
-    jobLocation?: string;
-    fromDate?: Date;
-    toDate?: Date;
-    jobDescription?: string;
-  }[];
-  skills?: string;
+
+
   status: string;
   createdDate: Date;
   createdBy: string;
@@ -1438,6 +1440,7 @@ export interface IRecruitment extends Document {
 }
 
 export interface IRecruitmentCreate {
+  tenantId: string;
   candidateId: string;
   supervisor: {
     supervisorId?: string;
@@ -1448,18 +1451,35 @@ export interface IRecruitmentCreate {
   candidateFirstName: string;
   candidateLastName: string;
   gender?: string;
+  dateOfBirth?: Date;
+  address?: string;
+  highestQualification?: string;
+  specialization?: string;
+  university?: string;
+  completionYear?: number;
+  experienceType?: "fresher" | "experienced";
+  teachingExperience?: number;
+  previousInstitutionName?: string;
+  previousDesignation?: string;
+  technicalSkills?: string[];
+  teachingSkills?: string[];
+  languages?: string[];
+  employmentType?: "full-time" | "half-time" | "hourly";
+  teachingMode?: ("online" | "offline")[];
+  availableWorkingDays?: string[];
+  currentSalary?: number;
+  joiningAvailability?: string;
   applicationDate: Date;
   candidateEmail: string;
   candidatePhoneNumber: number;
-  candidateCountry: string;
-  candidateCity: string;
-  positionApplied: string;
-  currency: string;
+  candidateCountry?: string;
+  candidateCity?: string;
+  positionApplied?: string;
+  currency?: string;
   expectedSalary: number;
-  preferedWorkingHours: string;
+  preferedWorkingHours?: string;
   uploadResume?: any;
-  comments?: string;
-  applicationStatus: string;
+  applicationStatus?: string;
   level?: string;
   quranReading?: string;
   tajweed?: string;
@@ -1468,14 +1488,14 @@ export interface IRecruitmentCreate {
   englishSpeaking?: string;
   preferedWorkingDays?: string;
   overallRating?: number;
-  professionalExperience: {
+  professionalExperience?: {
     jobRole?: string;
     organizationName?: string;
     jobLocation?: string;
     fromDate?: Date;
     toDate?: Date;
     jobDescription?: string;
-  };
+  }[];
   skills?: string;
   status?: string;
   createdDate: Date;

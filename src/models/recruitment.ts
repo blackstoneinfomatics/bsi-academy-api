@@ -42,6 +42,30 @@ gender: {
     type: String,
     required: false
 },
+dateOfBirth: {
+    type: Date,
+    required: false
+},
+address: {
+    type: String,
+    required: false
+},
+highestQualification: { type: String, required: false },
+specialization: { type: String, required: false },
+university: { type: String, required: false },
+completionYear: { type: Number, required: false },
+experienceType: { type: String, enum: ["fresher", "experienced"], required: false },
+teachingExperience: { type: Number, required: false },
+previousInstitutionName: { type: String, required: false },
+previousDesignation: { type: String, required: false },
+technicalSkills: { type: [String], required: false },
+teachingSkills: { type: [String], required: false },
+languages: { type: [String], required: false },
+employmentType: { type: String, enum: ["full-time", "half-time", "hourly"], required: false },
+teachingMode: { type: [String], enum: ["online", "offline"], required: false },
+availableWorkingDays: { type: [String], enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], required: false },
+currentSalary: { type: Number, required: false },
+joiningAvailability: { type: String, required: false },
 applicationDate:{
     type: Date,
     required: true,
@@ -56,19 +80,19 @@ candidatePhoneNumber:{
 },
 candidateCountry:{
  type: String,
- required: true,
+ required: false,
 },
 candidateCity:{
     type: String,
-    required: true,
+    required: false,
 },
 positionApplied:{
     type: String,
-    required: true,
+    required: false,
 },
 currency:{
     type: String,
-    required: true, 
+    required: false, 
 },
 expectedSalary:{
     type: Number,
@@ -76,90 +100,26 @@ expectedSalary:{
 },
 preferedWorkingHours:{
     type: String,
-    required: true,
+    required: false,
 },
 uploadResume:{
     type: String,
     required: false,
 },
-comments:{
-    type: String,
-    required: true,
-},
 
-applicationStatus:{
-    type: String,
-    required: false,
-},
-level:{
-    type: String,
-    required: false,
-},
-quranReading:{
-    type: String,
-    required: false,
-},
-tajweed:{
-    type: String,
-    required: false,
-},
-arabicWriting:{
-    type: String,
-    required: false,
-},
-arabicSpeaking:{
-    type: String,
-    required: false,
-},
-englishSpeaking:{
-    type: String,
-    required: false, 
-},
-preferedWorkingDays:{
-    type: String,
-    required: false,
-},
-overallRating:{
-    type: Number,
-    required: false,
-},
-professionalExperience:[{
 
-    jobRole: {
-      type: String,
-      required: false, 
-    },
-    organizationName: {
-      type: String,
-      required: false,
-    },
-    jobLocation: {
-      type: String,
-      required: false,
-    },
-    fromDate: {
-      type:Date,
-      required: false,
-    },
-      toDate: {
-      type:Date,
-      required: false,
-    },
 
-    jobDescription: {
-      type: String,
-      required: false,
-    },
-}],
 
-skills:{
-    type: String,
-    required: false,
-},
-status:{
-    type: String,
-    required: false,
-},
+
+
+
+
+
+
+
+
+
+
 createdDate:{
     type: Date,
     required: true,
@@ -196,21 +156,40 @@ export const zodRecruitmentSchema = z.object({
     applicationDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
         message: commonMessages.INVALID_DATE_FORMAT,
       }).transform((val) => new Date(val)).optional(),
+      dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), {
+        message: commonMessages.INVALID_DATE_FORMAT,
+      }).transform((val) => new Date(val)).optional(),
+      address: z.string().optional(),
+      highestQualification: z.string().optional(),
+      specialization: z.string().optional(),
+      university: z.string().optional(),
+      completionYear: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseInt(val, 10) : val, z.number().int().optional()),
+      experienceType: z.enum(["fresher", "experienced"]).optional(),
+      teachingExperience: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseFloat(val) : val, z.number().nonnegative().optional()),
+      previousInstitutionName: z.string().optional(),
+      previousDesignation: z.string().optional(),
+      technicalSkills: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
+      teachingSkills: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
+      languages: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
+      employmentType: z.enum(["full-time", "half-time", "hourly"]).optional(),
+      teachingMode: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.enum(["online", "offline"])).optional()),
+      availableWorkingDays: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])).optional()),
+      currentSalary: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseFloat(val) : val, z.number().nonnegative().optional()),
+      joiningAvailability: z.string().optional(),
       candidateEmail: z.string().email() ,
       candidatePhoneNumber: z.preprocess(
         (val) => (typeof val === "string" ? parseInt(val, 10) : val), 
         z.number()
       ),
-      candidateCountry: z.string(),
-      candidateCity: z.string(),
-      positionApplied: z.string(),
-      currency: z.string(),
+      candidateCountry: z.string().optional(),
+      candidateCity: z.string().optional(),
+      positionApplied: z.string().optional(),
+      currency: z.string().optional(),
       expectedSalary: z.preprocess(
         (val) => (typeof val === "string" ? parseInt(val, 10) : val), 
         z.number()
       ),
       preferedWorkingHours: z.string(),
-      comments: z.string().optional(),
       applicationStatus: z.enum([applicationStatus.NEWAPPLICATION, applicationStatus.SHORTLISTED, applicationStatus.REJECTED, applicationStatus.WAITING, applicationStatus.SENDAPPROVAL, applicationStatus.APPROVED ]).optional(),
       level: z.string().optional(),
       quranReading: z.string().optional(),
