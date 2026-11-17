@@ -218,7 +218,7 @@ export const createTenantPortal = async (
       portalId,
 
       portalCode: portalData.portalCode,
-      portalName: portalData.portalName.toLocaleUpperCase,
+      portalName: portalData.portalName.toLocaleUpperCase(),
       portalType: portalData.portalType,
       roleType: portalData.roleType,
       description: portalData.description,
