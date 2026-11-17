@@ -1,5 +1,36 @@
 import { classStatus } from "../config/messages";
 
+export enum RecruitmentPositions {
+  DEVELOPER = "developer",
+  UI_UX = "ui/ux"
+}
+
+export enum RecruitmentExperience{
+  FRESHER = "fresher",
+  EXPERIENCED = "experienced"
+}
+
+export enum RecruitmentTeaching{
+  ONLINE = "online",
+  OFFLINE = "offline"
+}
+
+export enum RecruitmentEmployment{
+  FULL_TIME = "full-time",
+  HALF_TIME = "half-time",
+  HOURLY = "hourly"
+}
+
+export enum RecruitmentDays{
+  MONDAY = "Monday",
+  TUESDAY = "Tuesday",
+  WEDNESDAY = "Wednesday",
+  THURSDAY = "Thursday",
+  FRIDAY = "Friday",
+  SATURDAY = "Saturday",
+  SUNDAY = "Sunday"
+}
+
 // Use an enum for better type safety
 export enum Status {
   ACTIVE = "Active",

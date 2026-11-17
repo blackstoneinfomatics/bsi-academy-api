@@ -3,6 +3,13 @@ import mongoose, { model, Schema } from "mongoose";
 import { IRecruitment } from "../../types/models.types";
 import { z } from "zod";
 import { applicationStatus, appStatus, commonMessages } from "../config/messages";
+import {
+  RecruitmentEmployment,
+  RecruitmentExperience,
+  RecruitmentTeaching,
+  RecruitmentPositions,
+  RecruitmentDays,
+} from "../shared/enum";
 
 
 const recruitmentSchema = new Schema<IRecruitment>(
@@ -54,16 +61,17 @@ highestQualification: { type: String, required: false },
 specialization: { type: String, required: false },
 university: { type: String, required: false },
 completionYear: { type: Number, required: false },
-experienceType: { type: String, enum: ["fresher", "experienced"], required: false },
+experienceType: { type: String, required: false },
 teachingExperience: { type: Number, required: false },
 previousInstitutionName: { type: String, required: false },
 previousDesignation: { type: String, required: false },
 technicalSkills: { type: [String], required: false },
 teachingSkills: { type: [String], required: false },
 languages: { type: [String], required: false },
-employmentType: { type: String, enum: ["full-time", "half-time", "hourly"], required: false },
-teachingMode: { type: [String], enum: ["online", "offline"], required: false },
-availableWorkingDays: { type: [String], enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], required: false },
+employmentType: { type: String,required: false },
+teachingMode: { type: [String],required: false },
+availableWorkingDays: { type: [String], required: false },
+position: { type: String, required: false },
 currentSalary: { type: Number, required: false },
 joiningAvailability: { type: String, required: false },
 applicationDate:{
@@ -90,6 +98,7 @@ positionApplied:{
     type: String,
     required: false,
 },
+
 currency:{
     type: String,
     required: false, 
@@ -106,18 +115,6 @@ uploadResume:{
     type: String,
     required: false,
 },
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 createdDate:{
@@ -164,16 +161,41 @@ export const zodRecruitmentSchema = z.object({
       specialization: z.string().optional(),
       university: z.string().optional(),
       completionYear: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseInt(val, 10) : val, z.number().int().optional()),
-      experienceType: z.enum(["fresher", "experienced"]).optional(),
+      experienceType: z.enum([
+          RecruitmentExperience.FRESHER,
+          RecruitmentExperience.EXPERIENCED
+      ]).optional(),
+      employmentType: z.enum([
+          RecruitmentEmployment.FULL_TIME,
+          RecruitmentEmployment.HALF_TIME,
+          RecruitmentEmployment.HOURLY
+      ]).optional(),
       teachingExperience: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseFloat(val) : val, z.number().nonnegative().optional()),
       previousInstitutionName: z.string().optional(),
       previousDesignation: z.string().optional(),
       technicalSkills: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
       teachingSkills: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
       languages: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.string()).optional()),
-      employmentType: z.enum(["full-time", "half-time", "hourly"]).optional(),
-      teachingMode: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.enum(["online", "offline"])).optional()),
-      availableWorkingDays: z.preprocess((val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val, z.array(z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])).optional()),
+      teachingMode: z.preprocess(
+        (val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val,
+        z.array(z.enum([
+          RecruitmentTeaching.ONLINE,
+          RecruitmentTeaching.OFFLINE
+        ])).optional()
+      ),
+      availableWorkingDays: z.preprocess(
+        (val) => typeof val === "string" ? val.split(",").map((item) => item.trim()).filter(Boolean) : val,
+        z.array(z.enum([
+          RecruitmentDays.MONDAY,
+          RecruitmentDays.TUESDAY,
+          RecruitmentDays.WEDNESDAY,
+          RecruitmentDays.THURSDAY,
+          RecruitmentDays.FRIDAY,
+          RecruitmentDays.SATURDAY,
+          RecruitmentDays.SUNDAY
+        ])).optional()
+      ),
+    
       currentSalary: z.preprocess((val) => val === "" || val == null ? undefined : typeof val === "string" ? parseFloat(val) : val, z.number().nonnegative().optional()),
       joiningAvailability: z.string().optional(),
       candidateEmail: z.string().email() ,
@@ -184,6 +206,10 @@ export const zodRecruitmentSchema = z.object({
       candidateCountry: z.string().optional(),
       candidateCity: z.string().optional(),
       positionApplied: z.string().optional(),
+      position: z.enum([
+        RecruitmentPositions.DEVELOPER,
+        RecruitmentPositions.UI_UX
+      ]).optional(),
       currency: z.string().optional(),
       expectedSalary: z.preprocess(
         (val) => (typeof val === "string" ? parseInt(val, 10) : val), 

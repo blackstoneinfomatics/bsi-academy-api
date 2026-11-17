@@ -29,7 +29,13 @@ import CustomEnumerator, {
   PurchaseRequestStatus,
   BackupFormat,
   BackupStatus,
+  RecruitmentEmployment,
+  RecruitmentExperience,
+  RecruitmentPositions,
+  RecruitmentTeaching,
+  RecruitmentDays,
 } from "../src/shared/enum";
+
 
 enum Status {
   ACTIVE = "Active",
@@ -1409,16 +1415,16 @@ export interface IRecruitment extends Document {
   specialization?: string;
   university?: string;
   completionYear?: number;
-  experienceType?: "fresher" | "experienced";
+  experienceType?: RecruitmentExperience;
   teachingExperience?: number;
   previousInstitutionName?: string;
   previousDesignation?: string;
   technicalSkills?: string[];
   teachingSkills?: string[];
   languages?: string[];
-  employmentType?: "full-time" | "half-time" | "hourly";
-  teachingMode?: ("online" | "offline")[];
-  availableWorkingDays?: string[];
+  teachingMode?: RecruitmentTeaching[];
+  employmentType?: RecruitmentEmployment;
+  availableWorkingDays?: RecruitmentDays[];
   currentSalary?: number;
   joiningAvailability?: string;
   applicationDate: Date;
@@ -1427,6 +1433,7 @@ export interface IRecruitment extends Document {
   candidateCountry?: string;
   candidateCity?: string;
   positionApplied?: string;
+  position?: RecruitmentPositions;
   currency?: string;
   expectedSalary: number;
   preferedWorkingHours?: string;
@@ -1458,16 +1465,16 @@ export interface IRecruitmentCreate {
   specialization?: string;
   university?: string;
   completionYear?: number;
-  experienceType?: "fresher" | "experienced";
+  experienceType?: RecruitmentExperience;
   teachingExperience?: number;
   previousInstitutionName?: string;
   previousDesignation?: string;
   technicalSkills?: string[];
   teachingSkills?: string[];
   languages?: string[];
-  employmentType?: "full-time" | "half-time" | "hourly";
-  teachingMode?: ("online" | "offline")[];
-  availableWorkingDays?: string[];
+  employmentType?: RecruitmentEmployment;
+  teachingMode?: RecruitmentTeaching[];
+  availableWorkingDays?: RecruitmentDays[];
   currentSalary?: number;
   joiningAvailability?: string;
   applicationDate: Date;
@@ -1476,6 +1483,7 @@ export interface IRecruitmentCreate {
   candidateCountry?: string;
   candidateCity?: string;
   positionApplied?: string;
+  position?: RecruitmentPositions;
   currency?: string;
   expectedSalary: number;
   preferedWorkingHours?: string;
