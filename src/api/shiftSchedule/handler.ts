@@ -82,6 +82,9 @@ async getAllUsers(req: Request, h: ResponseToolkit) {
   // Create a new user
   async createShiftschedule(req: Request, h: ResponseToolkit) {
     const payload = req.payload as ShiftSchedulePayload ;
+    const { tenantId } = z.object({
+      tenantId: z.string(),
+    }).parse(req.auth.credentials);
 
     const {
     academicCoachId,
@@ -103,6 +106,7 @@ async getAllUsers(req: Request, h: ResponseToolkit) {
     //const hashedPassword = await hashPassword(decryptPassword(password));
 
     return createShiftschedule({
+      tenantId,
       academicCoachId,
       teacherId,
       supervisorId,
@@ -173,7 +177,7 @@ async updateShiftSchedule(req: Request, h: ResponseToolkit){
 
 }
 
-async function createShiftschedule(arg0: { academicCoachId: string; teacherId: string; supervisorId:string; name: string; email: string; role: string; workhrs: number; startdate: string; enddate: string; fromtime: string; totime: string; createdDate: string; createdBy: string; lastUpdatedBy: string; }) {
+async function createShiftschedule(arg0: { tenantId: string; academicCoachId: string; teacherId: string; supervisorId:string; name: string; email: string; role: string; workhrs: number; startdate: string; enddate: string; fromtime: string; totime: string; createdDate: string; createdBy: string; lastUpdatedBy: string; }) {
 const shiftScheduleRecord = await UserShiftSchedule.create(arg0);
 console.log(shiftScheduleRecord);
 return shiftScheduleRecord;

@@ -16,6 +16,7 @@ import { generateSlotsFromUserSchedule } from "../redis/handler/teacherSlotHande
 import { academicAvailableTeachers } from "../kafka/producers/academicProducer";
 import SalaryAndWages from "../models/empwages";
 import classShedule from "../models/classShedule"
+import { hashPassword } from "../shared/common";
 
 export interface IRecruitmentUpdate{
   supervisor:{
@@ -271,11 +272,13 @@ async function createTeacherPortalPortal(updateData: any) {
   const firstThreeChars = updateData.candidateFirstName.substring(0, 3);
   const reversedUsername = updateData.candidateFirstName.split('').reverse().join('');
   const password = `${firstThreeChars}${randomSpecial}${randomNum}${reversedUsername}`;
+  const hashedPassword = await hashPassword(password);
 
   const createTeacherPortal = await User.create({
+    tenantId: updateData.tenantId,
     userName: updateData.candidateFirstName,
     email: updateData.candidateEmail,
-    password: password,
+    password: hashedPassword,
     profileImage: null,
     userId: updateData.candidateId,
     role: "TEACHER",
@@ -298,7 +301,7 @@ async function createTeacherPortalPortal(updateData: any) {
     const htmlPart = emailTemplate.templateContent
       .replace('<username>', createTeacherPortal.userName)
       .replace('<username>', createTeacherPortal.userName)
-      .replace('<password>', createTeacherPortal.password);
+      .replace('<password>', password);
     sendEmailClient(emailTo, subject, htmlPart);
   }
 
@@ -384,6 +387,7 @@ async function createShiftSchedule(saveTeacher: any, updateData: any) {
   const [startTime, endTime] = workhrs.split(" - ");
 
   const createShift = await ShiftSchedule.create({
+    tenantId: saveTeacher.tenantId,
     academicCoachId: null,
     teacherId: saveTeacher.userId,
     supervisorId: null,

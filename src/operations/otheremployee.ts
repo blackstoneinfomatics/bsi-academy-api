@@ -1,10 +1,13 @@
 import { IOtherEmployee, IOtherEmployeeCreate } from "../../types/models.types"
-import IOtherEmployeeModel from "../models/otheremployee"
+import IOtherEmployeeModel, { generateOtherEmployeeId } from "../models/otheremployee"
 import User from "../models/users"
 import ShiftSchedule from "../models/usershiftschedule"
 import OtherEmpModel from "../models/otheremployee"
 import { Types } from "mongoose"
 import SalaryAndWages from "../models/empwages";
+import EmailTemplate from "../models/emailTemplate";
+import { sendEmailClient } from "../shared/email";
+import { hashPassword } from "../shared/common";
 
 /**
  * Creates a new user.
@@ -19,46 +22,72 @@ otherempdetails.preferedWorkingHours =  payload.preferedWorkingHours;
 const preffredToTime = (payload.preferedShiftFrom) + otherempdetails.preferedWorkingHours;
 otherempdetails.preferedShiftTo = preffredToTime;
 
-         const newOtherEmployee = new IOtherEmployeeModel(payload);
+         const emailTemplate = await EmailTemplate.findOne({
+           templateKey: "otherEmployee_portal",
+           status: "Active",
+         }).exec();
 
-         // Convert file to string (Base64 encoding)
-          const savedOtherEmployee = (await newOtherEmployee.save()) as IOtherEmployee & {
-            _id: Types.ObjectId;
-          };
-  // Add salary and wage records with error handling
-  const salaryRecords = [
-    {
-      employeeName: savedOtherEmployee.firstName + " " + savedOtherEmployee.lastName,
-      employeeId: savedOtherEmployee._id.toString(),
-       classType:{
-            className: "FIXEDSALARY",
-            hoursMins: "1 month",
-            rate: 10,
-            currency: "$",
-        },
-       status:"Active",
-       createdDate:  new Date(),
-       createdBy: "Admin",
-       updatedDate:  new Date(),
-       updatedBy:  "Admin"
-    },
+         if (!emailTemplate) {
+           throw new Error(
+             'Active Other Employee Portal email template not found (templateKey: "otherEmployee_portal")',
+           );
+         }
 
-    
-  ];
+         const existingEmployee = await IOtherEmployeeModel.findOne({
+           tenantId: payload.tenantId,
+           email: payload.email,
+         }).exec();
+         let savedOtherEmployee = existingEmployee;
+         if (!savedOtherEmployee) {
+           const employeeId = await generateOtherEmployeeId(payload.designation);
+           savedOtherEmployee = await new IOtherEmployeeModel({
+             ...payload,
+             employeeId,
+           }).save();
+         } else if (!savedOtherEmployee.employeeId) {
+           savedOtherEmployee.employeeId = await generateOtherEmployeeId(
+             savedOtherEmployee.designation,
+           );
+           await savedOtherEmployee.save();
+         }
 
-  try {
-  const resuit =  await SalaryAndWages.insertMany(salaryRecords);
-  console.log(">>>>>>>>>>>>>>>>:", resuit);
+         if (!savedOtherEmployee.employeeId) {
+           throw new Error("Employee ID was not assigned");
+         }
+         const employeeId = savedOtherEmployee.employeeId;
 
+         if (!existingEmployee) {
+           const salaryRecords = [
+             {
+               employeeName: `${savedOtherEmployee.firstName} ${savedOtherEmployee.lastName}`,
+               employeeId,
+               classType: {
+                 className: "FIXEDSALARY",
+                 hoursMins: "1 month",
+                 rate: 10,
+                 currency: "$",
+               },
+               status: "Active",
+               createdDate: new Date(),
+               createdBy: "Admin",
+               updatedDate: new Date(),
+               updatedBy: "Admin",
+             },
+           ];
 
-    console.log("Salary and wage records inserted successfully.");
-  } catch (error) {
-    console.error("Error inserting salary and wage records:", error);
-    // Optionally, throw or handle error based on your application flow
-  }
+           try {
+             await SalaryAndWages.insertMany(salaryRecords);
+             console.log("Salary and wage records inserted successfully.");
+           } catch (error) {
+             console.error("Error inserting salary and wage records:", error);
+           }
+         }
 
-         const saveUser = await createTeacherPortalPortal(savedOtherEmployee)
-         createShiftSchedule(savedOtherEmployee, saveUser);
+         const saveUser = await createTeacherPortalPortal(
+           savedOtherEmployee,
+           emailTemplate.templateContent,
+         );
+         await createShiftSchedule(savedOtherEmployee, saveUser);
 
           return savedOtherEmployee;
 
@@ -110,8 +139,16 @@ export const UpdateOtherEmployee = async (
   payload: Partial<IOtherEmployee>
 ) => {
   try {
-    const updatedEmployee = await IOtherEmployeeModel.findByIdAndUpdate(
-      employeeId,
+    const filter = Types.ObjectId.isValid(employeeId)
+      ? {
+          $or: [
+            { _id: new Types.ObjectId(employeeId) },
+            { employeeId },
+          ],
+        }
+      : { employeeId };
+    const updatedEmployee = await IOtherEmployeeModel.findOneAndUpdate(
+      filter,
       payload,
       { new: true }
     );
@@ -130,7 +167,7 @@ export const UpdateOtherEmployee = async (
 
 
 
- async function createTeacherPortalPortal(updateData:any) {
+ async function createTeacherPortalPortal(updateData: any, templateContent: string) {
     const specialChars = '@#$%&*!';
     const randomNum = Math.floor(Math.random() * 1000); // Random number between 0-999
     const randomSpecial = specialChars[Math.floor(Math.random() * specialChars.length)]; // Random special character
@@ -140,12 +177,13 @@ export const UpdateOtherEmployee = async (
     const reversedUsername = updateData.firstName.split('').reverse().join(''); // Reverse the username
   
     const password = `${firstThreeChars}${randomSpecial}${randomNum}${reversedUsername}`;
-
-  let createStudentPortal = await User.create({
-    userId: updateData._id,
+    const hashedPassword = await hashPassword(password);
+  const saveStudent = await User.create({
+    tenantId: updateData.tenantId,
+    userId: updateData.employeeId,
     userName: updateData.firstName,
     email:updateData.email,
-    password: password,
+    password: hashedPassword,
     profileImage: null,
     role: updateData.designation,
     gender: updateData.gender,
@@ -158,7 +196,17 @@ export const UpdateOtherEmployee = async (
   }
    );
 
-   const saveStudent = await createStudentPortal.save();
+  const htmlPart = templateContent
+    .replace(/<username>/g, saveStudent.userName)
+    .replace(/<password>/g, password);
+  const mailResponse = await sendEmailClient(
+    [{ email: saveStudent.email }],
+    "Welcome To Alfurqan Team",
+    htmlPart
+  );
+  if (!mailResponse) {
+    throw new Error(`Failed to send employee portal email to ${saveStudent.email}`);
+  }
 
   return saveStudent;
 };
@@ -171,10 +219,11 @@ async function createShiftSchedule(saveOtherEmployee:any, saveUser: any) {
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 30);
   let createShift = await ShiftSchedule.create({
+        tenantId: saveOtherEmployee.tenantId,
         academicCoachId : saveOtherEmployee.designation == "ACADEMICCOACH" ? saveUser.userId : null,
         teacherId : null,
         supervisorId: saveOtherEmployee.designation == "SUPERVISOR" ? saveUser.userId : null,
-        employeeId: saveOtherEmployee._id.toString(),
+        employeeId: saveOtherEmployee.employeeId,
         name: saveUser.userName,
         email: saveUser.email,
         role: saveUser.role[0],
@@ -197,7 +246,14 @@ async function createShiftSchedule(saveOtherEmployee:any, saveUser: any) {
 export const getOhterEmployeeById = async (
   id: string
 ): Promise<IOtherEmployee | null> => {
-  return IOtherEmployeeModel.findOne({
-    _id: new Types.ObjectId(id),
-  }).lean();
+  const filter = Types.ObjectId.isValid(id)
+    ? {
+        $or: [
+          { _id: new Types.ObjectId(id) },
+          { employeeId: id },
+        ],
+      }
+    : { employeeId: id };
+
+  return IOtherEmployeeModel.findOne(filter).lean();
 };

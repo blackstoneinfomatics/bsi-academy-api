@@ -201,6 +201,7 @@ export interface IUsershiftschedule extends Document {
 }
 
 export interface IUsershiftscheduleCreate {
+  tenantId: string;
   academicCoachId: string;
   teacherId: string;
   supervisorId: string;
@@ -1644,6 +1645,7 @@ export interface INotification extends Document {
 
 export interface IOtherEmployee extends Document {
   tenantId: string;
+  employeeId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -1672,7 +1674,7 @@ export interface IOtherEmployee extends Document {
   preferedShiftFrom: string;
   preferedShiftTo: string;
   comments: string;
-  profileImage: string;
+  profileImage?: string;
   applicationDate: Date;
   currency: string;
   expectedSalary: number;
@@ -1687,6 +1689,7 @@ export interface IOtherEmployee extends Document {
 }
 
 export interface IOtherEmployeeCreate {
+  tenantId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -1715,7 +1718,7 @@ export interface IOtherEmployeeCreate {
   preferedShiftFrom: string;
   preferedShiftTo: string;
   comments: string;
-  profileImage: string;
+  profileImage?: string;
   applicationDate: Date;
   currency: string;
   expectedSalary: number;

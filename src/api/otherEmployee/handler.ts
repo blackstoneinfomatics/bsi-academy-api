@@ -4,7 +4,7 @@ import otheremployee, { zodOtherEmployeeSchema } from "../../models/otheremploye
 import { getOhterEmpCountriesCount, getOhterEmployeeById, saveOtherEmployee, UpdateOtherEmployee } from "../../operations/otheremployee";
 import * as Stream from "stream";
 import { isNil } from "lodash";
-import { notFound } from "@hapi/boom";
+import { forbidden, notFound } from "@hapi/boom";
 import { recruitmentMessages } from "../../config/messages";
 import { Readable } from "stream";
 
@@ -12,6 +12,7 @@ import { Readable } from "stream";
 
 const createEmployeeInputValidation = z.object({
   payload: zodOtherEmployeeSchema.pick({
+    tenantId: true,
     firstName: true,
     lastName: true,
     email: true,
@@ -34,13 +35,13 @@ const createEmployeeInputValidation = z.object({
     emergencyContactNumber: true,
     relationshipWithEmployee: true,
     address: true,
+    profileImage: true,
     designation: true,
     department: true,
     preferedWorkingHours: true,
     preferedShiftFrom: true,
     preferedShiftTo: true,
     comments: true,
-    profileImage: true,
     applicationDate: true,
     currency: true,
     expectedSalary: true,
@@ -58,6 +59,13 @@ export default {
         const { payload } = createEmployeeInputValidation.parse({
               payload: req.payload,
             });
+        const { tenantId: authTenantId } = z.object({
+          tenantId: z.string(),
+        }).parse(req.auth.credentials);
+
+        if (payload.tenantId !== authTenantId) {
+          return forbidden("Tenant ID does not match the authenticated tenant");
+        }
 
             const rawPayload = req.payload as any;
     
@@ -66,6 +74,7 @@ export default {
             : null;
 
             return await saveOtherEmployee({  
+            tenantId: payload.tenantId,
             firstName : payload.firstName,
             lastName: payload.lastName,
             email: payload.email,
@@ -94,7 +103,7 @@ export default {
             preferedShiftFrom: payload.preferedShiftFrom,
             preferedShiftTo: payload.preferedShiftTo,
             comments: payload.comments,
-            profileImage: payload.profileImage || " ",
+            profileImage: payload.profileImage,
             applicationDate: payload.applicationDate,
             currency: payload.currency,
             expectedSalary: payload.expectedSalary,
@@ -104,6 +113,8 @@ export default {
             status: payload.status
           }) 
      },
+
+
      async getOhterEmpCountries(req: Request, h: ResponseToolkit){
       return await getOhterEmpCountriesCount();
     },

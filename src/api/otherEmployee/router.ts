@@ -15,15 +15,16 @@ const register = async (server: Server): Promise<void> => {
         description: otherEmployeesMessages.CREATE,
         tags: ["api", "recruitment"],
         payload: {
-          output: "stream",
+          output: "data",
           parse: true,
           maxBytes: 50 * 1024 * 1024,
-          multipart: true,
-          allow: "multipart/form-data",
+          multipart: { output: "stream" },
+          allow: ["multipart/form-data", "application/json"],
         },
         auth: {
           strategies: ["jwt"],
-        }, },
+        },
+      },
       
     },
      

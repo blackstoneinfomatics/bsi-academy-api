@@ -6,6 +6,7 @@ import { commonMessages } from "../config/messages";
 const otherEmployeeSchema = new Schema<IOtherEmployee>(
     {
     tenantId: { type: String, required: true },
+    employeeId: { type: String, required: true },
     firstName:
     {
      type: String,
@@ -147,7 +148,7 @@ const otherEmployeeSchema = new Schema<IOtherEmployee>(
     profileImage:
     {
     type: String,
-    required: true,    
+    required: false,
     },
     applicationDate:
     {
@@ -211,6 +212,42 @@ const otherEmployeeSchema = new Schema<IOtherEmployee>(
     }  
 
     );
+
+const employeeIdCounterSchema = new Schema(
+    {
+        _id: { type: String, required: true },
+        sequence: { type: Number, required: true, default: 0 },
+    },
+    { collection: "otheremployee_id_counters", versionKey: false },
+);
+
+const EmployeeIdCounter = mongoose.model(
+    "OtherEmployeeIdCounter",
+    employeeIdCounterSchema,
+);
+
+export const generateOtherEmployeeId = async (
+    designation: string,
+): Promise<string> => {
+    const prefix = designation.replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase();
+
+    if (!prefix) {
+        throw new Error("Cannot generate employee ID from an empty designation");
+    }
+
+    const counter = await EmployeeIdCounter.findOneAndUpdate(
+        { _id: "EMPLOYEE" },
+        { $inc: { sequence: 1 } },
+        { new: true, upsert: true },
+    ).exec();
+
+    if (!counter) {
+        throw new Error("Failed to generate employee ID");
+    }
+
+    return `${prefix}${String(counter.sequence).padStart(3, "0")}`;
+};
+
     export const zodOtherEmployeeSchema = z.object({
         tenantId: z.string(),
         firstName: z.string().min(3),
