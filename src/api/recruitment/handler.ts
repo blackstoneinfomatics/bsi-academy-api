@@ -117,9 +117,15 @@ export default{
         return h.response({ message: "Recruitment record not found" }).code(404);
       }
 
-      if ("duplicate" in schedule) {
+      if ("duplicate" in schedule && schedule.duplicate === "recruitment") {
         return h.response({
           message: "An interview schedule already exists for this recruitment record",
+        }).code(409);
+      }
+
+      if ("duplicate" in schedule && schedule.duplicate === "slot") {
+        return h.response({
+          message: "This interview date, time, and platform are already booked",
         }).code(409);
       }
 
@@ -139,7 +145,7 @@ export default{
         error.code === 11000
       ) {
         return h.response({
-          message: "An interview schedule already exists for this recruitment record",
+          message: "This recruitment record or interview slot has already been scheduled",
         }).code(409);
       }
 

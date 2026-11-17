@@ -77,7 +77,7 @@ export const createRecruitmentInterviewSchedule = async (
   interviewDate: Date,
   interviewTime: string,
   interviewPlatform: RecruitmentInterviewPlatform
-): Promise<IRecruitmentInterviewSchedule | { duplicate: true } | null> => {
+): Promise<IRecruitmentInterviewSchedule | { duplicate: "recruitment" | "slot" } | null> => {
   const recruitment = await RecruitModel.findById(recruitmentId)
     .select("tenantId candidateFirstName position teachingExperience")
     .exec();
@@ -91,7 +91,23 @@ export const createRecruitmentInterviewSchedule = async (
   });
 
   if (existingSchedule) {
-    return { duplicate: true };
+    return { duplicate: "recruitment" };
+  }
+
+  const interviewDay = new Date(Date.UTC(
+    interviewDate.getUTCFullYear(),
+    interviewDate.getUTCMonth(),
+    interviewDate.getUTCDate()
+  ));
+  const nextInterviewDay = new Date(interviewDay.getTime() + 24 * 60 * 60 * 1000);
+  const existingSlot = await RecruitmentInterviewScheduleModel.exists({
+    interviewDate: { $gte: interviewDay, $lt: nextInterviewDay },
+    interviewTime,
+    interviewPlatform,
+  });
+
+  if (existingSlot) {
+    return { duplicate: "slot" };
   }
 
   const schedule = new RecruitmentInterviewScheduleModel({
@@ -100,7 +116,7 @@ export const createRecruitmentInterviewSchedule = async (
     candidateFirstName: recruitment.candidateFirstName,
     position: recruitment.position,
     teachingExperience: recruitment.teachingExperience,
-    interviewDate,
+    interviewDate: interviewDay,
     interviewTime,
     interviewPlatform,
   });

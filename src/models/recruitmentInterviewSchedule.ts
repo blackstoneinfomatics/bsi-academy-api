@@ -30,6 +30,10 @@ const recruitmentInterviewScheduleSchema = new Schema<IRecruitmentInterviewSched
 );
 
 recruitmentInterviewScheduleSchema.index({ recruitmentId: 1 }, { unique: true });
+recruitmentInterviewScheduleSchema.index(
+  { interviewDate: 1, interviewTime: 1, interviewPlatform: 1 },
+  { unique: true }
+);
 
 export const zodRecruitmentInterviewScheduleSchema = z.object({
   _id: z.string().regex(/^[a-f\d]{24}$/i, "A valid recruitment _id is required"),
