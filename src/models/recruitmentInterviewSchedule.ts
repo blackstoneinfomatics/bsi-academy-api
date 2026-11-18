@@ -17,6 +17,8 @@ const recruitmentInterviewScheduleSchema = new Schema<IRecruitmentInterviewSched
     teachingExperience: { type: Number, required: false },
     interviewDate: { type: Date, required: true },
     interviewTime: { type: String, required: true },
+    previousInterviewDate: { type: Date, required: false },
+    previousInterviewTime: { type: String, required: false },
     interviewPlatform: {
       type: String,
       enum: Object.values(RecruitmentInterviewPlatform),

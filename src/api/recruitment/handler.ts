@@ -5,7 +5,7 @@ import { createRecruitment, getAllApplicantsRecords, getAllTeacherRecords, getAp
 import { Readable } from "stream";
 import { zodGetAllApplicantsRecordsQuerySchema, zodGetAllRecordsQuerySchema, zodGetAllTeachersRecordsQuerySchema } from "../../shared/zod_schema_validation";
 import { notFound } from "@hapi/boom";
-import { recruitmentMessages } from "../../config/messages";
+import { applicationStatus, recruitmentMessages } from "../../config/messages";
 import pdfParse from "pdf-parse";
 import { isNil } from "lodash";
 import { supervisorCardCount, supervisorRecruitmentList, supervisorTeacherList } from "../../kafka/producers/supervisorProducer";
@@ -18,7 +18,7 @@ import {
 } from "../../models/recruitmentInterviewSchedule";
 import {
   createRecruitmentInterviewSchedule,
-  rescheduleRecruitmentInterviewSchedule,
+  rescheduleRecruitmentInterview,
 } from "../../operations/recruitment";
 
 
@@ -173,15 +173,13 @@ export default{
     }
   },
 
-  async rescheduleInterviewSchedule(req: Request, h: ResponseToolkit) {
+  async rescheduleInterview(req: Request, h: ResponseToolkit) {
     try {
-      const { recruitmentId } = req.params as { recruitmentId: string };
-      if (!/^[a-f\d]{24}$/i.test(recruitmentId)) {
-        return h.response({ message: "A valid recruitmentId is required" }).code(400);
-      }
-
+      const recruitmentId = zodRecruitmentInterviewScheduleSchema.shape._id.parse(
+        String(req.params.recruitmentId)
+      );
       const payload = zodRecruitmentInterviewRescheduleSchema.parse(req.payload);
-      const schedule = await rescheduleRecruitmentInterviewSchedule(
+      const schedule = await rescheduleRecruitmentInterview(
         recruitmentId,
         payload.interviewDate,
         payload.interviewTime,
@@ -189,12 +187,14 @@ export default{
       );
 
       if (!schedule) {
-        return h.response({ message: "Interview schedule not found" }).code(404);
+        return h.response({
+          message: "Recruitment record or interview schedule not found",
+        }).code(404);
       }
 
       if ("duplicate" in schedule) {
         return h.response({
-          message: "This interview date and time slot is already booked",
+          message: "This interview date, time, and platform are already booked",
         }).code(409);
       }
 
@@ -214,7 +214,7 @@ export default{
         error.code === 11000
       ) {
         return h.response({
-          message: "This interview date and time slot is already booked",
+          message: "This interview date, time, and platform are already booked",
         }).code(409);
       }
 
@@ -263,6 +263,7 @@ const generateTeacherId = generateAFTCode("BA");
     const supervisor = supervisorList[0];
     const result = await createRecruitment({
       tenantId: payload.tenantId,
+      applicationStatus: applicationStatus.NEWAPPLICATION,
       candidateId: generateTeacherId,
       supervisor: {
         supervisorId: supervisor?._id ? String(supervisor._id) : "",

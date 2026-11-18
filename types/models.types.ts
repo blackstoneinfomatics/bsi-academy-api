@@ -1521,6 +1521,8 @@ export interface IRecruitmentInterviewSchedule extends Document {
   teachingExperience?: number;
   interviewDate: Date;
   interviewTime: string;
+  previousInterviewDate?: Date;
+  previousInterviewTime?: string;
   interviewPlatform: RecruitmentInterviewPlatform;
   interviewmeetinglink: string;
 }

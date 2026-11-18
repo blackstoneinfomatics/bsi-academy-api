@@ -92,11 +92,15 @@ const isInterviewSlotBooked = async (
   return !!bookedSlot;
 };
 
+
+
+
 const getInterviewScheduleEmailTemplate = async () => {
   const emailTemplate = await EmailTemplate.findOne({
     templateKey: "Recruitment Interview Schedule",
     status: "Active",
   }).exec();
+
 
   if (!emailTemplate) {
     throw new Error(
@@ -104,8 +108,10 @@ const getInterviewScheduleEmailTemplate = async () => {
     );
   }
 
+
   return emailTemplate;
 };
+
 
 const sendInterviewScheduleEmail = async (
   recruitment: Pick<
@@ -148,6 +154,7 @@ const sendInterviewScheduleEmail = async (
     .replace(/{{\s*([\w -]+)\s*}}/g, (placeholder, key: string) =>
       values[normalizePlaceholder(key)] ?? placeholder
     );
+
 
   await sendEmailClient(
     [{ email: recruitment.candidateEmail }],
@@ -208,6 +215,10 @@ export const createRecruitmentInterviewSchedule = async (
   });
 
   const savedSchedule = await schedule.save();
+  await RecruitModel.updateOne(
+    { _id: recruitment._id },
+    { $set: { applicationStatus: applicationStatus.SCHEDULED } }
+  ).exec();
   await sendInterviewScheduleEmail(
     recruitment,
     emailTemplate.templateContent,
@@ -220,114 +231,54 @@ export const createRecruitmentInterviewSchedule = async (
   return savedSchedule;
 };
 
-export const rescheduleRecruitmentInterviewSchedule = async (
+export const rescheduleRecruitmentInterview = async (
   recruitmentId: string,
   interviewDate: Date,
   interviewTime: string,
   interviewPlatform: RecruitmentInterviewPlatform
 ): Promise<IRecruitmentInterviewSchedule | { duplicate: "slot" } | null> => {
-  const schedule = await RecruitmentInterviewScheduleModel.findOne({
-    recruitmentId,
-  }).exec();
-
-  if (!schedule) {
-    return null;
-  }
-
-  if (await isInterviewSlotBooked(interviewDate, interviewTime)) {
-    return { duplicate: "slot" };
-  }
-
-  const recruitment = await RecruitModel.findById(schedule.recruitmentId)
-    .select("candidateFirstName candidateEmail position teachingExperience")
-    .exec();
-
+  const recruitment = await RecruitModel.findById(recruitmentId).exec();
   if (!recruitment) {
     return null;
   }
 
-  const emailTemplate = await getInterviewScheduleEmailTemplate();
-  const tenant = await TenantModel.findOne({ tenantCode: schedule.tenantId })
-    .select("timeZone")
-    .lean();
-  const timeZone = tenant?.timeZone || "UTC";
-  const interviewDay = normalizeInterviewDay(interviewDate);
+  const schedule = await RecruitmentInterviewScheduleModel.findOne({
+    recruitmentId: recruitment._id,
+  }).exec();
+  if (!schedule) {
+    return null;
+  }
 
+  const interviewDay = new Date(Date.UTC(
+    interviewDate.getUTCFullYear(),
+    interviewDate.getUTCMonth(),
+    interviewDate.getUTCDate()
+  ));
+  const nextInterviewDay = new Date(interviewDay.getTime() + 24 * 60 * 60 * 1000);
+  const existingSlot = await RecruitmentInterviewScheduleModel.exists({
+    _id: { $ne: schedule._id },
+    interviewDate: { $gte: interviewDay, $lt: nextInterviewDay },
+    interviewTime,
+    interviewPlatform,
+  });
+
+  if (existingSlot) {
+    return { duplicate: "slot" };
+  }
+
+  schedule.previousInterviewDate = schedule.interviewDate;
+  schedule.previousInterviewTime = schedule.interviewTime;
   schedule.interviewDate = interviewDay;
   schedule.interviewTime = interviewTime;
   schedule.interviewPlatform = interviewPlatform;
-  schedule.candidateFirstName = recruitment.candidateFirstName;
-  schedule.position = recruitment.position;
-  schedule.teachingExperience = recruitment.teachingExperience;
-  if (!schedule.interviewmeetinglink) {
-    schedule.interviewmeetinglink = await createZoomInterviewMeeting({
-      candidateFirstName: recruitment.candidateFirstName,
-      interviewDate: interviewDay,
-      interviewTime,
-      timeZone,
-    });
-  }
+  const savedSchedule = await schedule.save();
 
-  const updatedSchedule = await schedule.save();
-  await sendInterviewScheduleEmail(
-    recruitment,
-    emailTemplate.templateContent,
-    interviewDay,
-    interviewTime,
-    interviewPlatform,
-    schedule.interviewmeetinglink
-  );
+  await RecruitModel.updateOne(
+    { _id: recruitment._id },
+    { $set: { applicationStatus: applicationStatus.RESCHEDULED } }
+  ).exec();
 
-  return updatedSchedule;
-};
-
-const createZoomInterviewMeeting = async ({
-  candidateFirstName,
-  interviewDate,
-  interviewTime,
-  timeZone,
-}: {
-  candidateFirstName: string;
-  interviewDate: Date;
-  interviewTime: string;
-  timeZone: string;
-}): Promise<string> => {
-  const auth = Buffer.from(
-    `${config.zoomConfig.zoom_client_id}:${config.zoomConfig.zoom_client_secret}`
-  ).toString("base64");
-  const tokenResponse = await axios.post(
-    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(
-      config.zoomConfig.zoom_account_id
-    )}`,
-    {},
-    { headers: { Authorization: `Basic ${auth}` } }
-  );
-  const meetingResponse = await axios.post(
-    "https://api.zoom.us/v2/users/me/meetings",
-    {
-      topic: `Interview - ${candidateFirstName}`,
-      type: 2,
-      start_time: `${interviewDate.toISOString().slice(0, 10)}T${interviewTime}:00`,
-      duration: 60,
-      timezone: timeZone,
-      settings: {
-        join_before_host: true,
-        participant_video: true,
-      },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${tokenResponse.data.access_token}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  if (typeof meetingResponse.data.join_url !== "string" || !meetingResponse.data.join_url) {
-    throw new Error("Zoom did not return an interview meeting join URL");
-  }
-
-  return meetingResponse.data.join_url;
+  return savedSchedule;
 };
 
 export const getAllApplicantsRecords = async (
@@ -965,3 +916,64 @@ export const getTeacherListFemaleMale = async (params: GetAllTeachersRecordsPara
     genderBreakdownBySubject,
   };
 };
+const getZoomAccessToken = async (): Promise<string> => {
+  const credentials = Buffer.from(
+    `${config.zoomConfig.zoom_client_id}:${config.zoomConfig.zoom_client_secret}`
+  ).toString("base64");
+  const response = await axios.post<{ access_token: string }>(
+    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(config.zoomConfig.zoom_account_id)}`,
+    null,
+    {
+      headers: {
+        Authorization: `Basic ${credentials}`,
+      },
+    }
+  );
+
+  if (!response.data.access_token) {
+    throw new Error("Zoom OAuth response did not include an access token");
+  }
+
+  return response.data.access_token;
+};
+
+async function createZoomInterviewMeeting({
+  candidateFirstName,
+  interviewDate,
+  interviewTime,
+  timeZone,
+}: {
+  candidateFirstName: string;
+  interviewDate: Date;
+  interviewTime: string;
+  timeZone: string;
+}): Promise<string> {
+  const accessToken = await getZoomAccessToken();
+  const response = await axios.post<{ join_url?: string }>(
+    "https://api.zoom.us/v2/users/me/meetings",
+    {
+      topic: `Interview with ${candidateFirstName}`,
+      type: 2,
+      start_time: `${interviewDate.toISOString().slice(0, 10)}T${interviewTime}:00`,
+      duration: 60,
+      timezone: timeZone,
+      settings: {
+        join_before_host: true,
+        participant_video: true,
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.data.join_url) {
+    throw new Error("Zoom meeting response did not include a join URL");
+  }
+
+  return response.data.join_url;
+}
+

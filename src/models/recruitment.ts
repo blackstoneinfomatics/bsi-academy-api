@@ -2,8 +2,9 @@ import mongoose, { model, Schema } from "mongoose";
 
 import { IRecruitment } from "../../types/models.types";
 import { z } from "zod";
-import { applicationStatus, appStatus, commonMessages } from "../config/messages";
+import { appStatus, commonMessages } from "../config/messages";
 import {
+  RecruitmentApplicationStatus,
   RecruitmentEmployment,
   RecruitmentExperience,
   RecruitmentTeaching,
@@ -11,10 +12,14 @@ import {
   RecruitmentDays,
 } from "../shared/enum";
 
-
 const recruitmentSchema = new Schema<IRecruitment>(
 {
 tenantId: { type: String, required: true },
+
+applicationStatus: {
+    type: String,
+    required: true,
+},
 candidateId: {
     type: String,
     required: true,
@@ -216,7 +221,16 @@ export const zodRecruitmentSchema = z.object({
         z.number()
       ),
       preferedWorkingHours: z.string(),
-      applicationStatus: z.enum([applicationStatus.NEWAPPLICATION, applicationStatus.SHORTLISTED, applicationStatus.REJECTED, applicationStatus.WAITING, applicationStatus.SENDAPPROVAL, applicationStatus.APPROVED ]).optional(),
+      applicationStatus: z.enum([
+        RecruitmentApplicationStatus.NEWAPPLICATION,
+        RecruitmentApplicationStatus.SCHEDULED,
+        RecruitmentApplicationStatus.RESCHEDULED,
+        RecruitmentApplicationStatus.SHORTLISTED,
+        RecruitmentApplicationStatus.APPROVED,
+        RecruitmentApplicationStatus.REJECTED,
+        RecruitmentApplicationStatus.WAITING,
+        RecruitmentApplicationStatus.SENDAPPROVAL
+      ]).optional(),
       level: z.string().optional(),
       quranReading: z.string().optional(),
       tajweed: z.string().optional(),

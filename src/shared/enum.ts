@@ -36,6 +36,17 @@ export enum RecruitmentInterviewPlatform {
   ZOOM = "Zoom",
 }
 
+export enum RecruitmentApplicationStatus {
+  NEWAPPLICATION = "NEWAPPLICATION",
+  SCHEDULED = "SCHEDULED",
+  RESCHEDULED = "RESCHEDULED",
+  SHORTLISTED = "SHORTLISTED",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  WAITING = "WAITING",
+  SENDAPPROVAL = "SENDAPPROVAL",
+}
+
 // Use an enum for better type safety
 export enum Status {
   ACTIVE = "Active",

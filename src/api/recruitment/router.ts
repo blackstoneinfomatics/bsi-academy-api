@@ -23,8 +23,8 @@ const register = async (server: Server): Promise<void> => {
       method: "PUT",
       path: "/interview-schedule/{recruitmentId}",
       options: {
-        handler: handler.rescheduleInterviewSchedule,
-        description: "Reschedule an existing recruitment interview",
+        handler: handler.rescheduleInterview,
+        description: "Reschedule an interview for a recruitment applicant",
         tags: ["api", "recruitment", "interview"],
       },
     },

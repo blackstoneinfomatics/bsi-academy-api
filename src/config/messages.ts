@@ -223,6 +223,8 @@ export const applicationStatus: Record<string, any> = Object.freeze({
   WAITING: "WAITING",
   SENDAPPROVAL: "SENDAPPROVAL",
   APPROVED: "APPROVED",
+  SCHEDULED: "SCHEDULED",
+  RESCHEDULED: "RESCHEDULED",
 });
 
 export const eventType: Record<string, string> = Object.freeze({
