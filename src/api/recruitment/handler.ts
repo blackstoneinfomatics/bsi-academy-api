@@ -12,8 +12,14 @@ import { supervisorCardCount, supervisorRecruitmentList, supervisorTeacherList }
 import { sendNotification } from "../../operations/notification";
 import { uploadFileToSharePoint } from "../../shared/sharepoint";
 import users from "../../models/users";
-import { zodRecruitmentInterviewScheduleSchema } from "../../models/recruitmentInterviewSchedule";
-import { createRecruitmentInterviewSchedule } from "../../operations/recruitment";
+import {
+  zodRecruitmentInterviewRescheduleSchema,
+  zodRecruitmentInterviewScheduleSchema,
+} from "../../models/recruitmentInterviewSchedule";
+import {
+  createRecruitmentInterviewSchedule,
+  rescheduleRecruitmentInterviewSchedule,
+} from "../../operations/recruitment";
 
 
 
@@ -125,7 +131,7 @@ export default{
 
       if ("duplicate" in schedule && schedule.duplicate === "slot") {
         return h.response({
-          message: "This interview date, time, and platform are already booked",
+          message: "This interview date and time slot is already booked",
         }).code(409);
       }
 
@@ -144,12 +150,75 @@ export default{
         "code" in error &&
         error.code === 11000
       ) {
+        const keyPattern =
+          "keyPattern" in error &&
+          typeof error.keyPattern === "object" &&
+          error.keyPattern !== null
+            ? error.keyPattern
+            : null;
+        const slotConflict =
+          keyPattern !== null &&
+          "interviewDate" in keyPattern &&
+          "interviewTime" in keyPattern;
+
         return h.response({
-          message: "This recruitment record or interview slot has already been scheduled",
+          message: slotConflict
+            ? "This interview date and time slot is already booked"
+            : "An interview schedule already exists for this recruitment record",
         }).code(409);
       }
 
       console.error("Interview schedule creation error:", error);
+      return h.response({ message: "Internal Server Error" }).code(500);
+    }
+  },
+
+  async rescheduleInterviewSchedule(req: Request, h: ResponseToolkit) {
+    try {
+      const { recruitmentId } = req.params as { recruitmentId: string };
+      if (!/^[a-f\d]{24}$/i.test(recruitmentId)) {
+        return h.response({ message: "A valid recruitmentId is required" }).code(400);
+      }
+
+      const payload = zodRecruitmentInterviewRescheduleSchema.parse(req.payload);
+      const schedule = await rescheduleRecruitmentInterviewSchedule(
+        recruitmentId,
+        payload.interviewDate,
+        payload.interviewTime,
+        payload.interviewPlatform
+      );
+
+      if (!schedule) {
+        return h.response({ message: "Interview schedule not found" }).code(404);
+      }
+
+      if ("duplicate" in schedule) {
+        return h.response({
+          message: "This interview date and time slot is already booked",
+        }).code(409);
+      }
+
+      return h.response(schedule).code(200);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return h.response({
+          message: "Invalid interview reschedule payload",
+          errors: error.issues,
+        }).code(400);
+      }
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === 11000
+      ) {
+        return h.response({
+          message: "This interview date and time slot is already booked",
+        }).code(409);
+      }
+
+      console.error("Interview reschedule error:", error);
       return h.response({ message: "Internal Server Error" }).code(500);
     }
   },

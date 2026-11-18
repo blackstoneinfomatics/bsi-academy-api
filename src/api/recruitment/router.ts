@@ -20,6 +20,15 @@ const register = async (server: Server): Promise<void> => {
       },
     },
     {
+      method: "PUT",
+      path: "/interview-schedule/{recruitmentId}",
+      options: {
+        handler: handler.rescheduleInterviewSchedule,
+        description: "Reschedule an existing recruitment interview",
+        tags: ["api", "recruitment", "interview"],
+      },
+    },
+    {
       method: "POST",
       path: "/recruit",
       options: {

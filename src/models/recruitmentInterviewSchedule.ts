@@ -22,6 +22,7 @@ const recruitmentInterviewScheduleSchema = new Schema<IRecruitmentInterviewSched
       enum: Object.values(RecruitmentInterviewPlatform),
       required: true,
     },
+    interviewmeetinglink: { type: String, required: true },
   },
   {
     collection: "recruitmentInterviewSchedules",
@@ -31,7 +32,7 @@ const recruitmentInterviewScheduleSchema = new Schema<IRecruitmentInterviewSched
 
 recruitmentInterviewScheduleSchema.index({ recruitmentId: 1 }, { unique: true });
 recruitmentInterviewScheduleSchema.index(
-  { interviewDate: 1, interviewTime: 1, interviewPlatform: 1 },
+  { interviewDate: 1, interviewTime: 1 },
   { unique: true }
 );
 
@@ -45,6 +46,9 @@ export const zodRecruitmentInterviewScheduleSchema = z.object({
   }),
   interviewPlatform: z.nativeEnum(RecruitmentInterviewPlatform),
 }).strict();
+
+export const zodRecruitmentInterviewRescheduleSchema =
+  zodRecruitmentInterviewScheduleSchema.omit({ _id: true });
 
 export default mongoose.model<IRecruitmentInterviewSchedule>(
   "RecruitmentInterviewSchedule",
