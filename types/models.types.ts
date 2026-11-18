@@ -1522,6 +1522,7 @@ export interface IRecruitmentInterviewSchedule extends Document {
   interviewDate: Date;
   interviewTime: string;
   interviewPlatform: RecruitmentInterviewPlatform;
+  interviewmeetinglink: string;
 }
 
 export interface ITeacher {
