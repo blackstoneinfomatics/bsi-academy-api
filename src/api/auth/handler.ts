@@ -410,6 +410,7 @@ export default {
         id:users._id,
         username:activeRecord.userName,
          role:user.role[0],
+         userId:user.userId,
       accessToken,
       organizationName: tenantData.organizationName ?? null,
       tenantJobCode: tenantData.tenantJobCode ?? null
