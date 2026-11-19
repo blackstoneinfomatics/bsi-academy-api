@@ -12,7 +12,7 @@ const register = async (server: Server): Promise<void> => {
       path: "/interview-schedule/google/auth-url",
       options: {
         handler: handler.getGoogleMeetAuthorizationUrl,
-        description: "Start Google Meet authorization for the authenticated tenant",
+        description: "Start shared Google Meet authorization for the authenticated user",
         tags: ["api", "recruitment", "interview"],
         auth: {
           strategies: ["jwt"],

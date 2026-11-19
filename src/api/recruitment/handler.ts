@@ -20,6 +20,7 @@ import {
   createRecruitmentInterviewSchedule,
   connectGoogleMeet,
   getGoogleMeetAuthorizationUrl,
+  GoogleMeetApiError,
   GoogleMeetNotConnectedError,
   GoogleMeetOAuthError,
   rescheduleRecruitmentInterview,
@@ -113,23 +114,12 @@ const getTeacherInputValidation = z.object({
 
 
 export default{
-  async getGoogleMeetAuthorizationUrl(req: Request, h: ResponseToolkit) {
+  async getGoogleMeetAuthorizationUrl(_req: Request, h: ResponseToolkit) {
     try {
-      const { tenantId } = z.object({
-        tenantId: z.string().min(1),
-      }).parse(req.auth.credentials);
-
       return h.response({
-        authorizationUrl: getGoogleMeetAuthorizationUrl(tenantId),
+        authorizationUrl: getGoogleMeetAuthorizationUrl(),
       }).code(200);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return h.response({
-          message: "Authenticated user is missing a valid tenantId",
-          errors: error.issues,
-        }).code(400);
-      }
-
       console.error("Google Meet authorization URL error:", error);
       return h.response({ message: "Unable to start Google Meet authorization" }).code(500);
     }
@@ -154,12 +144,14 @@ export default{
         }).code(400);
       }
 
-      const tenantId = await connectGoogleMeet(code, state);
+      await connectGoogleMeet(code, state);
       return h.response({
-        message: "Google Meet connected successfully",
-        tenantId,
+        message: "Company Google Meet account connected successfully",
       }).code(200);
     } catch (error) {
+      if (error instanceof GoogleMeetApiError) {
+        return h.response({ message: error.message }).code(502);
+      }
       if (error instanceof z.ZodError || error instanceof GoogleMeetOAuthError) {
         return h.response({
           message: error instanceof GoogleMeetOAuthError
@@ -213,6 +205,17 @@ export default{
           message: error.message,
           authorizationPath: "/interview-schedule/google/auth-url",
         }).code(409);
+      }
+
+      if (error instanceof GoogleMeetOAuthError) {
+        return h.response({
+          message: error.message,
+          authorizationPath: "/interview-schedule/google/auth-url",
+        }).code(409);
+      }
+
+      if (error instanceof GoogleMeetApiError) {
+        return h.response({ message: error.message }).code(502);
       }
 
       if (
