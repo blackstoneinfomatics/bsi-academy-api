@@ -33,25 +33,6 @@ import {
   timingSafeEqual,
 } from "crypto";
 
-export interface IRecruitmentUpdate{
-  supervisor:{
-    supervisorId?: string;
-  };
-comments?: string,
-applicationStatus: any,
-level?: string,
-quranReading?: string,
-tajweed?: string,
-arabicWriting?: string,
-arabicSpeaking?: string,
-englishSpeaking?: string,
-preferedWorkingDays?: string,
-overallRating?: number,
-status: string,
-updatedDate?: Date,
-}
-
-
 export interface IRecruitmentAdminUpdate{
   supervisor:{
     supervisorId?: string;
@@ -117,8 +98,14 @@ export class GoogleMeetApiError extends Error {
 }
 
 const getGoogleOAuthClient = () => {
-  const { google_client_id, google_client_secret, google_redirect_uri } =
-    config.googleMeetConfig;
+  const {
+    google_client_id,
+    google_client_secret,
+    google_redirect_uri,
+  } = config.googleMeetConfig;
+
+  console.log("Google OAuth Redirect URI:", google_redirect_uri);
+
   if (!google_client_id || !google_client_secret || !google_redirect_uri) {
     throw new Error(
       "Google Meet OAuth requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI"
@@ -303,20 +290,28 @@ const getGoogleErrorDetails = (
 
 export const getGoogleMeetAuthorizationUrl = (): string => {
   console.info("[GoogleMeet] Starting shared company account authorization");
+
   const oauthClient = getGoogleOAuthClient();
+
   const state = signGoogleOAuthState({
     issuedAt: Date.now(),
     nonce: randomBytes(16).toString("hex"),
   });
 
-  console.info("[GoogleMeet] Authorization URL generated");
-  return oauthClient.generateAuthUrl({
+  const authUrl = oauthClient.generateAuthUrl({
     access_type: "offline",
     include_granted_scopes: true,
     prompt: "consent",
     scope: [GOOGLE_MEET_SCOPE],
     state,
   });
+
+  console.log(
+    "[GoogleMeet] Generated redirect_uri:",
+    new URL(authUrl).searchParams.get("redirect_uri")
+  );
+
+  return authUrl;
 };
 
 export const connectGoogleMeet = async (
@@ -839,7 +834,7 @@ export const getApplicantRecordById = async (
  */
 export const updateApplicantById = async (
   id: string,
-  payload: Partial<IRecruitmentUpdate>
+  payload: Partial<IRecruitmentCreate>
 ): Promise<IRecruitment | null> => {
 
   return RecruitModel.findOneAndUpdate(

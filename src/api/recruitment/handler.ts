@@ -67,22 +67,9 @@ const createInputValidation = z.object({
   }),
 });
 
- const updateInputValidation = z.object({
-  payload: zodRecruitmentSchema.pick({
-    supervisor: true,
-    applicationStatus: true,
-    level: true,
-    quranReading: true,
-    tajweed: true,
-    arabicWriting: true,
-    arabicSpeaking: true,
-    englishSpeaking: true,
-    preferedWorkingDays: true,
-    overallRating: true,
-    status:true,
-    updatedDate: true,
-  }),
- })
+const updateInputValidation = z.object({
+  payload: zodRecruitmentSchema.partial(),
+});
 
  const updateAdminInputValidation = z.object({
   payload: zodRecruitmentSchema.pick({
