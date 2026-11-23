@@ -46,7 +46,20 @@ export const zodRecruitmentInterviewScheduleSchema = z.object({
   interviewTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
     message: "Interview time must be in HH:MM (24-hour) format",
   }),
-  interviewPlatform: z.nativeEnum(RecruitmentInterviewPlatform),
+  interviewPlatform: z
+    .union([
+      z.nativeEnum(RecruitmentInterviewPlatform),
+      z.enum(["GOOGLE_MEET", "ZOOM"]),
+    ])
+    .transform((platform) => {
+      if (platform === "GOOGLE_MEET") {
+        return RecruitmentInterviewPlatform.GOOGLE_MEET;
+      }
+      if (platform === "ZOOM") {
+        return RecruitmentInterviewPlatform.ZOOM;
+      }
+      return platform;
+    }),
 }).strict();
 
 export const zodRecruitmentInterviewRescheduleSchema =

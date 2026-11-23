@@ -61,14 +61,15 @@ const createInputValidation = z.object({
     position: true,
     currency: true,
     expectedSalary: true,
-    createdDate: true,
     createdBy: true,
-    updatedDate: true,
-  }),
+  }).extend({ createdBy: z.string().trim().min(1) }),
 });
 
 const updateInputValidation = z.object({
-  payload: zodRecruitmentSchema.partial(),
+  payload: zodRecruitmentSchema
+    .partial()
+    .omit({ createdBy: true, createdDate: true, updatedDate: true })
+    .extend({ updatedBy: z.string().trim().min(1) }),
 });
 
  const updateAdminInputValidation = z.object({
@@ -76,8 +77,7 @@ const updateInputValidation = z.object({
     supervisor: true,
     applicationStatus: true,
     status:true,
-    updatedDate: true,
-  }),
+  }).extend({ updatedBy: z.string().trim().min(1) }),
  })
 
 const getApplicantsInputValidation = z.object({
@@ -362,9 +362,8 @@ const generateTeacherId = generateAFTCode("BA");
       currency: payload.currency,
       expectedSalary: payload.expectedSalary,
       uploadResume: shareLink?.fileId || "",
-      createdDate: payload.createdDate || new Date(),
-      createdBy: payload.createdBy || payload.candidateFirstName,
-      updatedDate: payload.updatedDate,
+      createdDate: new Date(),
+      createdBy: payload.createdBy,
     });
 
     // ✅ Check if result has an error before proceeding
@@ -440,22 +439,40 @@ const generateTeacherId = generateAFTCode("BA");
 
 
 
-    async getApplicantRecordById(req: Request, h: ResponseToolkit){
-      const result = await getApplicantRecordById(String(req.params.applicantId));
+    async getApplicantRecordById(req: Request, h: ResponseToolkit) {
+      const applicantId = z
+        .string()
+        .regex(/^[a-f\d]{24}$/i, "A valid applicantId is required")
+        .safeParse(req.params.applicantId);
 
+      if (!applicantId.success) {
+        return h.response({
+          message: "Invalid applicantId",
+          errors: applicantId.error.issues,
+        }).code(400);
+      }
+
+      const result = await getApplicantRecordById(applicantId.data);
       if (isNil(result)) {
-           return notFound(recruitmentMessages.USER_NOT_FOUND);
-           }
+        return notFound(recruitmentMessages.USER_NOT_FOUND);
+      }
 
-  return result;
+      return result;
     },
 
     async updateApplicantRecordById(req: Request, h: ResponseToolkit) {
-
-      const { payload } = updateInputValidation.parse({
+      const validation = updateInputValidation.safeParse({
         payload: req.payload
       });
-   
+
+      if (!validation.success) {
+        return h.response({
+          message: "Invalid applicant update payload",
+          errors: validation.error.issues,
+        }).code(400);
+      }
+
+      const { payload } = validation.data;
       const result = await updateApplicantById(String(req.params.applicantId), payload);
       if (isNil(result)) {
         return notFound(recruitmentMessages.USER_NOT_FOUND);
@@ -470,9 +487,16 @@ const generateTeacherId = generateAFTCode("BA");
 
     async updateAdminApplicantRecordById(req: Request, h: ResponseToolkit) {
 try{
-      const { payload } = updateAdminInputValidation.parse({
+      const validation = updateAdminInputValidation.safeParse({
         payload: req.payload
       });
+      if (!validation.success) {
+        return h.response({
+          message: "Invalid applicant update payload",
+          errors: validation.error.issues,
+        }).code(400);
+      }
+      const { payload } = validation.data;
    console.log(">>>>>",payload.applicationStatus);
       const result = await updateApplicantByAdminId(String(req.params.id), payload);
       if (isNil(result)) {
@@ -522,7 +546,8 @@ try{
 
       return result;
           }catch (error) {
-      console.error("Error updating applicant record:", error);       
+      console.error("Error updating applicant record:", error);
+      return h.response({ message: "Internal Server Error" }).code(500);
     }
   },
 

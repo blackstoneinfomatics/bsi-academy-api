@@ -1446,6 +1446,21 @@ export interface IRecruitment extends Document {
   createdBy: string;
   updatedDate?: Date;
   updatedBy?: string;
+  shortlistedBy?: string;
+  shortlistedAt?: Date;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  approvedBy?: string;
+  approvedAt?: Date;
+  changeHistory: IRecruitmentFieldChange[];
+}
+
+export interface IRecruitmentFieldChange {
+  field: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  changedBy: string;
+  changedAt: Date;
 }
 
 export interface IRecruitmentCreate {
@@ -1511,6 +1526,7 @@ export interface IRecruitmentCreate {
   createdDate: Date;
   createdBy: string;
   updatedDate?: Date;
+  updatedBy?: string;
 }
 
 export interface IRecruitmentInterviewSchedule extends Document {

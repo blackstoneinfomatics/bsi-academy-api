@@ -28,15 +28,7 @@ const register = async (server: Server): Promise<void> => {
         tags: ["api", "recruitment", "interview"],
       },
     },
-    {
-      method: "GET",
-      path: "/authentication/v1/google/callback",
-      options: {
-        handler: handler.googleMeetOAuthCallback,
-        description: "Complete Google Meet authorization",
-        tags: ["api", "recruitment", "interview"],
-      },
-    },
+   
     {
       method: "POST",
       path: "/interview-schedule",

@@ -1,13 +1,18 @@
 
 
 
-import { IRecruitment, IRecruitmentCreate } from "../../types/models.types";
+import {
+  IRecruitment,
+  IRecruitmentCreate,
+  IRecruitmentFieldChange,
+} from "../../types/models.types";
 import RecruitModel from "../models/recruitment"
 import RecruitmentInterviewScheduleModel from "../models/recruitmentInterviewSchedule";
 import { GetAllApplicationsRecordsParams, GetAllTeachersRecordsParams } from "../shared/enum";
 import { applicationStatus } from "../config/messages";
 import AppLogger from "../helpers/logging";
 import { Types } from "mongoose";
+import { isEqual } from "lodash";
 import User from "../models/users";
 import EmailTemplate from "../models/emailTemplate";
 import { sendEmailClient } from "../shared/email";
@@ -37,9 +42,9 @@ export interface IRecruitmentAdminUpdate{
   supervisor:{
     supervisorId?: string;
   };
-    applicationStatus: string,
-    status:string,
-    updatedDate?: Date
+    applicationStatus?: string,
+    status?: string,
+    updatedBy: string;
  }
 
 /**
@@ -50,7 +55,33 @@ export interface IRecruitmentAdminUpdate{
 export const createRecruitment = async (  payload: IRecruitmentCreate
 ): Promise<IRecruitment | { error: any }> => {
 
-     const newRecruit = new RecruitModel(payload);
+     const createdAt = payload.createdDate || new Date();
+     const auditExcludedFields = new Set([
+       "createdBy",
+       "createdDate",
+       "updatedBy",
+       "updatedDate",
+       "shortlistedBy",
+       "shortlistedAt",
+       "rejectedBy",
+       "rejectedAt",
+       "approvedBy",
+       "approvedAt",
+       "changeHistory",
+     ]);
+     const changeHistory: IRecruitmentFieldChange[] = Object.entries(payload)
+       .filter(([field, value]) => !auditExcludedFields.has(field) && value !== undefined)
+       .map(([field, newValue]) => ({
+         field,
+         newValue,
+         changedBy: payload.createdBy,
+         changedAt: createdAt,
+       }));
+     const newRecruit = new RecruitModel({
+       ...payload,
+       createdDate: createdAt,
+       changeHistory,
+     });
 
         // if (newRecruit.applicationDate?.toDateString() === new Date().toDateString()) {
         //      return {
@@ -342,10 +373,10 @@ export const connectGoogleMeet = async (
   const existingCredential = await GoogleOAuthCredentialModel.findOne({
     provider: GOOGLE_MEET_CREDENTIAL_PROVIDER,
   })
-    .select("_id")
+    .select("+encryptedRefreshToken")
     .lean()
     .exec();
-  if (!refreshToken && !existingCredential) {
+  if (!refreshToken && !existingCredential?.encryptedRefreshToken) {
     console.error("[GoogleMeet] Google returned no refresh token and no shared credential exists");
     throw new GoogleMeetOAuthError(
       "Google did not return a refresh token; reconnect and grant offline access"
@@ -817,12 +848,22 @@ const totalCount = applicants.length;
 };
 
 
-export const getApplicantRecordById = async (
-  id: string
-): Promise<IRecruitment | null> => {
-  return RecruitModel.findOne({
-    _id: new Types.ObjectId(id),
-  }).lean();
+export const getApplicantRecordById = async (id: string) => {
+  const applicant = await RecruitModel.findById(id).lean().exec();
+  if (!applicant) {
+    return null;
+  }
+
+  const interviewSchedule = await RecruitmentInterviewScheduleModel.findOne({
+    recruitmentId: applicant._id,
+  })
+    .lean()
+    .exec();
+
+  return {
+    ...applicant,
+    interviewSchedule: interviewSchedule ?? null,
+  };
 };
 
 /**
@@ -836,12 +877,7 @@ export const updateApplicantById = async (
   id: string,
   payload: Partial<IRecruitmentCreate>
 ): Promise<IRecruitment | null> => {
-
-  return RecruitModel.findOneAndUpdate(
-    { _id: new Types.ObjectId(id) },
-    { $set: payload },
-    { new: true }
-  ).lean();
+  return updateRecruitmentWithHistory(id, payload);
 };
 
 
@@ -881,8 +917,7 @@ export const updateApplicantByAdminId = async (
     ) {
       const supervisorRole = getSupervisor.role?.[0] ?? "";
 
-      const updatedApprovalData = {
-        ...approvalData,
+      approvedData = await updateRecruitmentWithHistory(id, {
         supervisor: {
           supervisorId: getSupervisor._id.toString(),
           supervisorName: getSupervisor.userName,
@@ -890,23 +925,14 @@ export const updateApplicantByAdminId = async (
           supervisorRole,
         },
         status: "Active",
-      };
-
-      approvedData = await RecruitModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id) },
-        { $set: updatedApprovalData },
-        { new: true }
-      ).lean();
+        updatedBy: payload.updatedBy,
+      });
     } else if (
       approvalData &&
       (approvalData.applicationStatus === applicationStatus.SHORTLISTED ||
         approvalData.applicationStatus === applicationStatus.SENDAPPROVAL)
     ) {
-      approvedData = await RecruitModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id) },
-        { $set: payload },
-        { new: true }
-      ).lean();
+      approvedData = await updateRecruitmentWithHistory(id, payload);
     }
 
     if (!approvedData) {
@@ -926,6 +952,77 @@ export const updateApplicantByAdminId = async (
     console.error("Error in updateApplicantByAdminId:", error);
     throw error;
   }
+};
+
+const updateRecruitmentWithHistory = async (
+  id: string,
+  payload: Partial<IRecruitmentCreate> & Partial<IRecruitmentAdminUpdate>
+): Promise<IRecruitment | null> => {
+  const updatedBy = payload.updatedBy?.trim();
+  if (!updatedBy) {
+    throw new Error("updatedBy is required to record recruitment changes");
+  }
+
+  const existing = await RecruitModel.findById(new Types.ObjectId(id)).exec();
+  if (!existing) {
+    return null;
+  }
+
+  const changedAt = new Date();
+  const excludedFields = new Set([
+    "createdBy",
+    "createdDate",
+    "updatedBy",
+    "updatedDate",
+    "shortlistedBy",
+    "shortlistedAt",
+    "rejectedBy",
+    "rejectedAt",
+    "approvedBy",
+    "approvedAt",
+    "changeHistory",
+  ]);
+  const changes = Object.entries(payload).reduce<Record<string, unknown>>(
+    (result, [field, value]) => {
+      if (!excludedFields.has(field) && value !== undefined) {
+        result[field] = value;
+      }
+      return result;
+    },
+    {}
+  );
+  const changeHistory: IRecruitmentFieldChange[] = [];
+  for (const [field, newValue] of Object.entries(changes)) {
+    const oldValue = existing.get(field);
+    if (!isEqual(oldValue, newValue)) {
+      changeHistory.push({
+        field,
+        oldValue,
+        newValue,
+        changedBy: updatedBy,
+        changedAt,
+      });
+    }
+    existing.set(field, newValue);
+  }
+
+  existing.updatedBy = updatedBy;
+  existing.updatedDate = changedAt;
+  if (payload.applicationStatus === applicationStatus.SHORTLISTED) {
+    existing.shortlistedBy = updatedBy;
+    existing.shortlistedAt = changedAt;
+  } else if (payload.applicationStatus === applicationStatus.REJECTED) {
+    existing.rejectedBy = updatedBy;
+    existing.rejectedAt = changedAt;
+  } else if (payload.applicationStatus === applicationStatus.APPROVED) {
+    existing.approvedBy = updatedBy;
+    existing.approvedAt = changedAt;
+  }
+  if (changeHistory.length > 0) {
+    existing.changeHistory.push(...changeHistory);
+  }
+
+  return existing.save();
 };
 
 async function createTeacherPortalPortal(updateData: any) {
@@ -1443,16 +1540,19 @@ const createInterviewMeeting = async ({
   timeZone: string;
   interviewPlatform: RecruitmentInterviewPlatform;
 }): Promise<string> => {
-  if (interviewPlatform === RecruitmentInterviewPlatform.GOOGLE_MEET) {
-    console.info("[InterviewSchedule] Google Meet selected; requesting a new Meet link");
-    return createGoogleMeetSpace();
+  switch (interviewPlatform) {
+    case RecruitmentInterviewPlatform.GOOGLE_MEET:
+      console.info("[InterviewSchedule] Google Meet selected; requesting a new Meet link");
+      return createGoogleMeetSpace();
+    case RecruitmentInterviewPlatform.ZOOM:
+      return createZoomInterviewMeeting({
+        candidateFirstName,
+        interviewDate,
+        interviewTime,
+        timeZone,
+      });
+    default:
+      throw new Error(`Unsupported interview platform: ${String(interviewPlatform)}`);
   }
-
-  return createZoomInterviewMeeting({
-    candidateFirstName,
-    interviewDate,
-    interviewTime,
-    timeZone,
-  });
 };
 

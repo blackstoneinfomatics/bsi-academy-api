@@ -1,6 +1,6 @@
 import mongoose, { model, Schema } from "mongoose";
 
-import { IRecruitment } from "../../types/models.types";
+import { IRecruitment, IRecruitmentFieldChange } from "../../types/models.types";
 import { z } from "zod";
 import { appStatus, commonMessages } from "../config/messages";
 import {
@@ -11,6 +11,17 @@ import {
   RecruitmentPositions,
   RecruitmentDays,
 } from "../shared/enum";
+
+const recruitmentFieldChangeSchema = new Schema<IRecruitmentFieldChange>(
+  {
+    field: { type: String, required: true },
+    oldValue: { type: Schema.Types.Mixed },
+    newValue: { type: Schema.Types.Mixed },
+    changedBy: { type: String, required: true },
+    changedAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
 
 const recruitmentSchema = new Schema<IRecruitment>(
 {
@@ -137,7 +148,14 @@ updatedDate:{
 updatedBy:{
     type: String,
     required: false,
-}
+},
+shortlistedBy: { type: String, required: false },
+shortlistedAt: { type: Date, required: false },
+rejectedBy: { type: String, required: false },
+rejectedAt: { type: Date, required: false },
+approvedBy: { type: String, required: false },
+approvedAt: { type: Date, required: false },
+changeHistory: { type: [recruitmentFieldChangeSchema], default: [] },
 },  
 {
     collection: "recruitment",
