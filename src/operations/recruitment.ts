@@ -31,21 +31,21 @@ import { hashPassword } from "../shared/common";
 import axios from "axios";
 import { config } from "../config/env";
 import TenantModel from "../models/tenants";
-import GoogleOAuthCredentialModel from "../models/googleOAuthCredential";
-import { google } from "googleapis";
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "crypto";
 
 export interface IRecruitmentAdminUpdate{
   tenantId?: string;
   applicationStatus?: string;
+  gender?: string;
+  preferedWorkingHours?: string;
   updatedBy: string;
   updatedByRole?: string[];
+}
+
+export class RecruitmentApprovalValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RecruitmentApprovalValidationError";
+  }
 }
 
 /**
@@ -78,451 +78,7 @@ export const createRecruitment = async (  payload: IRecruitmentCreate
 const normalizeInterviewDay = (date: Date): Date =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
-const GOOGLE_MEET_CREDENTIAL_PROVIDER = "google-meet";
-const GOOGLE_MEET_SCOPE = "https://www.googleapis.com/auth/meetings.space.created";
-const GOOGLE_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
-
-export class GoogleMeetOAuthError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GoogleMeetOAuthError";
-  }
-}
-
-export class GoogleMeetNotConnectedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GoogleMeetNotConnectedError";
-  }
-}
-
-export class GoogleMeetApiError extends Error {
-  constructor(statusCode?: number) {
-    super(
-      statusCode
-        ? `Google Meet API request failed with status ${statusCode}`
-        : "Google Meet API request failed"
-    );
-    this.name = "GoogleMeetApiError";
-  }
-}
-
-const getGoogleOAuthClient = () => {
-  const {
-    google_client_id,
-    google_client_secret,
-    google_redirect_uri,
-  } = config.googleMeetConfig;
-
-  console.log("Google OAuth Redirect URI:", google_redirect_uri);
-
-  if (!google_client_id || !google_client_secret || !google_redirect_uri) {
-    throw new Error(
-      "Google Meet OAuth requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI"
-    );
-  }
-
-  return new google.auth.OAuth2(
-    google_client_id,
-    google_client_secret,
-    google_redirect_uri
-  );
-};
-
-const encodeOAuthStatePart = (value: string): string =>
-  Buffer.from(value).toString("base64url");
-
-const signGoogleOAuthState = (payload: {
-  issuedAt: number;
-  nonce: string;
-}): string => {
-  const encodedPayload = encodeOAuthStatePart(JSON.stringify(payload));
-  const signature = createHmac(
-    "sha256",
-    config.googleMeetConfig.google_client_secret
-  )
-    .update(encodedPayload)
-    .digest("base64url");
-
-  return `${encodedPayload}.${signature}`;
-};
-
-const verifyGoogleOAuthState = (state: string): boolean => {
-  const [encodedPayload, providedSignature, ...extraParts] = state.split(".");
-  if (!encodedPayload || !providedSignature || extraParts.length > 0) {
-    return false;
-  }
-
-  const expectedSignature = createHmac(
-    "sha256",
-    config.googleMeetConfig.google_client_secret
-  )
-    .update(encodedPayload)
-    .digest();
-  const actualSignature = Buffer.from(providedSignature, "base64url");
-  if (
-    actualSignature.length !== expectedSignature.length ||
-    !timingSafeEqual(
-      Uint8Array.from(actualSignature),
-      Uint8Array.from(expectedSignature)
-    )
-  ) {
-    return false;
-  }
-
-  try {
-    const payload = JSON.parse(
-      Buffer.from(encodedPayload, "base64url").toString("utf8")
-    ) as { issuedAt?: unknown; nonce?: unknown };
-    const validTimestamp =
-      typeof payload.issuedAt === "number" &&
-      Date.now() - payload.issuedAt >= 0 &&
-      Date.now() - payload.issuedAt <= GOOGLE_OAUTH_STATE_MAX_AGE_MS;
-
-    if (
-      typeof payload.nonce !== "string" ||
-      !payload.nonce ||
-      !validTimestamp
-    ) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const toCryptoBytes = (value: ArrayLike<number>): Uint8Array =>
-  Uint8Array.from(value);
-
-const concatenateCryptoBytes = (...parts: ArrayLike<number>[]): Uint8Array => {
-  const result = new Uint8Array(
-    parts.reduce((total, part) => total + part.length, 0)
-  );
-  let offset = 0;
-  for (const part of parts) {
-    const bytes = toCryptoBytes(part);
-    result.set(bytes, offset);
-    offset += bytes.length;
-  }
-  return result;
-};
-
-const getGoogleTokenEncryptionKey = (): Uint8Array => {
-  const { google_client_secret } = config.googleMeetConfig;
-  if (!google_client_secret) {
-    throw new Error("GOOGLE_CLIENT_SECRET is required to encrypt the Google token");
-  }
-
-  return toCryptoBytes(
-    createHmac("sha256", google_client_secret)
-      .update("blackstone-google-meet-refresh-token-v1")
-      .digest()
-  );
-};
-
-const encryptGoogleRefreshToken = (refreshToken: string): string => {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv(
-    "aes-256-gcm",
-    getGoogleTokenEncryptionKey(),
-    toCryptoBytes(iv)
-  );
-  const ciphertext = concatenateCryptoBytes(
-    cipher.update(refreshToken, "utf8"),
-    cipher.final()
-  );
-  const authTag = cipher.getAuthTag();
-
-  return [
-    "v1",
-    iv.toString("base64"),
-    authTag.toString("base64"),
-    Buffer.from(ciphertext).toString("base64"),
-  ].join(".");
-};
-
-const decryptGoogleRefreshToken = (encryptedToken: string): string => {
-  try {
-    const [version, encodedIv, encodedAuthTag, encodedCiphertext, ...extraParts] =
-      encryptedToken.split(".");
-    if (
-      version !== "v1" ||
-      !encodedIv ||
-      !encodedAuthTag ||
-      !encodedCiphertext ||
-      extraParts.length > 0
-    ) {
-      throw new Error("Invalid encrypted token format");
-    }
-
-    const decipher = createDecipheriv(
-      "aes-256-gcm",
-      getGoogleTokenEncryptionKey(),
-      toCryptoBytes(Buffer.from(encodedIv, "base64"))
-    );
-    decipher.setAuthTag(toCryptoBytes(Buffer.from(encodedAuthTag, "base64")));
-    const plaintext = concatenateCryptoBytes(
-      decipher.update(toCryptoBytes(Buffer.from(encodedCiphertext, "base64"))),
-      decipher.final()
-    );
-    return Buffer.from(plaintext).toString("utf8");
-  } catch {
-    throw new GoogleMeetOAuthError(
-      "The shared Google refresh token cannot be decrypted; reconnect the company account"
-    );
-  }
-};
-
-const getGoogleErrorDetails = (
-  error: unknown
-): { status?: number; code?: string; description?: string } => {
-  if (typeof error !== "object" || error === null) {
-    return {};
-  }
-
-  const errorRecord = error as Record<string, unknown>;
-  const response =
-    typeof errorRecord.response === "object" && errorRecord.response !== null
-      ? (errorRecord.response as Record<string, unknown>)
-      : null;
-  const data =
-    response && typeof response.data === "object" && response.data !== null
-      ? (response.data as Record<string, unknown>)
-      : null;
-
-  return {
-    status: typeof response?.status === "number" ? response.status : undefined,
-    code: typeof data?.error === "string" ? data.error : undefined,
-    description:
-      typeof data?.error_description === "string"
-        ? data.error_description
-        : undefined,
-  };
-};
-
-export const getGoogleMeetAuthorizationUrl = (): string => {
-  console.info("[GoogleMeet] Starting shared company account authorization");
-
-  const oauthClient = getGoogleOAuthClient();
-
-  const state = signGoogleOAuthState({
-    issuedAt: Date.now(),
-    nonce: randomBytes(16).toString("hex"),
-  });
-
-  const authUrl = oauthClient.generateAuthUrl({
-    access_type: "offline",
-    include_granted_scopes: true,
-    prompt: "consent",
-    scope: [GOOGLE_MEET_SCOPE],
-    state,
-  });
-
-  console.log(
-    "[GoogleMeet] Generated redirect_uri:",
-    new URL(authUrl).searchParams.get("redirect_uri")
-  );
-
-  return authUrl;
-};
-
-export const connectGoogleMeet = async (
-  code: string,
-  state: string
-): Promise<void> => {
-  console.info("[GoogleMeet] OAuth callback received; validating state");
-  if (!verifyGoogleOAuthState(state)) {
-    console.warn("[GoogleMeet] OAuth callback rejected because state is invalid or expired");
-    throw new GoogleMeetOAuthError(
-      "Google Meet authorization state is invalid or expired"
-    );
-  }
-
-  console.info("[GoogleMeet] OAuth state validated; exchanging authorization code");
-  const oauthClient = getGoogleOAuthClient();
-  let refreshToken: string | null | undefined;
-  try {
-    refreshToken = (await oauthClient.getToken(code)).tokens.refresh_token;
-  } catch (error) {
-    const details = getGoogleErrorDetails(error);
-    console.error("[GoogleMeet] Authorization code exchange failed", {
-      status: details.status,
-      code: details.code,
-      description: details.description,
-    });
-    throw new GoogleMeetOAuthError(
-      "Google authorization code exchange failed; restart company account authorization"
-    );
-  }
-  console.info("[GoogleMeet] Authorization code exchange completed");
-
-  const existingCredential = await GoogleOAuthCredentialModel.findOne({
-    provider: GOOGLE_MEET_CREDENTIAL_PROVIDER,
-  })
-    .select("+encryptedRefreshToken")
-    .lean()
-    .exec();
-  if (!refreshToken && !existingCredential?.encryptedRefreshToken) {
-    console.error("[GoogleMeet] Google returned no refresh token and no shared credential exists");
-    throw new GoogleMeetOAuthError(
-      "Google did not return a refresh token; reconnect and grant offline access"
-    );
-  }
-
-  if (refreshToken) {
-    console.info("[GoogleMeet] Encrypting and saving the shared refresh token");
-    await GoogleOAuthCredentialModel.updateOne(
-      { provider: GOOGLE_MEET_CREDENTIAL_PROVIDER },
-      {
-        $set: {
-          encryptedRefreshToken: encryptGoogleRefreshToken(refreshToken),
-        },
-        $setOnInsert: { provider: GOOGLE_MEET_CREDENTIAL_PROVIDER },
-      },
-      { upsert: true }
-    ).exec();
-    console.info("[GoogleMeet] Shared company account credential saved");
-  } else {
-    console.info("[GoogleMeet] Google omitted a new refresh token; existing credential was retained");
-  }
-};
-
-const createGoogleMeetSpace = async (): Promise<string> => {
-  console.info("[GoogleMeet] Step 1: Loading shared company credential");
-  const credential = await GoogleOAuthCredentialModel.findOne({
-    provider: GOOGLE_MEET_CREDENTIAL_PROVIDER,
-  })
-    .select("+encryptedRefreshToken")
-    .lean()
-    .exec();
-
-  if (!credential?.encryptedRefreshToken) {
-    console.error("[GoogleMeet] Shared company account is not authorized", {
-      provider: GOOGLE_MEET_CREDENTIAL_PROVIDER,
-      reason: credential
-        ? "encrypted_refresh_token_missing"
-        : "credential_record_not_found",
-      credentialRecordFound: Boolean(credential),
-      encryptedRefreshTokenPresent: Boolean(
-        credential?.encryptedRefreshToken
-      ),
-    });
-    throw new GoogleMeetNotConnectedError(
-      "The shared Blackstone Google account is not authorized; complete Google OAuth first"
-    );
-  }
-
-  console.info("[GoogleMeet] Step 2: Decrypting stored refresh token");
-  const oauthClient = getGoogleOAuthClient();
-  try {
-    oauthClient.setCredentials({
-      refresh_token: decryptGoogleRefreshToken(credential.encryptedRefreshToken),
-    });
-  } catch (error) {
-    console.error("[GoogleMeet] Stored refresh token could not be decrypted");
-    throw error;
-  }
-
-  console.info("[GoogleMeet] Step 3: Requesting Google access token");
-  let token: string | null | undefined;
-  try {
-    ({ token } = await oauthClient.getAccessToken());
-  } catch (error) {
-    const details = getGoogleErrorDetails(error);
-    console.error("[GoogleMeet] Google access token request failed", {
-      status: details.status,
-      code: details.code,
-      description: details.description,
-      reauthorizationRequired: details.code === "invalid_grant" || details.status === 401,
-    });
-    if (details.code === "invalid_grant" || details.status === 401) {
-      throw new GoogleMeetOAuthError(
-        "The shared Google authorization expired or was revoked; reconnect the company account"
-      );
-    }
-    throw new GoogleMeetApiError(details.status);
-  }
-  if (!token) {
-    console.error("[GoogleMeet] Google returned no access token");
-    throw new GoogleMeetApiError();
-  }
-  console.info("[GoogleMeet] Google access token obtained");
-
-  const headers = { Authorization: `Bearer ${token}` };
-  let createResponse: {
-    data: { name?: string; meetingUri?: string };
-  };
-  console.info("[GoogleMeet] Step 4: Creating a Meet space");
-  try {
-    createResponse = await axios.post<{
-      name?: string;
-      meetingUri?: string;
-    }>("https://meet.googleapis.com/v2/spaces", {}, { headers });
-  } catch (error) {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    console.error("[GoogleMeet] Meet space creation failed", { status });
-    if (status === 401) {
-      throw new GoogleMeetOAuthError(
-        "The shared Google authorization expired or was revoked; reconnect the company account"
-      );
-    }
-    throw new GoogleMeetApiError(status);
-  }
-  console.info("[GoogleMeet] Meet space created successfully");
-
-  const spaceName = createResponse.data.name;
-  if (!spaceName || !spaceName.startsWith("spaces/")) {
-    console.error("[GoogleMeet] Google response did not contain a valid space resource");
-    throw new GoogleMeetApiError();
-  }
-
-  const spaceId = spaceName.slice("spaces/".length);
-  let updateResponse: {
-    data: { meetingUri?: string };
-  };
-  console.info("[GoogleMeet] Step 5: Applying Meet space access configuration");
-  try {
-    updateResponse = await axios.patch<{
-      meetingUri?: string;
-    }>(
-      `https://meet.googleapis.com/v2/spaces/${encodeURIComponent(spaceId)}`,
-      {
-        config: {
-          accessType: "RESTRICTED",
-          entryPointAccess: "ALL",
-        },
-      },
-      {
-        headers,
-        params: {
-          updateMask: "config.accessType,config.entryPointAccess",
-        },
-      }
-    );
-  } catch (error) {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    console.error("[GoogleMeet] Meet space configuration failed", { status });
-    if (status === 401) {
-      throw new GoogleMeetOAuthError(
-        "The shared Google authorization expired or was revoked; reconnect the company account"
-      );
-    }
-    throw new GoogleMeetApiError(status);
-  }
-  console.info("[GoogleMeet] Meet space access configuration applied");
-
-  const meetingUri =
-    updateResponse.data.meetingUri || createResponse.data.meetingUri;
-  if (!meetingUri) {
-    console.error("[GoogleMeet] Google response did not contain a meeting URI");
-    throw new GoogleMeetApiError();
-  }
-
-  console.info("[GoogleMeet] Step 6: Meet link generated successfully; URI omitted from logs");
-  return meetingUri;
-};
+const GOOGLE_MEET_BROWSER_SHORTCUT = "https://meet.google.com/new";
 
 const isInterviewSlotBooked = async (
   interviewDate: Date,
@@ -974,18 +530,54 @@ export const updateApplicantByAdminId = async (
     }).lean();
 
     const canAdminReview =
-      approvalData &&
-      (approvalData.applicationStatus === applicationStatus.SHORTLISTED ||
-        approvalData.applicationStatus === applicationStatus.SENDAPPROVAL ||
-        approvalData.applicationStatus === applicationStatus.WAITING ||
-        (approvalData.applicationStatus === applicationStatus.NEWAPPLICATION &&
-          payload.applicationStatus === applicationStatus.REJECTED));
+      approvalData?.applicationStatus === applicationStatus.SHORTLISTED ||
+      (approvalData?.applicationStatus === applicationStatus.APPROVED &&
+        payload.applicationStatus === applicationStatus.APPROVED);
+    const preferredWorkingHours =
+      payload.preferedWorkingHours ?? approvalData?.preferedWorkingHours;
+    if (
+      canAdminReview &&
+      payload.applicationStatus === applicationStatus.APPROVED &&
+      typeof preferredWorkingHours === "string" &&
+      preferredWorkingHours.trim()
+    ) {
+      try {
+        parsePreferredWorkingHours(preferredWorkingHours);
+      } catch (error) {
+        throw new RecruitmentApprovalValidationError(
+          error instanceof Error
+            ? error.message
+            : "Preferred working hours are invalid",
+        );
+      }
+    }
+    if (
+      canAdminReview &&
+      payload.applicationStatus === applicationStatus.APPROVED
+    ) {
+      const existingTeacher = await User.findOne({
+        tenantId: payload.tenantId,
+        userId: approvalData?.candidateId,
+        role: "TEACHER",
+      })
+        .select("_id")
+        .lean()
+        .exec();
+      const gender = payload.gender ?? approvalData?.gender;
+      if (!existingTeacher && !(typeof gender === "string" && gender.trim())) {
+        throw new RecruitmentApprovalValidationError(
+          "Candidate gender is required to create the teacher account",
+        );
+      }
+    }
     const approvedData = canAdminReview
       ? await updateRecruitmentWithHistory(id, payload, payload.tenantId)
       : null;
 
     if (!approvedData) {
       console.warn("No applicant record updated.", {
+        applicantId: id,
+        tenantId: payload.tenantId ?? null,
         applicantFound: Boolean(approvalData),
         currentApplicationStatus: approvalData?.applicationStatus ?? null,
         requestedApplicationStatus: payload.applicationStatus ?? null,
@@ -1029,6 +621,7 @@ const updateRecruitmentWithHistory = async (
   }
 
   const changedAt = new Date();
+  const previousApplicationStatus = existing.applicationStatus;
   const excludedFields = new Set([
     "tenantId",
     "createdBy",
@@ -1076,15 +669,24 @@ const updateRecruitmentWithHistory = async (
   existing.updatedBy = updatedBy;
   existing.updatedByRole = payload.updatedByRole;
   existing.updatedDate = changedAt;
-  if (payload.applicationStatus === applicationStatus.SHORTLISTED) {
+  if (
+    payload.applicationStatus === applicationStatus.SHORTLISTED &&
+    previousApplicationStatus !== applicationStatus.SHORTLISTED
+  ) {
     existing.shortlistedBy = updatedBy;
     existing.shortlistedByRole = payload.updatedByRole;
     existing.shortlistedAt = changedAt;
-  } else if (payload.applicationStatus === applicationStatus.REJECTED) {
+  } else if (
+    payload.applicationStatus === applicationStatus.REJECTED &&
+    previousApplicationStatus !== applicationStatus.REJECTED
+  ) {
     existing.rejectedBy = updatedBy;
     existing.rejectedByRole = payload.updatedByRole;
     existing.rejectedAt = changedAt;
-  } else if (payload.applicationStatus === applicationStatus.APPROVED) {
+  } else if (
+    payload.applicationStatus === applicationStatus.APPROVED &&
+    previousApplicationStatus !== applicationStatus.APPROVED
+  ) {
     existing.approvedBy = updatedBy;
     existing.approvedByRole = payload.updatedByRole;
     existing.approvedAt = changedAt;
@@ -1098,7 +700,13 @@ const updateRecruitmentWithHistory = async (
 };
 
 async function createTeacherPortalPortal(updateData: any) {
-  const shiftTimes = parsePreferredWorkingHours(updateData.preferedWorkingHours);
+  const preferredWorkingHours =
+    typeof updateData.preferedWorkingHours === "string"
+      ? updateData.preferedWorkingHours.trim()
+      : "";
+  const shiftTimes = preferredWorkingHours
+    ? parsePreferredWorkingHours(preferredWorkingHours)
+    : null;
   let saveTeacher = await User.findOne({
     tenantId: updateData.tenantId,
     userId: updateData.candidateId,
@@ -1217,8 +825,16 @@ async function createTeacherPortalPortal(updateData: any) {
     await SalaryAndWages.insertMany(missingSalaryRecords);
   }
 
-  const result = await createShiftSchedule(saveTeacher, updateData, shiftTimes);
-  await generateSlotsFromUserSchedule(result);
+  const shiftSchedule = shiftTimes
+    ? await createShiftSchedule(saveTeacher, updateData, shiftTimes)
+    : await ShiftSchedule.findOne({
+        tenantId: saveTeacher.tenantId,
+        teacherId: saveTeacher.userId,
+        role: "TEACHER",
+      }).exec();
+  if (shiftSchedule) {
+    await generateSlotsFromUserSchedule(shiftSchedule);
+  }
   await academicAvailableTeachers({ event: 'create' });
 
   return saveTeacher;
@@ -1679,8 +1295,8 @@ const createInterviewMeeting = async ({
 }): Promise<string> => {
   switch (interviewPlatform) {
     case RecruitmentInterviewPlatform.GOOGLE_MEET:
-      console.info("[InterviewSchedule] Google Meet selected; requesting a new Meet link");
-      return createGoogleMeetSpace();
+      console.info("[InterviewSchedule] Google Meet selected; using browser meeting shortcut");
+      return GOOGLE_MEET_BROWSER_SHORTCUT;
     case RecruitmentInterviewPlatform.ZOOM:
       return createZoomInterviewMeeting({
         candidateFirstName,

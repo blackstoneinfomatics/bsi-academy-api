@@ -39,11 +39,7 @@ import {
 } from "../../models/recruitmentInterviewSchedule";
 import {
   createRecruitmentInterviewSchedule,
-  connectGoogleMeet,
-  getGoogleMeetAuthorizationUrl,
-  GoogleMeetApiError,
-  GoogleMeetNotConnectedError,
-  GoogleMeetOAuthError,
+  RecruitmentApprovalValidationError,
   rescheduleRecruitmentInterview,
 } from "../../operations/recruitment";
 
@@ -134,6 +130,9 @@ const createInputValidation = z.object({
       position: true,
       currency: true,
       expectedSalary: true,
+    })
+    .extend({
+      preferedWorkingHours: z.string().optional(),
     }),
 });
 
@@ -163,6 +162,8 @@ const updateAdminInputValidation = z.object({
     })
     .extend({
       applicationStatus: z.enum(["APPROVED", "REJECTED"]),
+      gender: z.string().optional(),
+      preferedWorkingHours: z.string().optional(),
     }),
 });
 
@@ -185,81 +186,6 @@ const getTeacherInputValidation = z.object({
 });
 
 export default {
-  async getGoogleMeetAuthorizationUrl(_req: Request, h: ResponseToolkit) {
-    try {
-      return h
-        .response({
-          authorizationUrl: getGoogleMeetAuthorizationUrl(),
-        })
-        .code(200);
-    } catch (error) {
-      console.error("Google Meet authorization URL error:", error);
-      return h
-        .response({ message: "Unable to start Google Meet authorization" })
-        .code(500);
-    }
-  },
-
-  async googleMeetOAuthCallback(req: Request, h: ResponseToolkit) {
-    try {
-      const {
-        code,
-        state,
-        error: authorizationError,
-      } = z
-        .object({
-          code: z.string().optional(),
-          state: z.string().optional(),
-          error: z.string().optional(),
-        })
-        .parse(req.query);
-
-      if (authorizationError) {
-        return h
-          .response({
-            message: "Google Meet authorization was denied",
-          })
-          .code(400);
-      }
-      if (!code || !state) {
-        return h
-          .response({
-            message: "Google OAuth callback requires code and state",
-          })
-          .code(400);
-      }
-
-      await connectGoogleMeet(code, state);
-      return h
-        .response({
-          message: "Company Google Meet account connected successfully",
-        })
-        .code(200);
-    } catch (error) {
-      if (error instanceof GoogleMeetApiError) {
-        return h.response({ message: error.message }).code(502);
-      }
-      if (
-        error instanceof z.ZodError ||
-        error instanceof GoogleMeetOAuthError
-      ) {
-        return h
-          .response({
-            message:
-              error instanceof GoogleMeetOAuthError
-                ? error.message
-                : "Invalid Google OAuth callback",
-          })
-          .code(400);
-      }
-
-      console.error("Google Meet OAuth callback error:", error);
-      return h
-        .response({ message: "Unable to complete Google Meet authorization" })
-        .code(500);
-    }
-  },
-
   async createInterviewSchedule(req: Request, h: ResponseToolkit) {
     try {
       const payload = zodRecruitmentInterviewScheduleSchema.parse(req.payload);
@@ -303,28 +229,6 @@ export default {
             errors: error.issues,
           })
           .code(400);
-      }
-
-      if (error instanceof GoogleMeetNotConnectedError) {
-        return h
-          .response({
-            message: error.message,
-            authorizationPath: "/interview-schedule/google/auth-url",
-          })
-          .code(409);
-      }
-
-      if (error instanceof GoogleMeetOAuthError) {
-        return h
-          .response({
-            message: error.message,
-            authorizationPath: "/interview-schedule/google/auth-url",
-          })
-          .code(409);
-      }
-
-      if (error instanceof GoogleMeetApiError) {
-        return h.response({ message: error.message }).code(502);
       }
 
       if (
@@ -520,6 +424,7 @@ export default {
         position: payload.position,
         currency: payload.currency,
         expectedSalary: payload.expectedSalary,
+        preferedWorkingHours: payload.preferedWorkingHours,
         uploadResume: shareLink?.fileId || "",
         createdDate: new Date(),
         createdBy: supervisor.userName,
@@ -791,6 +696,9 @@ export default {
 
       return result;
     } catch (error) {
+      if (error instanceof RecruitmentApprovalValidationError) {
+        return h.response({ message: error.message }).code(400);
+      }
       console.error("Error updating applicant record:", error);
       return h.response({ message: "Internal Server Error" }).code(500);
     }

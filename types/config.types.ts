@@ -48,11 +48,6 @@ export interface Config {
         zoom_client_secret:string;
         zoom_account_id:string;
     },
-    googleMeetConfig: {
-        google_client_id: string;
-        google_client_secret: string;
-        google_redirect_uri: string;
-    },
        atsConfig:{
     zoho_job_url_import: string;
     zoho_job_access_token_import: string;

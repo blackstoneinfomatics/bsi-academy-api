@@ -8,28 +8,6 @@ const register = async (server: Server): Promise<void> => {
   // Register all routes for this unit
   const routes: ServerRoute[] = [
     {
-      method: "GET",
-      path: "/interview-schedule/google/auth-url",
-      options: {
-        handler: handler.getGoogleMeetAuthorizationUrl,
-        description: "Start shared Google Meet authorization for the authenticated user",
-        tags: ["api", "recruitment", "interview"],
-        auth: {
-          strategies: ["jwt"],
-        },
-      },
-    },
-    {
-      method: "GET",
-      path: "/interview-schedule/google/callback",
-      options: {
-        handler: handler.googleMeetOAuthCallback,
-        description: "Complete Google Meet authorization",
-        tags: ["api", "recruitment", "interview"],
-      },
-    },
-   
-    {
       method: "POST",
       path: "/interview-schedule",
       options: {
