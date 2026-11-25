@@ -48,6 +48,7 @@ export interface IRecruitmentAdminUpdate{
     applicationStatus?: string,
     status?: string,
     updatedBy: string;
+    updatedByRole?: string[];
  }
 
 /**
@@ -61,14 +62,19 @@ export const createRecruitment = async (  payload: IRecruitmentCreate
      const createdAt = payload.createdDate || new Date();
      const auditExcludedFields = new Set([
        "createdBy",
+       "createdByRole",
        "createdDate",
        "updatedBy",
+       "updatedByRole",
        "updatedDate",
        "shortlistedBy",
+       "shortlistedByRole",
        "shortlistedAt",
        "rejectedBy",
+       "rejectedByRole",
        "rejectedAt",
        "approvedBy",
+       "approvedByRole",
        "approvedAt",
        "changeHistory",
      ]);
@@ -78,6 +84,7 @@ export const createRecruitment = async (  payload: IRecruitmentCreate
          field,
          newValue,
          changedBy: payload.createdBy,
+         changedByRole: payload.createdByRole,
          changedAt: createdAt,
        }));
      const newRecruit = new RecruitModel({
@@ -1014,14 +1021,19 @@ const updateRecruitmentWithHistory = async (
   const changedAt = new Date();
   const excludedFields = new Set([
     "createdBy",
+    "createdByRole",
     "createdDate",
     "updatedBy",
+    "updatedByRole",
     "updatedDate",
     "shortlistedBy",
+    "shortlistedByRole",
     "shortlistedAt",
     "rejectedBy",
+    "rejectedByRole",
     "rejectedAt",
     "approvedBy",
+    "approvedByRole",
     "approvedAt",
     "changeHistory",
   ]);
@@ -1043,6 +1055,7 @@ const updateRecruitmentWithHistory = async (
         oldValue,
         newValue,
         changedBy: updatedBy,
+        changedByRole: payload.updatedByRole,
         changedAt,
       });
     }
@@ -1050,15 +1063,19 @@ const updateRecruitmentWithHistory = async (
   }
 
   existing.updatedBy = updatedBy;
+  existing.updatedByRole = payload.updatedByRole;
   existing.updatedDate = changedAt;
   if (payload.applicationStatus === applicationStatus.SHORTLISTED) {
     existing.shortlistedBy = updatedBy;
+    existing.shortlistedByRole = payload.updatedByRole;
     existing.shortlistedAt = changedAt;
   } else if (payload.applicationStatus === applicationStatus.REJECTED) {
     existing.rejectedBy = updatedBy;
+    existing.rejectedByRole = payload.updatedByRole;
     existing.rejectedAt = changedAt;
   } else if (payload.applicationStatus === applicationStatus.APPROVED) {
     existing.approvedBy = updatedBy;
+    existing.approvedByRole = payload.updatedByRole;
     existing.approvedAt = changedAt;
   }
   if (changeHistory.length > 0) {
@@ -1069,129 +1086,197 @@ const updateRecruitmentWithHistory = async (
 };
 
 async function createTeacherPortalPortal(updateData: any) {
-  console.log("Creating teacher portal for:", updateData);
-
-  const specialChars = '@#$%&*!';
-  const randomNum = Math.floor(Math.random() * 1000);
-  const randomSpecial = specialChars[Math.floor(Math.random() * specialChars.length)];
-  const firstThreeChars = updateData.candidateFirstName.substring(0, 3);
-  const reversedUsername = updateData.candidateFirstName.split('').reverse().join('');
-  const password = `${firstThreeChars}${randomSpecial}${randomNum}${reversedUsername}`;
-  const hashedPassword = await hashPassword(password);
-
-  const createTeacherPortal = await User.create({
+  const shiftTimes = parsePreferredWorkingHours(updateData.preferedWorkingHours);
+  let saveTeacher = await User.findOne({
     tenantId: updateData.tenantId,
-    userName: updateData.candidateFirstName,
-    email: updateData.candidateEmail,
-    password: hashedPassword,
-    profileImage: null,
     userId: updateData.candidateId,
     role: "TEACHER",
-    position: updateData.positionApplied,
-    gender: updateData.gender,
-    status: "Active",
-    createdBy: "Admin",
-    createdDate: new Date(),
-    lastUpdatedBy: "Admin",
-    updatedDate: new Date(),
-  });
-
-  const emailTemplate = await EmailTemplate.findOne({
-    templateKey: 'Teacher Portal',
   }).exec();
 
-  if (emailTemplate) {
-    const emailTo = [{ email: createTeacherPortal.email }];
-    const subject = "Welcome To Alfurqan Team";
-    const htmlPart = emailTemplate.templateContent
-      .replace('<username>', createTeacherPortal.userName)
-      .replace('<username>', createTeacherPortal.userName)
-      .replace('<password>', password);
-    sendEmailClient(emailTo, subject, htmlPart);
+  if (!saveTeacher) {
+    const specialChars = "@#$%&*!";
+    const randomNum = Math.floor(Math.random() * 1000);
+    const randomSpecial = specialChars[Math.floor(Math.random() * specialChars.length)];
+    const firstThreeChars = updateData.candidateFirstName.substring(0, 3);
+    const reversedUsername = updateData.candidateFirstName.split("").reverse().join("");
+    const password = `${firstThreeChars}${randomSpecial}${randomNum}${reversedUsername}`;
+    const hashedPassword = await hashPassword(password);
+
+    saveTeacher = await User.create({
+      tenantId: updateData.tenantId,
+      userName: updateData.candidateFirstName,
+      email: updateData.candidateEmail,
+      password: hashedPassword,
+      profileImage: null,
+      userId: updateData.candidateId,
+      role: "TEACHER",
+      position: updateData.positionApplied,
+      gender: updateData.gender,
+      status: "Active",
+      createdBy: "Admin",
+      createdDate: new Date(),
+      lastUpdatedBy: "Admin",
+      updatedDate: new Date(),
+    });
+
+    const emailTemplate = await EmailTemplate.findOne({
+      templateKey: "Teacher Portal",
+    }).exec();
+
+    if (emailTemplate) {
+      const emailTo = [{ email: saveTeacher.email }];
+      const subject = "Welcome To Our Team";
+      const htmlPart = emailTemplate.templateContent
+        .replace("<username>", saveTeacher.userName)
+        .replace("<username>", saveTeacher.userName)
+        .replace("<password>", password);
+      sendEmailClient(emailTo, subject, htmlPart);
+    }
   }
 
-  const saveTeacher = await createTeacherPortal.save();
-console.log("Teacher portal created:", saveTeacher);
-  // Add salary and wage records with error handling
   const salaryRecords = [
     {
+      tenantId: saveTeacher.tenantId,
       employeeName: saveTeacher.userName,
       employeeId: saveTeacher.userId,
-       classType:{
-            className: "TRAILCLASS",
-            hoursMins: "1 day",
-            rate: 2,
-            currency: "$",
-        },
-       status:"Active",
-       createdDate:  new Date(),
-       createdBy: "Admin",
-       updatedDate:  new Date(),
-       updatedBy:  "Admin"
+      classType: {
+        className: "TRAILCLASS",
+        hoursMins: "1 day",
+        rate: 2,
+        currency: "$",
+      },
+      status: "Active",
+      createdDate: new Date(),
+      createdBy: "Admin",
+      updatedDate: new Date(),
+      updatedBy: "Admin",
     },
     {
+      tenantId: saveTeacher.tenantId,
       employeeName: saveTeacher.userName,
       employeeId: saveTeacher.userId,
-             classType:{
-            className: "REGULARCLASS",
-            hoursMins: "60 min",
-            rate: 4,
-            currency: "$",
-        },
-       status:"Active",
-       createdDate:  new Date(),
-       createdBy: "Admin",
-       updatedDate:  new Date(),
-       updatedBy:  "Admin"
+      classType: {
+        className: "REGULARCLASS",
+        hoursMins: "60 min",
+        rate: 4,
+        currency: "$",
+      },
+      status: "Active",
+      createdDate: new Date(),
+      createdBy: "Admin",
+      updatedDate: new Date(),
+      updatedBy: "Admin",
     },
-    
     {
+      tenantId: saveTeacher.tenantId,
       employeeName: saveTeacher.userName,
       employeeId: saveTeacher.userId,
-             classType:{
-            className: "GRUOPCLASS",
-            hoursMins: "60 min",
-            rate: 6,
-            currency: "$",
-        },
-       status:"Active",
-       createdDate:  new Date(),
-       createdBy: "Admin",
-       updatedDate:  new Date(),
-       updatedBy:  "Admin"
+      classType: {
+        className: "GRUOPCLASS",
+        hoursMins: "60 min",
+        rate: 6,
+        currency: "$",
+      },
+      status: "Active",
+      createdDate: new Date(),
+      createdBy: "Admin",
+      updatedDate: new Date(),
+      updatedBy: "Admin",
     },
-    
   ];
 
-  try {
-  const resuit =  await SalaryAndWages.insertMany(salaryRecords);
-  console.log(">>>>>>>>>>>>>>>>:", resuit);
-
-
-    console.log("Salary and wage records inserted successfully.");
-  } catch (error) {
-    console.error("Error inserting salary and wage records:", error);
-    // Optionally, throw or handle error based on your application flow
+  const existingSalaryRecords = await SalaryAndWages.find({
+    tenantId: saveTeacher.tenantId,
+    employeeId: saveTeacher.userId,
+    "classType.className": {
+      $in: salaryRecords.map(({ classType }) => classType.className),
+    },
+  })
+    .select("classType.className")
+    .lean()
+    .exec();
+  const existingClassNames = new Set(
+    existingSalaryRecords.map((record) => record.classType.className)
+  );
+  const missingSalaryRecords = salaryRecords.filter(
+    ({ classType }) => !existingClassNames.has(classType.className)
+  );
+  if (missingSalaryRecords.length > 0) {
+    await SalaryAndWages.insertMany(missingSalaryRecords);
   }
 
-  const result = await createShiftSchedule(saveTeacher, updateData);
+  const result = await createShiftSchedule(saveTeacher, updateData, shiftTimes);
   await generateSlotsFromUserSchedule(result);
   await academicAvailableTeachers({ event: 'create' });
 
-  console.log("Teacher portal created:", saveTeacher);
   return saveTeacher;
 }
 
+const parsePreferredWorkingHours = (
+  value: string
+): { startTime: string; endTime: string } => {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("A preferred working-hours range is required");
+  }
 
-async function createShiftSchedule(saveTeacher: any, updateData: any) {
+  const range = value.trim().match(/^(.+?)\s*(?:-|–|—|\bto\b)\s*(.+)$/i);
+  if (!range) {
+    throw new Error(`Invalid preferred working-hours range: ${value}`);
+  }
+
+  const to24HourTime = (input: string): string | null => {
+    const match = input.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+    if (!match) {
+      return null;
+    }
+
+    let hours = Number(match[1]);
+    const minutes = Number(match[2] ?? "0");
+    const meridiem = match[3]?.toUpperCase();
+    if (minutes > 59) {
+      return null;
+    }
+
+    if (meridiem) {
+      if (hours < 1 || hours > 12) {
+        return null;
+      }
+      hours = (hours % 12) + (meridiem === "PM" ? 12 : 0);
+    } else if (hours > 23) {
+      return null;
+    }
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  };
+
+  const startTime = to24HourTime(range[1]);
+  const endTime = to24HourTime(range[2]);
+  if (!startTime || !endTime || startTime >= endTime) {
+    throw new Error(`Invalid preferred working-hours range: ${value}`);
+  }
+
+  return { startTime, endTime };
+};
+
+async function createShiftSchedule(
+  saveTeacher: any,
+  updateData: any,
+  shiftTimes: { startTime: string; endTime: string }
+) {
   const startDate = new Date();
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 40);
 
-  const workhrs = updateData.preferedWorkingHours;
-  const [startTime, endTime] = workhrs.split(" - ");
+  const existingSchedule = await ShiftSchedule.findOne({
+    tenantId: saveTeacher.tenantId,
+    teacherId: saveTeacher.userId,
+    role: "TEACHER",
+  }).exec();
+  if (existingSchedule) {
+    return existingSchedule;
+  }
 
-  const createShift = await ShiftSchedule.create({
+  return ShiftSchedule.create({
     tenantId: saveTeacher.tenantId,
     academicCoachId: null,
     teacherId: saveTeacher.userId,
@@ -1204,15 +1289,12 @@ async function createShiftSchedule(saveTeacher: any, updateData: any) {
     workhrs: updateData.preferedWorkingHours,
     startdate: startDate,
     enddate: endDate,
-    fromtime: startTime,
-    totime: endTime,
+    fromtime: shiftTimes.startTime,
+    totime: shiftTimes.endTime,
     createdDate: new Date(),
     createdBy: "Admin",
     lastUpdatedBy: "Admin",
   });
-
-  console.log("Shift schedule created:", createShift);
-  return createShift;
 }
 
 

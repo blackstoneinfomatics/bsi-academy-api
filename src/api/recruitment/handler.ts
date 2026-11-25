@@ -28,6 +28,21 @@ import {
 } from "../../operations/recruitment";
 
 
+const recruitmentActorSchema = z.union([
+  z.string().trim().min(1).transform(
+    (userName): { userName: string; role?: string[] } => ({ userName })
+  ),
+  z.object({
+    userName: z.string().trim().min(1),
+    role: z.union([
+      z.string().trim().min(1),
+      z.array(z.string().trim().min(1)).min(1),
+    ]),
+  }).transform(({ role, ...actor }) => ({
+    ...actor,
+    role: Array.isArray(role) ? role : [role],
+  })),
+]);
 
 const createInputValidation = z.object({
   payload: zodRecruitmentSchema.pick({
@@ -63,14 +78,14 @@ const createInputValidation = z.object({
     currency: true,
     expectedSalary: true,
     createdBy: true,
-  }).extend({ createdBy: z.string().trim().min(1) }),
+  }).extend({ createdBy: recruitmentActorSchema }),
 });
 
 const updateInputValidation = z.object({
   payload: zodRecruitmentSchema
     .partial()
     .omit({ createdBy: true, createdDate: true, updatedDate: true })
-    .extend({ updatedBy: z.string().trim().min(1) }),
+    .extend({ updatedBy: recruitmentActorSchema }),
 });
 
  const updateAdminInputValidation = z.object({
@@ -78,7 +93,7 @@ const updateInputValidation = z.object({
     supervisor: true,
     applicationStatus: true,
     status:true,
-  }).extend({ updatedBy: z.string().trim().min(1) }),
+  }).extend({ updatedBy: recruitmentActorSchema }),
  })
 
 const getApplicantsInputValidation = z.object({
@@ -366,7 +381,8 @@ const generateTeacherId = generateAFTCode("BA");
       expectedSalary: payload.expectedSalary,
       uploadResume: shareLink?.fileId || "",
       createdDate: new Date(),
-      createdBy: payload.createdBy,
+      createdBy: payload.createdBy.userName,
+      createdByRole: payload.createdBy.role,
     });
 
     // ✅ Check if result has an error before proceeding
@@ -476,7 +492,12 @@ const generateTeacherId = generateAFTCode("BA");
       }
 
       const { payload } = validation.data;
-      const result = await updateApplicantById(String(req.params.applicantId), payload);
+      const { updatedBy, ...fields } = payload;
+      const result = await updateApplicantById(String(req.params.applicantId), {
+        ...fields,
+        updatedBy: updatedBy.userName,
+        updatedByRole: updatedBy.role,
+      });
       if (isNil(result)) {
         return notFound(recruitmentMessages.USER_NOT_FOUND);
       }
@@ -500,8 +521,13 @@ try{
         }).code(400);
       }
       const { payload } = validation.data;
+      const { updatedBy, ...fields } = payload;
    console.log(">>>>>",payload.applicationStatus);
-      const result = await updateApplicantByAdminId(String(req.params.id), payload);
+      const result = await updateApplicantByAdminId(String(req.params.id), {
+        ...fields,
+        updatedBy: updatedBy.userName,
+        updatedByRole: updatedBy.role,
+      });
       if (isNil(result)) {
         return notFound(recruitmentMessages.USER_NOT_FOUND);
       }

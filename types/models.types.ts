@@ -1445,13 +1445,18 @@ export interface IRecruitment extends Document {
   status: string;
   createdDate: Date;
   createdBy: string;
+  createdByRole?: string[];
   updatedDate?: Date;
   updatedBy?: string;
+  updatedByRole?: string[];
   shortlistedBy?: string;
+  shortlistedByRole?: string[];
   shortlistedAt?: Date;
   rejectedBy?: string;
+  rejectedByRole?: string[];
   rejectedAt?: Date;
   approvedBy?: string;
+  approvedByRole?: string[];
   approvedAt?: Date;
   changeHistory: IRecruitmentFieldChange[];
 }
@@ -1461,6 +1466,7 @@ export interface IRecruitmentFieldChange {
   oldValue?: unknown;
   newValue?: unknown;
   changedBy: string;
+  changedByRole?: string[];
   changedAt: Date;
 }
 
@@ -1526,8 +1532,10 @@ export interface IRecruitmentCreate {
   status?: string;
   createdDate: Date;
   createdBy: string;
+  createdByRole?: string[];
   updatedDate?: Date;
   updatedBy?: string;
+  updatedByRole?: string[];
 }
 
 export interface IRecruitmentInterviewSchedule extends Document {
