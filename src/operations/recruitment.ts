@@ -42,14 +42,11 @@ import {
 } from "crypto";
 
 export interface IRecruitmentAdminUpdate{
-  supervisor:{
-    supervisorId?: string;
-  };
-    applicationStatus?: string,
-    status?: string,
-    updatedBy: string;
-    updatedByRole?: string[];
- }
+  tenantId?: string;
+  applicationStatus?: string;
+  updatedBy: string;
+  updatedByRole?: string[];
+}
 
 /**
  * Creates a new user.
@@ -60,37 +57,9 @@ export const createRecruitment = async (  payload: IRecruitmentCreate
 ): Promise<IRecruitment | { error: any }> => {
 
      const createdAt = payload.createdDate || new Date();
-     const auditExcludedFields = new Set([
-       "createdBy",
-       "createdByRole",
-       "createdDate",
-       "updatedBy",
-       "updatedByRole",
-       "updatedDate",
-       "shortlistedBy",
-       "shortlistedByRole",
-       "shortlistedAt",
-       "rejectedBy",
-       "rejectedByRole",
-       "rejectedAt",
-       "approvedBy",
-       "approvedByRole",
-       "approvedAt",
-       "changeHistory",
-     ]);
-     const changeHistory: IRecruitmentFieldChange[] = Object.entries(payload)
-       .filter(([field, value]) => !auditExcludedFields.has(field) && value !== undefined)
-       .map(([field, newValue]) => ({
-         field,
-         newValue,
-         changedBy: payload.createdBy,
-         changedByRole: payload.createdByRole,
-         changedAt: createdAt,
-       }));
      const newRecruit = new RecruitModel({
        ...payload,
        createdDate: createdAt,
-       changeHistory,
      });
 
         // if (newRecruit.applicationDate?.toDateString() === new Date().toDateString()) {
@@ -308,7 +277,7 @@ const decryptGoogleRefreshToken = (encryptedToken: string): string => {
 
 const getGoogleErrorDetails = (
   error: unknown
-): { status?: number; code?: string } => {
+): { status?: number; code?: string; description?: string } => {
   if (typeof error !== "object" || error === null) {
     return {};
   }
@@ -326,6 +295,10 @@ const getGoogleErrorDetails = (
   return {
     status: typeof response?.status === "number" ? response.status : undefined,
     code: typeof data?.error === "string" ? data.error : undefined,
+    description:
+      typeof data?.error_description === "string"
+        ? data.error_description
+        : undefined,
   };
 };
 
@@ -372,8 +345,13 @@ export const connectGoogleMeet = async (
   let refreshToken: string | null | undefined;
   try {
     refreshToken = (await oauthClient.getToken(code)).tokens.refresh_token;
-  } catch {
-    console.error("[GoogleMeet] Authorization code exchange failed");
+  } catch (error) {
+    const details = getGoogleErrorDetails(error);
+    console.error("[GoogleMeet] Authorization code exchange failed", {
+      status: details.status,
+      code: details.code,
+      description: details.description,
+    });
     throw new GoogleMeetOAuthError(
       "Google authorization code exchange failed; restart company account authorization"
     );
@@ -421,7 +399,16 @@ const createGoogleMeetSpace = async (): Promise<string> => {
     .exec();
 
   if (!credential?.encryptedRefreshToken) {
-    console.error("[GoogleMeet] Shared company credential is missing");
+    console.error("[GoogleMeet] Shared company account is not authorized", {
+      provider: GOOGLE_MEET_CREDENTIAL_PROVIDER,
+      reason: credential
+        ? "encrypted_refresh_token_missing"
+        : "credential_record_not_found",
+      credentialRecordFound: Boolean(credential),
+      encryptedRefreshTokenPresent: Boolean(
+        credential?.encryptedRefreshToken
+      ),
+    });
     throw new GoogleMeetNotConnectedError(
       "The shared Blackstone Google account is not authorized; complete Google OAuth first"
     );
@@ -446,6 +433,8 @@ const createGoogleMeetSpace = async (): Promise<string> => {
     const details = getGoogleErrorDetails(error);
     console.error("[GoogleMeet] Google access token request failed", {
       status: details.status,
+      code: details.code,
+      description: details.description,
       reauthorizationRequired: details.code === "invalid_grant" || details.status === 401,
     });
     if (details.code === "invalid_grant" || details.status === 401) {
@@ -799,7 +788,29 @@ export const getAllApplicantsRecords = async (
   params: GetAllApplicationsRecordsParams
 ): Promise<{
   totalCount: number;
-  applicants: Array<IRecruitment & { interviewSchedule: IRecruitmentInterviewSchedule | null }>;
+  applicants: Array<
+    Omit<
+      IRecruitment,
+      | "updatedBy"
+      | "updatedDate"
+      | "shortlistedBy"
+      | "shortlistedAt"
+      | "rejectedBy"
+      | "rejectedAt"
+      | "approvedBy"
+      | "approvedAt"
+    > & {
+      updatedBy: string | null;
+      updatedDate: Date | null;
+      shortlistedBy: string | null;
+      shortlistedAt: Date | null;
+      rejectedBy: string | null;
+      rejectedAt: Date | null;
+      approvedBy: string | null;
+      approvedAt: Date | null;
+      interviewSchedule: IRecruitmentInterviewSchedule | null;
+    }
+  >;
 }> => {
   const { searchText, offset, limit, filterValues } = params;
   const query: any = {};
@@ -889,11 +900,22 @@ const totalCount = applicants.length;
     totalCount,
     applicants: applicants.map((applicant) => ({
       ...applicant,
+      createdByRole: applicant.createdByRole ?? [],
+      updatedBy: applicant.updatedBy ?? null,
+      updatedByRole: applicant.updatedByRole ?? [],
+      updatedDate: applicant.updatedDate ?? null,
+      shortlistedBy: applicant.shortlistedBy ?? null,
+      shortlistedByRole: applicant.shortlistedByRole ?? [],
+      shortlistedAt: applicant.shortlistedAt ?? null,
+      rejectedBy: applicant.rejectedBy ?? null,
+      rejectedByRole: applicant.rejectedByRole ?? [],
+      rejectedAt: applicant.rejectedAt ?? null,
+      approvedBy: applicant.approvedBy ?? null,
+      approvedByRole: applicant.approvedByRole ?? [],
+      approvedAt: applicant.approvedAt ?? null,
       interviewSchedule:
         interviewSchedulesByRecruitmentId.get(String(applicant._id)) ?? null,
-    })) as Array<
-      IRecruitment & { interviewSchedule: IRecruitmentInterviewSchedule | null }
-    >,
+    })),
   };
 };
 
@@ -925,9 +947,11 @@ export const getApplicantRecordById = async (id: string) => {
  */
 export const updateApplicantById = async (
   id: string,
-  payload: Partial<IRecruitmentCreate>
+  payload: Partial<IRecruitmentCreate>,
+  tenantId: string,
+  supervisorId: string,
 ): Promise<IRecruitment | null> => {
-  return updateRecruitmentWithHistory(id, payload);
+  return updateRecruitmentWithHistory(id, payload, tenantId, supervisorId);
 };
 
 
@@ -944,49 +968,29 @@ export const updateApplicantByAdminId = async (
   payload: Partial<IRecruitmentAdminUpdate>
 ): Promise<IRecruitment | null> => {
   try {
-    const getSupervisor = (await User.findOne({
-      _id: payload.supervisor?.supervisorId,
-    }).exec()) as | {
-      _id: Types.ObjectId | string;
-      userName?: string;
-      email?: string;
-      role?: string[];
-    }
-      | null;
-
     const approvalData = await RecruitModel.findOne({
       _id: new Types.ObjectId(id),
+      ...(payload.tenantId ? { tenantId: payload.tenantId } : {}),
     }).lean();
 
-    let approvedData;
-
-    if (
-      getSupervisor &&
-      approvalData &&
-      approvalData.applicationStatus === applicationStatus.NEWAPPLICATION
-    ) {
-      const supervisorRole = getSupervisor.role?.[0] ?? "";
-
-      approvedData = await updateRecruitmentWithHistory(id, {
-        supervisor: {
-          supervisorId: getSupervisor._id.toString(),
-          supervisorName: getSupervisor.userName,
-          supervisorEmail: getSupervisor.email,
-          supervisorRole,
-        },
-        status: "Active",
-        updatedBy: payload.updatedBy,
-      });
-    } else if (
+    const canAdminReview =
       approvalData &&
       (approvalData.applicationStatus === applicationStatus.SHORTLISTED ||
-        approvalData.applicationStatus === applicationStatus.SENDAPPROVAL)
-    ) {
-      approvedData = await updateRecruitmentWithHistory(id, payload);
-    }
+        approvalData.applicationStatus === applicationStatus.SENDAPPROVAL ||
+        approvalData.applicationStatus === applicationStatus.WAITING ||
+        (approvalData.applicationStatus === applicationStatus.NEWAPPLICATION &&
+          payload.applicationStatus === applicationStatus.REJECTED));
+    const approvedData = canAdminReview
+      ? await updateRecruitmentWithHistory(id, payload, payload.tenantId)
+      : null;
 
     if (!approvedData) {
-      console.warn("No applicant record updated.");
+      console.warn("No applicant record updated.", {
+        applicantFound: Boolean(approvalData),
+        currentApplicationStatus: approvalData?.applicationStatus ?? null,
+        requestedApplicationStatus: payload.applicationStatus ?? null,
+        tenantScoped: Boolean(payload.tenantId),
+      });
       return null;
     }
 
@@ -1006,20 +1010,27 @@ export const updateApplicantByAdminId = async (
 
 const updateRecruitmentWithHistory = async (
   id: string,
-  payload: Partial<IRecruitmentCreate> & Partial<IRecruitmentAdminUpdate>
+  payload: Partial<IRecruitmentCreate> & Partial<IRecruitmentAdminUpdate>,
+  tenantId?: string,
+  supervisorId?: string,
 ): Promise<IRecruitment | null> => {
   const updatedBy = payload.updatedBy?.trim();
   if (!updatedBy) {
     throw new Error("updatedBy is required to record recruitment changes");
   }
 
-  const existing = await RecruitModel.findById(new Types.ObjectId(id)).exec();
+  const existing = await RecruitModel.findOne({
+    _id: new Types.ObjectId(id),
+    ...(tenantId ? { tenantId } : {}),
+    ...(supervisorId ? { "supervisor.supervisorId": supervisorId } : {}),
+  }).exec();
   if (!existing) {
     return null;
   }
 
   const changedAt = new Date();
   const excludedFields = new Set([
+    "tenantId",
     "createdBy",
     "createdByRole",
     "createdDate",
@@ -1035,7 +1046,6 @@ const updateRecruitmentWithHistory = async (
     "approvedBy",
     "approvedByRole",
     "approvedAt",
-    "changeHistory",
   ]);
   const changes = Object.entries(payload).reduce<Record<string, unknown>>(
     (result, [field, value]) => {
@@ -1046,10 +1056,11 @@ const updateRecruitmentWithHistory = async (
     },
     {}
   );
+
   const changeHistory: IRecruitmentFieldChange[] = [];
   for (const [field, newValue] of Object.entries(changes)) {
     const oldValue = existing.get(field);
-    if (!isEqual(oldValue, newValue)) {
+    if (!isEqual(oldValue, newValue) && field === "applicationStatus") {
       changeHistory.push({
         field,
         oldValue,
@@ -1078,6 +1089,7 @@ const updateRecruitmentWithHistory = async (
     existing.approvedByRole = payload.updatedByRole;
     existing.approvedAt = changedAt;
   }
+
   if (changeHistory.length > 0) {
     existing.changeHistory.push(...changeHistory);
   }
