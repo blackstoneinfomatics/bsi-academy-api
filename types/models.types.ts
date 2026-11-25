@@ -34,6 +34,7 @@ import CustomEnumerator, {
   RecruitmentPositions,
   RecruitmentTeaching,
   RecruitmentDays,
+  RecruitmentInterviewMode,
   RecruitmentInterviewPlatform,
 } from "../src/shared/enum";
 
@@ -1539,7 +1540,8 @@ export interface IRecruitmentInterviewSchedule extends Document {
   interviewTime: string;
   previousInterviewDate?: Date;
   previousInterviewTime?: string;
-  interviewPlatform: RecruitmentInterviewPlatform;
+  interviewMode: RecruitmentInterviewMode;
+  interviewPlatform?: RecruitmentInterviewPlatform;
   interviewmeetinglink: string;
 }
 

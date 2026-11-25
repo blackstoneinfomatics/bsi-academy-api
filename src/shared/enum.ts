@@ -36,6 +36,11 @@ export enum RecruitmentInterviewPlatform {
   ZOOM = "Zoom",
 }
 
+export enum RecruitmentInterviewMode {
+  ONLINE = "online",
+  OFFLINE = "offline",
+}
+
 export enum RecruitmentApplicationStatus {
   NEWAPPLICATION = "NEWAPPLICATION",
   SCHEDULED = "SCHEDULED",

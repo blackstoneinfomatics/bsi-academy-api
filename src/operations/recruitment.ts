@@ -22,7 +22,10 @@ import { generateSlotsFromUserSchedule } from "../redis/handler/teacherSlotHande
 import { academicAvailableTeachers } from "../kafka/producers/academicProducer";
 import SalaryAndWages from "../models/empwages";
 import classShedule from "../models/classShedule"
-import { RecruitmentInterviewPlatform } from "../shared/enum";
+import {
+  RecruitmentInterviewMode,
+  RecruitmentInterviewPlatform,
+} from "../shared/enum";
 import { IRecruitmentInterviewSchedule } from "../../types/models.types";
 import { hashPassword } from "../shared/common";
 import axios from "axios";
@@ -568,7 +571,8 @@ const sendInterviewScheduleEmail = async (
   templateContent: string,
   interviewDate: Date,
   interviewTime: string,
-  interviewPlatform: RecruitmentInterviewPlatform,
+  interviewMode: RecruitmentInterviewMode,
+  interviewPlatform: RecruitmentInterviewPlatform | undefined,
   interviewMeetingLink: string
 ): Promise<void> => {
   const formattedInterviewDate = interviewDate.toLocaleDateString("en-US", {
@@ -585,11 +589,13 @@ const sendInterviewScheduleEmail = async (
     teachingexperience: String(recruitment.teachingExperience ?? ""),
     date: formattedInterviewDate,
     meetingtime: interviewTime,
-    meetingplatform: interviewPlatform,
+    meetingmode: interviewMode,
+    interviewmode: interviewMode,
+    meetingplatform: interviewPlatform || interviewMode,
     zoomlink: interviewMeetingLink,
     interviewdate: formattedInterviewDate,
     interviewtime: interviewTime,
-    interviewplatform: interviewPlatform,
+    interviewplatform: interviewPlatform || "",
     interviewmeetinglink: interviewMeetingLink,
   };
   const normalizePlaceholder = (key: string) =>
@@ -614,7 +620,8 @@ export const createRecruitmentInterviewSchedule = async (
   recruitmentId: string,
   interviewDate: Date,
   interviewTime: string,
-  interviewPlatform: RecruitmentInterviewPlatform
+  interviewPlatform: RecruitmentInterviewPlatform | undefined,
+  interviewMode: RecruitmentInterviewMode
 ): Promise<IRecruitmentInterviewSchedule | { duplicate: "recruitment" | "slot" } | null> => {
   const recruitment = await RecruitModel.findById(recruitmentId)
     .select("tenantId candidateFirstName candidateEmail position teachingExperience")
@@ -642,13 +649,19 @@ export const createRecruitmentInterviewSchedule = async (
     .lean();
   const timeZone = tenant?.timeZone || "UTC";
   const interviewDay = normalizeInterviewDay(interviewDate);
-  const interviewMeetingLink = await createInterviewMeeting({
-    candidateFirstName: recruitment.candidateFirstName,
-    interviewDate: interviewDay,
-    interviewTime,
-    timeZone,
-    interviewPlatform,
-  });
+  let interviewMeetingLink = "";
+  if (interviewMode === RecruitmentInterviewMode.ONLINE) {
+    if (!interviewPlatform) {
+      throw new Error("Interview platform is required for online interviews");
+    }
+    interviewMeetingLink = await createInterviewMeeting({
+      candidateFirstName: recruitment.candidateFirstName,
+      interviewDate: interviewDay,
+      interviewTime,
+      timeZone,
+      interviewPlatform,
+    });
+  }
 
   const schedule = new RecruitmentInterviewScheduleModel({
     recruitmentId: recruitment._id,
@@ -658,7 +671,11 @@ export const createRecruitmentInterviewSchedule = async (
     teachingExperience: recruitment.teachingExperience,
     interviewDate: interviewDay,
     interviewTime,
-    interviewPlatform,
+    interviewMode,
+    interviewPlatform:
+      interviewMode === RecruitmentInterviewMode.ONLINE
+        ? interviewPlatform
+        : undefined,
     interviewmeetinglink: interviewMeetingLink,
   });
 
@@ -672,6 +689,7 @@ export const createRecruitmentInterviewSchedule = async (
     emailTemplate.templateContent,
     interviewDay,
     interviewTime,
+    interviewMode,
     interviewPlatform,
     interviewMeetingLink
   );
@@ -683,7 +701,8 @@ export const rescheduleRecruitmentInterview = async (
   recruitmentId: string,
   interviewDate: Date,
   interviewTime: string,
-  interviewPlatform: RecruitmentInterviewPlatform
+  interviewPlatform: RecruitmentInterviewPlatform | undefined,
+  interviewMode?: RecruitmentInterviewMode
 ): Promise<IRecruitmentInterviewSchedule | { duplicate: "slot" } | null> => {
   const recruitment = await RecruitModel.findById(recruitmentId).exec();
   if (!recruitment) {
@@ -714,27 +733,51 @@ export const rescheduleRecruitmentInterview = async (
     return { duplicate: "slot" };
   }
 
+  const resolvedInterviewMode =
+    interviewMode ?? schedule.interviewMode ?? RecruitmentInterviewMode.ONLINE;
+  const resolvedInterviewPlatform =
+    resolvedInterviewMode === RecruitmentInterviewMode.ONLINE
+      ? interviewPlatform ?? schedule.interviewPlatform
+      : undefined;
+
   if (
-    schedule.interviewPlatform !== interviewPlatform ||
-    interviewPlatform === RecruitmentInterviewPlatform.GOOGLE_MEET
+    resolvedInterviewMode === RecruitmentInterviewMode.ONLINE &&
+    !resolvedInterviewPlatform
   ) {
-    const tenant = await TenantModel.findOne({ tenantCode: recruitment.tenantId })
-      .select("timeZone")
-      .lean();
-    schedule.interviewmeetinglink = await createInterviewMeeting({
-      candidateFirstName: recruitment.candidateFirstName,
-      interviewDate: interviewDay,
-      interviewTime,
-      timeZone: tenant?.timeZone || "UTC",
-      interviewPlatform,
-    });
+    throw new Error("Interview platform is required for online interviews");
+  }
+
+  if (resolvedInterviewMode === RecruitmentInterviewMode.OFFLINE) {
+    schedule.interviewmeetinglink = "";
+  } else {
+    if (!resolvedInterviewPlatform) {
+      throw new Error("Interview platform is required for online interviews");
+    }
+
+    if (
+      schedule.interviewMode !== RecruitmentInterviewMode.ONLINE ||
+      schedule.interviewPlatform !== resolvedInterviewPlatform ||
+      resolvedInterviewPlatform === RecruitmentInterviewPlatform.GOOGLE_MEET
+    ) {
+      const tenant = await TenantModel.findOne({ tenantCode: recruitment.tenantId })
+        .select("timeZone")
+        .lean();
+      schedule.interviewmeetinglink = await createInterviewMeeting({
+        candidateFirstName: recruitment.candidateFirstName,
+        interviewDate: interviewDay,
+        interviewTime,
+        timeZone: tenant?.timeZone || "UTC",
+        interviewPlatform: resolvedInterviewPlatform,
+      });
+    }
   }
 
   schedule.previousInterviewDate = schedule.interviewDate;
   schedule.previousInterviewTime = schedule.interviewTime;
   schedule.interviewDate = interviewDay;
   schedule.interviewTime = interviewTime;
-  schedule.interviewPlatform = interviewPlatform;
+  schedule.interviewMode = resolvedInterviewMode;
+  schedule.interviewPlatform = resolvedInterviewPlatform;
   const savedSchedule = await schedule.save();
 
   await RecruitModel.updateOne(

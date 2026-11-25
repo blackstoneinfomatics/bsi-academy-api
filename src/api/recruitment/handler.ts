@@ -13,6 +13,7 @@ import { sendNotification } from "../../operations/notification";
 import { uploadFileToSharePoint } from "../../shared/sharepoint";
 import users from "../../models/users";
 import {
+  zodRecruitmentInterviewIdSchema,
   zodRecruitmentInterviewRescheduleSchema,
   zodRecruitmentInterviewScheduleSchema,
 } from "../../models/recruitmentInterviewSchedule";
@@ -159,7 +160,8 @@ export default{
         payload._id,
         payload.interviewDate,
         payload.interviewTime,
-        payload.interviewPlatform
+        payload.interviewPlatform,
+        payload.interviewMode
       );
 
       if (!schedule) {
@@ -236,7 +238,7 @@ export default{
 
   async rescheduleInterview(req: Request, h: ResponseToolkit) {
     try {
-      const recruitmentId = zodRecruitmentInterviewScheduleSchema.shape._id.parse(
+      const recruitmentId = zodRecruitmentInterviewIdSchema.parse(
         String(req.params.recruitmentId)
       );
       const payload = zodRecruitmentInterviewRescheduleSchema.parse(req.payload);
@@ -244,7 +246,8 @@ export default{
         recruitmentId,
         payload.interviewDate,
         payload.interviewTime,
-        payload.interviewPlatform
+        payload.interviewPlatform,
+        payload.interviewMode
       );
 
       if (!schedule) {
