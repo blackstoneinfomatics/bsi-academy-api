@@ -124,6 +124,8 @@ expectedSalary:{
     type: Number,
     required: true, 
 },
+salaryType: { type: String, required: false },
+InterviewRemarks: { type: String, required: false },
 preferedWorkingHours:{
     type: String,
     required: false,
@@ -244,6 +246,8 @@ export const zodRecruitmentSchema = z.object({
         (val) => (typeof val === "string" ? parseInt(val, 10) : val), 
         z.number()
       ),
+      salaryType: z.string().optional(),
+      InterviewRemarks: z.string().optional(),
       preferedWorkingHours: z.string(),
       applicationStatus: z.enum([
         RecruitmentApplicationStatus.NEWAPPLICATION,

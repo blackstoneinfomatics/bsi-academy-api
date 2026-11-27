@@ -1438,9 +1438,11 @@ export interface IRecruitment extends Document {
   position?: RecruitmentPositions;
   currency?: string;
   expectedSalary: number;
+  salaryType?: string;
+  InterviewRemarks?: string;
   preferedWorkingHours?: string;
   uploadResume?: Buffer;
-
+  
 
   status: string;
   createdDate: Date;
@@ -1509,6 +1511,8 @@ export interface IRecruitmentCreate {
   position?: RecruitmentPositions;
   currency?: string;
   expectedSalary: number;
+  salaryType?: string;
+  InterviewRemarks?: string;
   preferedWorkingHours?: string;
   uploadResume?: any;
   applicationStatus?: string;
