@@ -254,10 +254,13 @@ export const rescheduleRecruitmentInterview = async (
   interviewDate: Date,
   interviewTime: string,
   interviewPlatform: RecruitmentInterviewPlatform | undefined,
-  interviewMode?: RecruitmentInterviewMode
+  interviewMode?: RecruitmentInterviewMode,
+  rescheduleReason?: string,
+  createdBy?: string,
+  reschedulerTenantId?: string
 ): Promise<IRecruitmentInterviewSchedule | { duplicate: "slot" } | null> => {
   const recruitment = await RecruitModel.findById(recruitmentId).exec();
-  if (!recruitment) {
+  if (!recruitment || recruitment.tenantId !== reschedulerTenantId) {
     return null;
   }
 
@@ -326,6 +329,12 @@ export const rescheduleRecruitmentInterview = async (
 
   schedule.previousInterviewDate = schedule.interviewDate;
   schedule.previousInterviewTime = schedule.interviewTime;
+  if (rescheduleReason !== undefined) {
+    schedule.rescheduleReason = rescheduleReason;
+  }
+  if (createdBy !== undefined) {
+    schedule.createdBy = createdBy;
+  }
   schedule.interviewDate = interviewDay;
   schedule.interviewTime = interviewTime;
   schedule.interviewMode = resolvedInterviewMode;

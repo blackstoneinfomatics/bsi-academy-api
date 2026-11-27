@@ -26,6 +26,9 @@ const register = async (server: Server): Promise<void> => {
         handler: handler.rescheduleInterview,
         description: "Reschedule an interview for a recruitment applicant",
         tags: ["api", "recruitment", "interview"],
+        auth: {
+          strategies: ["jwt"],
+        },
       },
     },
     {

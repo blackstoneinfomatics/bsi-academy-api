@@ -1548,6 +1548,8 @@ export interface IRecruitmentInterviewSchedule extends Document {
   interviewTime: string;
   previousInterviewDate?: Date;
   previousInterviewTime?: string;
+  rescheduleReason?: string;
+  createdBy?: string;
   interviewMode: RecruitmentInterviewMode;
   interviewPlatform?: RecruitmentInterviewPlatform;
   interviewmeetinglink: string;

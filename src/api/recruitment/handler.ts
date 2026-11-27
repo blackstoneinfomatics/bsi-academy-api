@@ -270,12 +270,37 @@ export default {
       const payload = zodRecruitmentInterviewRescheduleSchema.parse(
         req.payload,
       );
+      const identity = getAuthenticatedIdentity(req.auth.credentials);
+      if (!identity) {
+        return h.response({
+          message: "Authenticated supervisor identity is missing or invalid",
+        }).code(401);
+      }
+
+      const supervisor = await users.findOne({
+        ...userIdentityFilter(identity.subject),
+        ...(identity.tenantId ? { tenantId: identity.tenantId } : {}),
+        role: "SUPERVISOR",
+        status: "Active",
+      })
+        .select("_id tenantId userName")
+        .lean()
+        .exec();
+      if (!supervisor?.tenantId) {
+        return h.response({
+          message: "Only active supervisors can reschedule interviews",
+        }).code(403);
+      }
+
       const schedule = await rescheduleRecruitmentInterview(
         recruitmentId,
         payload.interviewDate,
         payload.interviewTime,
         payload.interviewPlatform,
         payload.interviewMode,
+        payload.rescheduleReason,
+        supervisor.userName,
+        supervisor.tenantId,
       );
 
       if (!schedule) {

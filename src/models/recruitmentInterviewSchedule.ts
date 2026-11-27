@@ -22,6 +22,8 @@ const recruitmentInterviewScheduleSchema = new Schema<IRecruitmentInterviewSched
     interviewTime: { type: String, required: true },
     previousInterviewDate: { type: Date, required: false },
     previousInterviewTime: { type: String, required: false },
+    rescheduleReason: { type: String, required: false, trim: true },
+    createdBy: { type: String, required: false, trim: true },
     interviewMode: {
       type: String,
       enum: Object.values(RecruitmentInterviewMode),
@@ -95,8 +97,12 @@ export const zodRecruitmentInterviewScheduleSchema =
 });
 
 export const zodRecruitmentInterviewRescheduleSchema =
-  recruitmentInterviewSchedulePayloadSchema.omit({ _id: true }).superRefine(
-    (payload, context) => {
+  recruitmentInterviewSchedulePayloadSchema
+    .omit({ _id: true })
+    .extend({
+      rescheduleReason: z.string().trim().min(1).max(1000).optional(),
+    })
+    .superRefine((payload, context) => {
       if (
         payload.interviewMode === RecruitmentInterviewMode.ONLINE &&
         !payload.interviewPlatform
@@ -107,8 +113,7 @@ export const zodRecruitmentInterviewRescheduleSchema =
           message: "Interview platform is required for online interviews",
         });
       }
-    }
-  );
+    });
 
 export default mongoose.model<IRecruitmentInterviewSchedule>(
   "RecruitmentInterviewSchedule",
