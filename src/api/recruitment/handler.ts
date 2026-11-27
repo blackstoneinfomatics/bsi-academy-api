@@ -133,6 +133,7 @@ const createInputValidation = z.object({
     })
     .extend({
       preferedWorkingHours: z.string().optional(),
+      uploadResume: z.instanceof(Readable).optional(),
     }),
 });
 
@@ -397,17 +398,26 @@ export default {
         return forbidden("Only active supervisors can create recruitment applicants");
       }
 
-      const uploadFileBuffer = rawPayload.uploadResume
-        ? await streamToBuffer(rawPayload.uploadResume)
-        : null;
+    const uploadFileBuffer = rawPayload.uploadResume
+      ? await streamToBuffer(rawPayload.uploadResume)
+      : null;
 
-      const fileName =
-        rawPayload.uploadResume?.hapi?.filename ||
-        rawPayload.uploadResume?.filename ||
-        "resume.pdf";
-      const shareLink = uploadFileBuffer
-        ? await uploadFileToSharePoint(uploadFileBuffer as Buffer, fileName)
-        : null;
+    const experience = rawPayload.uploadResume
+      ? await extractResumeDetails(uploadFileBuffer)
+      : null;
+
+//save the resume in sharepoint
+        // derive filename from the upload object (hapi or generic) or fallback
+        const fileName =
+          (rawPayload.uploadResume &&
+            (rawPayload.uploadResume.hapi?.filename || rawPayload.uploadResume.filename)) ||
+          "resume.pdf";
+
+        // uploadFileToSharePoint expects (accessToken, siteId, driveId, fileName, fileContent)
+        const shareLink = await uploadFileToSharePoint(
+          uploadFileBuffer as Buffer,
+          fileName
+        );
 
       const generateTeacherId = generateAFTCode("BA");
       const result = await createRecruitment({

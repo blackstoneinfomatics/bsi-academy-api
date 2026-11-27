@@ -45,7 +45,7 @@ const register = async (server: Server): Promise<void> => {
           output: "stream",
           parse: true,
           maxBytes: 50 * 1024 * 1024,
-          multipart: true,
+          multipart: { output: "stream" },
           allow: ["multipart/form-data", "application/json"],
         },
       },
